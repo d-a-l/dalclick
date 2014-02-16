@@ -1,6 +1,7 @@
 CMakeLists.txt.user*
 CMakeFiles
 *.qm
+__*
 *.h.moc
 build/
 *~
