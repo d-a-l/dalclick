@@ -62,11 +62,11 @@ end
 
 function dcutls.localfs:create_folder(path)
 
-    if path == "" then 
+   if path == "" then 
 		return false
 	end
-    if not self:file_exists(path) then
-	    if os.execute( 'mkdir "'..path..'"') then
+   if not self:file_exists(path) then
+	   if lfs.mkdir(path) then
 			print("  '"..path.."' creado con éxito")
 			return true
 		else

@@ -891,6 +891,12 @@ end
 
 function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
 
+   -- debug
+   if false then
+     print("lua debug playroom!\n")
+   end
+   -- /debug
+
 	if not DALCLICK_HOME or not DALCLICK_PROJECTS then 
 		return false
 	else
@@ -906,6 +912,7 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
     print(" = Bienvenido a DALclick =")
     print(" =========================")
     print()
+    
     if not mc:connect_all() then
 	    print(" Por favor, encienda las cámaras.\n")
 	    io.write(" luego presione <enter>")
@@ -922,6 +929,7 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
     	dalclick_loop(true)
 	    return false
     end
+    
 
     --local g = {}
     local status
@@ -936,14 +944,18 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
 	    print(" Se encontró un proyecto en ejecución.")
 	    print(" Restaurando proyecto...")
 	    status = p:load(settings_path)
+       if not status then
+	        print(" Ha ocurrido un error mientras se intentaba restaurar un proyecto")
+       end
     else
 	    print(" Creando proyecto nuevo...")
 	    status = p:create()
+	    if not status then
+	       print("No se ha podido crear un proyecto")
+	       return false
+       end
     end
 
-    if not status then
-	    print(" Ha ocurrido un error mientras se intentaba crear o restaurar un proyecto")
-    end
 
     --
     local init_st

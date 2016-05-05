@@ -125,13 +125,13 @@ function project:create()
 	local format = "Iniciar Proyecto\nNúmero de registro: %100.30%s\nTítulo:%300.30%s\n"
 	repeat
 		self.settings.regnum, self.settings.title = iup.Scanf(format, regnum, title)
-	    if self.settings.regnum == "" then 
+	   if self.settings.regnum == "" then 
 			iup.Message("Iniciar Proyecto", "El campo 'Número de registro' es obligatorio para iniciar un proyecto")
 		else
 			if string.match(self.settings.regnum, "^[%w-_]+$") then
 				break
 			else
-				iup.Message("Iniciar Proyecto", "El campo 'Número de registro' sólo puede contener caracteres alfanuméricos y guiones")
+				iup.Message("Iniciar Proyecto", "El campo 'Número de registro' solo permite caracteres alfanuméricos y guiones, no admite espacios, acentos u otros signos")
 			end
 		end
 	until false
@@ -167,7 +167,7 @@ function project:create()
 		return false
 	else
 		print("create_project_tree: no se ha recibido un número de registro válido!\n")
-        return false
+      return false
 	end
 end
 
@@ -405,7 +405,7 @@ function project:show_capts(previews)
 	  iup.button{title="Last", image="IUP_MediaGoToEnd", action=function(self) end}, 
 	  }
 ]]
-	local imgs = iup.hbox{ cosas[1].cnv, cosas[2].cnv }
+	local imgs = iup.hbox{ cosas[2].cnv, cosas[1].cnv }
 
 	-- dlg = iup.dialog{cnv}
 	-- local dlg = iup.dialog{iup.vbox{imgs, buts},title="DALclick", margin="5x5", gap=10}

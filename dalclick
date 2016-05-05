@@ -1,5 +1,24 @@
 #!/bin/bash
 
+DALCLICK_SCRIPTS_DIR="$(dirname "$0")"
+cd "$DALCLICK_SCRIPTS_DIR"
+
+if [[ -f "CONFIG" ]]
+ then
+  . CONFIG
+else
+  echo
+  echo " Necesita crear el archivo 'CONFIG' en '$DALCLICK_SCRIPTS_DIR/'"
+  echo " con la configuración de directorios de su proyecto."
+  echo " Renombre el archivo 'CONFIG.example' y reemplace las rutas"
+  echo " que considere necesarias."
+  echo
+  echo " Presione <enter> para salir."
+  echo -n " >>"
+  read tecla
+  exit 0
+fi
+
 cd /opt/src/chdkptp
 
 export LUA_PATH="./lua/?.lua;../dalclick/?.lua"
@@ -7,8 +26,16 @@ export LUA_PATH="./lua/?.lua;../dalclick/?.lua"
 gsettings set org.gnome.desktop.media-handling automount "false"
 gsettings set org.gnome.desktop.media-handling automount-open "false"
 
-DALCLICK_HOME="$HOME/.dalclick"
-DALCLICK_PROJECTS="/bib/cnba"
+echo
+echo "Main paths:"
+echo
+echo " Dalclick working folder: '$DALCLICK_HOME'"
+echo " Projects folder: '$DALCLICK_PROJECTS'"
+echo
+
+[[ -d $DALCLICK_PROJECTS ]] || { echo "ERROR: la carpeta de proyectos '$DALCLICK_PROJECTS' no existe, revise la configuracion de directorios."; exit 0; }
+[[ -w $DALCLICK_PROJECTS ]] || { echo "ERROR: no tiene los permisos necesarios en '$DALCLICK_PROJECTS'."; exit 0; }
+
 LUA_ERRORS=""
 
 if [[ ! -e "$DALCLICK_HOME" ]]
