@@ -40,27 +40,27 @@ LUA_ERRORS=""
 
 if [[ ! -e "$DALCLICK_HOME" ]]
 then
-	mkdir $DALCLICK_HOME
+    mkdir $DALCLICK_HOME
 fi
 
 while
 true # Loop forever
 do
-	./chdkptp -e"exec mc=require('dalclick')" -e"exec return mc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS')" 2> $DALCLICK_HOME/lua_errors
-	cat "$DALCLICK_HOME/lua_errors"
-	LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )
-	if [[ $LUA_ERRORS != "" ]]
-	then
+    ./chdkptp -e"exec mc=require('dalclick')" -e"exec return mc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS')" 2> $DALCLICK_HOME/lua_errors
+    cat "$DALCLICK_HOME/lua_errors"
+    LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )
+    if [[ $LUA_ERRORS != "" ]]
+    then
         echo
         echo " Presione <enter> para salir."
         echo -n " >>"
         read tecla
-		break
-	fi
-	if [[ ! -e "$DALCLICK_HOME/loop" ]]
-	then
-		break
-	fi
+        break
+    fi
+    if [[ ! -e "$DALCLICK_HOME/loop" ]]
+    then
+        break
+    fi
 done
 
 gsettings set org.gnome.desktop.media-handling automount "true"
