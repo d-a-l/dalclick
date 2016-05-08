@@ -891,11 +891,11 @@ end
 
 function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
 
-   -- debug
-   if false then
-     print("lua debug playroom!\n")
-   end
-   -- /debug
+    -- debug
+    if false then
+        print("lua debug playroom!\n")
+    end
+    -- /debug
 
     if not DALCLICK_HOME or not DALCLICK_PROJECTS then 
         return false
@@ -944,16 +944,16 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
         print(" Se encontró un proyecto en ejecución.")
         print(" Restaurando proyecto...")
         status = p:load(settings_path)
-       if not status then
+        if not status then
             print(" Ha ocurrido un error mientras se intentaba restaurar un proyecto")
-       end
+        end
     else
         print(" Creando proyecto nuevo...")
         status = p:create()
         if not status then
-           print("No se ha podido crear un proyecto")
-           return false
-       end
+            print("No se ha podido crear un proyecto")
+            return false
+        end
     end
 
 

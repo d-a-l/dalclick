@@ -383,7 +383,7 @@ function rsalt:get_shoot_common_opts(args)
         end
         if args.sv then
             opts.sv=exp.iso_to_sv96(args.sv)
-        end2Dlatin
+        end
         if args.tv then
             local n,d = string.match(args.tv,'^([%d]+)/([%d.]+)$')
             if n then
