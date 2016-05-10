@@ -212,7 +212,10 @@ function init_cam(lcon)
             zoom_pos = p.state.zoom_pos,
         }
     end
-    local status, err = lcon:execwait('return dc_init_cam('..util.serialize(opts)..')',{libs={'dalclick_identify'}})
+    local status, err = lcon:connect()
+    printf("conectando camara: ")
+    print(status, err)
+    local status, err = lcon:execwait('return dc_init_cam_alt('..util.serialize(opts)..')',{libs={'dalclick_identify'}})
     return status, err
 end
 
@@ -450,6 +453,7 @@ function mc:init_cams_all()
     end
 
     local init_fail = false
+    local init_fail_err = ""
     local previous_cam_idname
     local count_cams = 0
     for i,lcon in ipairs(self.cams) do
@@ -570,6 +574,7 @@ function mc:init_cams_all()
         local status, err = init_cam(lcon)
         if not status then
             init_fail = true
+            init_fail_err = err
             break
         end
     end
@@ -577,9 +582,51 @@ function mc:init_cams_all()
     --
     if init_fail then
         print("\n\n Alguna de las cámaras ha fallado, por favor apagarlas y volverlas a encender.\n")
+        print(init_fail_err)
         return false
     end
     return true
+end
+
+local function init_cams_or_retry()
+
+    local status
+    local menu = [[
+    
++ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + 
+
+ No se ha podido configurar correctamente alguna de las cámaras.
+ Posibles problemas y soluciones:
+
+ 1) Alguna de las cámaras (o ambas) todavía está inicializando.
+    Espere unos segundos y vuelva a intentarlo.
+    
+ 2) Alguna de las cámaras (o ambas) se apagó o dejo de responder.
+    Enciéndala nuevamente y vuelva a intentarlo.
+
+== opciones ==================================================================
+
+ [enter] para reintentar
+ [e] para salir
+
+==============================================================================]]
+
+    while true do
+        status = mc:init_cams_all()
+        if status then
+            break
+        else
+            print(menu)
+            printf(" >> ")
+            local key = io.stdin:read'*l'
+            print()
+            if key ~= "" then
+                return false
+            end
+        end
+    end
+    return true
+    
 end
 
 function mc:rotate_all()
@@ -935,14 +982,14 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
     --local g = {}
     local status
 
-    -- iniciando estructura de proyecto
+    -- iniciando la estructura para un proyecto
     if not p:init(defaults) then
         dalclick_loop(false)
         return false
     end
 
     -- iniciando proyecto (carga proyecto anterior o crea nuevo)
-    local settings_path = p:is_broken()
+    local settings_path = p:is_broken() -- get settings_path from saved running project
     if settings_path then
         print(" Se encontró un proyecto en ejecución.")
         print(" Restaurando proyecto...")
@@ -960,7 +1007,7 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
     end
 
 
-    --
+    --[[
     local init_st
     while true do
         init_st = mc:init_cams_all()
@@ -977,8 +1024,11 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
             end
         end
     end
-    --
+    ]]--
+    
+    local init_st = init_cams_or_retry()
 
+    -- ToDo: el siguiente bloque parece redundante, no deberia poder cargarse un proyecto sin su contador ok
     if p.state.counter then
         print(" guardando estado de variables de cámaras...")
         if not p:save_state() then
@@ -1002,8 +1052,6 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
 
     local menu = [[
 
-==============================================================================
-
  -- cámaras --               -- proyectos --          -- varios --
 
  [enter] capturar            [n] nuevo proyecto       [z] leer zoom de cámara
@@ -1024,9 +1072,16 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
         -- init daemons!
         mc:init_daemons()
 
-        local loopmsg = ""
+        local loopmsg = "", margin
         while true do
             mc:camsound_plip()
+
+            print()
+            print(" Proyecto: ["..p.settings.regnum.."]")
+            print()
+            margin = math.floor( ( 76 - string.len(string.sub(p.settings.title, 0, 50)) ) / 2 )
+            print( string.rep("=", margin).." "..string.sub(p.settings.title, 0, 50).." "..string.rep("=", margin))
+            print()
             print(menu)
             print("= "..string.format("%04d", p.state.counter['even']).." ================================================================ "..string.format("%04d", p.state.counter['odd']).." =")
             if loopmsg ~= "" then 
@@ -1124,20 +1179,36 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
                 exit = true
                 break
             elseif key == "n" then
-                if p:write() then
-                    if p:clear() then
-                        print(" listo para crear nuevo proyecto...")
+                if p:save_current_and_create_new_project(defaults) then
+                    if not init_cams_or_retry() then
+                        exit = true
                         break
+                    end
+                    if p.state.counter then
+                        if not p:save_state() then
+                            print(" Error: no se pudo actualizar la configuración interna de DALclick")
+                            exit = true
+                            break
+                        end
                     else
-                        print(" error: no se puede iniciar nuevo proyecto.")
+                        print(" Error: No se a podido inicializar el nuevo contador")
                         exit = true
                         break
                     end
                 else
-                    print(" error: no se pudo guardar el proyecto actual.")
+                   exit = true
+                   break
                 end
             elseif key == "o" then
-                p:open()
+                local status
+                print(); status = p:open(); print()
+                sys.sleep(2000) -- pausa para dejar ver los mensajes
+                if status then
+                    if not init_cams_or_retry() then
+                       exit = true
+                       break
+                    end
+                end
             elseif key == "w" then
                 p:write()
             elseif key == "rr" then
@@ -1169,7 +1240,7 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
                 print("exit...")
                 break
             end
-        end
+        end -- /while loop 
     end
     if exit == true then
         dalclick_loop(false)
@@ -1249,27 +1320,36 @@ function dc_init_cam_alt(opts)
 --  ToDo: Not testing!!!
 
 --  shoot_half and lock focus
+    print('== dc_init_cam_alt ==')
     sleep(100); set_aflock(0); sleep(200)
     play_sound(2)
     sleep(200)
     if not get_mode() then
         -- Set the camera to record mode (1)
+        print('Set the camera to record mode')
         switch_mode_usb(1)
     end
     local i=0
     local capmode = require'capmode'
+    print('capmode previous loop:')
+    print(capmode.get())
     while capmode.get() == 0 and i < 300 do
         sleep(10)
         i=i+1
     end
+    print('capmode post loop:')
+    print(capmode.get())
 --
     sleep(1000);
 --
     if opts.zoom_pos then
         set_zoom(opts.zoom_pos)
+        print('Set zoom to:')
+        print(opts.zoom_pos)
         sleep(1500)
     end
 
+    print('enfocando:')
     press('shoot_half')
     i=0
     while get_shooting() do
@@ -1280,6 +1360,8 @@ function dc_init_cam_alt(opts)
         i=i+1
     end
     release('shoot_half')
+    print('enfocando loop status:')
+    print(i)
     
     sleep(100); set_aflock(1); sleep(100)
 

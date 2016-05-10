@@ -39,16 +39,16 @@ end
 
 function project:is_broken()
     local settings_path
-    if dcutls.localfs:file_exists(self.dalclick.dc_config_path.."/runnig_project") then
-        settings_path = dcutls.localfs:read_file(self.dalclick.dc_config_path.."/runnig_project")
+    if dcutls.localfs:file_exists(self.dalclick.dc_config_path.."/running_project") then
+        settings_path = dcutls.localfs:read_file(self.dalclick.dc_config_path.."/running_project")
         -- local settings_path = util.unserialize(content)
         if dcutls.localfs:file_exists(settings_path) then
             return settings_path
         else
             -- archivo running_project corrupto, no existe el proyecto
-            print(" El proyecto referenciado en "..self.dalclick.dc_config_path.."/runnig_project".." no existe.")
-            print(" Eliminando "..self.dalclick.dc_config_path.."/runnig_project")
-            dcutls.localfs:delete_file(self.dalclick.dc_config_path.."/runnig_project")
+            print(" El proyecto referenciado en "..self.dalclick.dc_config_path.."/running_project".." no existe.")
+            print(" Eliminando "..self.dalclick.dc_config_path.."/running_project")
+            dcutls.localfs:delete_file(self.dalclick.dc_config_path.."/running_project")
             return false
         end
     else
@@ -58,12 +58,28 @@ end
 
 function project:clear()
     -- clear existing project
-    if dcutls.localfs:delete_file(self.dalclick.dc_config_path.."/runnig_project") then
+    if dcutls.localfs:delete_file(self.dalclick.dc_config_path.."/running_project") then
         return true    
     else
-        print("no se pudo eliminar: "..self.dalclick.dc_config_path.."/runnig_project")
+        print("no se pudo eliminar: "..self.dalclick.dc_config_path.."/running_project")
         return false
     end
+end
+
+function project:update_running_project(settings_path)
+    -- update actual running project project reference
+    if dcutls.localfs:file_exists(self.dalclick.dc_config_path.."/running_project") then
+        if not dcutls.localfs:delete_file(self.dalclick.dc_config_path.."/running_project") then
+            print(" Error: No se pudo eliminar: '"..self.dalclick.dc_config_path.."/running_project'.")
+            return false
+        end
+    end
+    if dcutls.localfs:create_file(self.dalclick.dc_config_path.."/running_project",settings_path) then
+        return true -- running project actualizado con el path recibido
+    else
+        print(" Error: No se pudo crear: '"..self.dalclick.dc_config_path.."/running_project'.")
+        return false
+    end    
 end
 
 function project:write()
@@ -81,41 +97,70 @@ function project:write()
 end
 
 function project:open()
-    -- IupFileDlg Example in IupLua 
-    -- Shows a typical file-saving dialog. 
-    local regnum_dir
+    -- 
     require( "iuplua" )
+    local regnum_dir, status, load_dir_error, a
 
     -- Creates a file dialog and sets its type, title, filter and filter info
-    filedlg = iup.filedlg{dialogtype = "DIR", title = "Seleccionar carpeta de proyecto", 
-                          directory=self.dalclick.root_project_path}
+    local od = iup.filedlg{ dialogtype = "DIR", 
+                            title = "Seleccionar carpeta de proyecto", 
+                            directory = self.dalclick.root_project_path
+                            }
 
     -- Shows file dialog in the center of the screen
-    filedlg:popup (iup.ANYWHERE, iup.ANYWHERE)
+    od:popup (iup.ANYWHERE, iup.ANYWHERE)
 
     -- Gets file dialog status
-    status = filedlg.status
+    status = od.status
 
+    -- Check status
+    load_dir_error = true
     if status == "0" then 
-      print (" Carpeta seleccionada: ", filedlg.value)
-      regnum_dir = filedlg.value
-      filedlg:destroy()
+      if type(od.value) ~= 'string' then
+          -- nota: solo con Alarm se pudo corregir el problema de que no se podia cerrar filedlg
+          iup.Alarm("Cargando proyecto", "Error: Hubo un problema al intentar cargar '"..tostring(od.value).."'" ,"Continuar")
+      else
+          if od.value == self.settings.regnum then
+              iup.Alarm("Cargando proyecto", "El proyecto seleccionado es el proyecto abierto actualmente" ,"Continuar")
+          else
+              a = iup.Alarm("Cargando proyecto", "Carpeta seleccionada: "..od.value ,"OK", "Cancelar")
+              if a == 1 then 
+                  load_dir_error = false
+                  regnum_dir = od.value
+              end
+          end
+      end
     elseif status == "-1" then 
-      filedlg:destroy()
-      print(" Operación cancelada")
-      return false
+          iup.Alarm("Cargando proyecto", "Operación cancelada" , "Continuar")
     else
-      filedlg:destroy()
-      print(" error")
-      return false
+          iup.Alarm("Cargando proyecto", "Se produjo un error" ,"Continuar")
     end
 
-
-    if self:load(regnum_dir.."/.dc_settings") then
-        return true
-    else
-        print(" error: no se pudieron cargar preferencias desde: "..regnum_dir.."/.dc_settings")
+    if load_dir_error then
+        print(" [Abrir proyecto] Error: no se pudo seleccionar una carpeta de proyecto válida.")
         return false
+    end
+
+    -- All ok, load project
+    
+    if dcutls.localfs:file_exists(regnum_dir.."/.dc_settings") then
+        if self:load(regnum_dir.."/.dc_settings") then
+            print(" [Abrir proyecto] Proyecto cargado con éxito desde '"..regnum_dir.."'." )
+            -- guardar referencia al proyecto cargado como "running project"
+            if self:update_running_project(regnum_dir.."/.dc_settings") then
+                return true -- success!!
+            else
+                print(" [Abrir proyecto] Error: no se pudo actualizar la configuración interna de DALclick" )
+                return false
+            end
+        else
+            print(" [Abrir proyecto] Error: no se pudo cargar un proyecto desde '"..regnum_dir.."/.dc_settings'.")
+            print(" [Abrir proyecto] La carpeta seleccionada contiene un proyecto DALclick con errores.")
+            return false
+        end
+    else
+            print(" [Abrir proyecto] La carpeta seleccionada no contiene un proyecto DALclick.")
+            return false
     end
 end
 
@@ -123,22 +168,30 @@ function project:create()
 
     guisys.init()
 
+    local scanf_regnum, scanf_title
     local regnum = "" -- default
     local title = "" -- default
     local format = "Iniciar Proyecto\nNúmero de registro: %100.30%s\nTítulo:%300.30%s\n"
     repeat
-        self.settings.regnum, self.settings.title = iup.Scanf(format, regnum, title)
-       if self.settings.regnum == "" then 
+        scanf_regnum, scanf_title = iup.Scanf(format, regnum, title)
+        if scanf_regnum == "" then 
             iup.Message("Iniciar Proyecto", "El campo 'Número de registro' es obligatorio para iniciar un proyecto")
         else
-            if string.match(self.settings.regnum, "^[%w-_]+$") then
-                break
+            if string.match(scanf_regnum, "^[%w-_]+$") then
+                if dcutls.localfs:file_exists( self.dalclick.root_project_path.."/"..scanf_regnum ) then
+                    iup.Message("Iniciar Proyecto", "El 'Número de registro' corresponde a un proyecto existente")
+                else
+                    break -- success!!
+                end
             else
                 iup.Message("Iniciar Proyecto", "El campo 'Número de registro' solo permite caracteres alfanuméricos y guiones, no admite espacios, acentos u otros signos")
             end
         end
     until false
 
+    self.settings.regnum = scanf_regnum
+    self.settings.title = scanf_title
+    
     print(" Se está creando un nuevo proyecto:\n")
     print(" === "..self.settings.regnum.." ===")
     if self.settings.title ~= "" then print(" título: '"..self.settings.title.."'") end
@@ -161,8 +214,8 @@ function project:create()
         if self.mkdir_tree(self.dalclick, self.settings) then
             -- create settings file
             if dcutls.localfs:create_file(settings_path, content) then
-                -- create runnig_project 
-                if dcutls.localfs:create_file(self.dalclick.dc_config_path.."/runnig_project",settings_path) then
+                -- create running_project 
+                if dcutls.localfs:create_file(self.dalclick.dc_config_path.."/running_project",settings_path) then
                     return true -- status and counter
                 end
             end
@@ -170,7 +223,32 @@ function project:create()
         return false
     else
         print("create_project_tree: no se ha recibido un número de registro válido!\n")
-      return false
+        return false
+    end
+end
+
+function project:save_current_and_create_new_project(defaults)
+    -- guarda el proyecto en curso y crea uno nuevo
+    if not self:write() then
+        print(" error: no se pudo guardar el proyecto actual.")
+        return false
+    end
+    if not self:clear() then
+        print(" error: no se pudo actualizar la configuración interna de DALclick")
+        return false
+    end
+
+    print(); print(" Creando proyecto nuevo..."); print()
+
+    if not self:init(defaults) then
+        print("No se pudo inicializar un proyecto")
+        return false
+    end
+    if self:create() then
+        return true
+    else
+        print("No se pudo crear un nuevo proyecto")
+        return false
     end
 end
 
