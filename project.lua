@@ -99,10 +99,13 @@ function project:open()
     if status == "0" then 
       print (" Carpeta seleccionada: ", filedlg.value)
       regnum_dir = filedlg.value
+      filedlg:destroy()
     elseif status == "-1" then 
+      filedlg:destroy()
       print(" Operación cancelada")
       return false
     else
+      filedlg:destroy()
       print(" error")
       return false
     end

@@ -494,7 +494,7 @@ function mc:init_cams_all()
     -- verify cams found with cams projects
     local found = false
     if type(p.state.counter) == 'table' then
-        if next(p.state.counter) then
+        if next(p.state.counter) then -- comprueba que la tabla no está vacía?
             for id, num in pairs(p.state.counter) do
                 for i,lcon in ipairs(self.cams) do
                     if lcon.idname == id then
@@ -913,6 +913,7 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
     print(" =========================")
     print()
     
+    -- el objetivo de este bloque es que las camaras esten apagadas y se enciendan ahora
     if not mc:connect_all() then
         print(" Por favor, encienda las cámaras.\n")
         io.write(" luego presione <enter>")
@@ -934,11 +935,13 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
     --local g = {}
     local status
 
+    -- iniciando estructura de proyecto
     if not p:init(defaults) then
         dalclick_loop(false)
         return false
     end
 
+    -- iniciando proyecto (carga proyecto anterior o crea nuevo)
     local settings_path = p:is_broken()
     if settings_path then
         print(" Se encontró un proyecto en ejecución.")
@@ -1234,6 +1237,49 @@ function dc_init_cam(opts)
     set_aflock(1)
     sleep(100)
     release('shoot_half')
+--
+    sleep(1000)
+    play_sound(4); sleep(150); play_sound(4); sleep(150); play_sound(4)
+    sleep(200) 
+--
+end
+
+function dc_init_cam_alt(opts)
+--  shoot_half and lock focus
+    sleep(100); set_aflock(0); sleep(200)
+    play_sound(2)
+    sleep(200)
+    if not get_mode() then
+        -- Set the camera to record mode (1)
+        switch_mode_usb(1)
+    end
+    local i=0
+    local capmode = require'capmode'
+    while capmode.get() == 0 and i < 300 do
+        sleep(10)
+        i=i+1
+    end
+--
+    sleep(1000);
+--
+    if opts.zoom_pos then
+        set_zoom(opts.zoom_pos)
+        sleep(1500)
+    end
+
+    press('shoot_half')
+    i=0
+    while get_shooting() do
+        sleep(10)
+        if i > 300 then
+            break
+        end
+        i=i+1
+    end
+    release('shoot_half')
+    
+    sleep(100); set_aflock(1); sleep(100)
+
 --
     sleep(1000)
     play_sound(4); sleep(150); play_sound(4); sleep(150); play_sound(4)
