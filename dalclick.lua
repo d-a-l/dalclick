@@ -1245,6 +1245,9 @@ function dc_init_cam(opts)
 end
 
 function dc_init_cam_alt(opts)
+
+--  ToDo: Not testing!!!
+
 --  shoot_half and lock focus
     sleep(100); set_aflock(0); sleep(200)
     play_sound(2)
