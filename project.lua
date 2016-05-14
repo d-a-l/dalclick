@@ -74,7 +74,7 @@ function project:update_running_project(settings_path)
             return false
         end
     end
-    if dcutls.localfs:create_file(self.dalclick.dc_config_path.."/running_project",settings_path) then
+    if dcutls.localfs:save_or_create_new_file(self.dalclick.dc_config_path.."/running_project",settings_path) then
         return true -- running project actualizado con el path recibido
     else
         print(" Error: No se pudo crear: '"..self.dalclick.dc_config_path.."/running_project'.")
@@ -87,7 +87,7 @@ function project:write()
     local state = util.serialize(self.state)
     local settings = util.serialize(self.settings)
 
-    if dcutls.localfs:create_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_state",state) and dcutls.localfs:create_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_settings",settings) then
+    if dcutls.localfs:save_or_create_new_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_state",state) and dcutls.localfs:save_or_create_new_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_settings",settings) then
         print(" '"..self.settings.regnum.."' guardado")
         return true    
     else
@@ -227,11 +227,11 @@ function project:create( regnum, title )
             return false
         end
         -- create settings file
-        if not dcutls.localfs:create_file(settings_path, content) then
+        if not dcutls.localfs:save_or_create_new_file(settings_path, content) then
             return false
         end
         -- create running_project 
-        if not dcutls.localfs:create_file(self.dalclick.dc_config_path.."/running_project",settings_path) then
+        if not dcutls.localfs:save_or_create_new_file(self.dalclick.dc_config_path.."/running_project",settings_path) then
             return false
         end
         return true
@@ -384,8 +384,8 @@ end
 
 function project:save_state()
     local content = util.serialize(self.state)
-    --if dcutls.localfs:create_file(self.dalclick.dc_config_path.."/.dc_state",content) then
-    if dcutls.localfs:create_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_state",content) then
+    --if dcutls.localfs:save_or_create_new_file(self.dalclick.dc_config_path.."/.dc_state",content) then
+    if dcutls.localfs:save_or_create_new_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_state",content) then
         return true
     else
         return false

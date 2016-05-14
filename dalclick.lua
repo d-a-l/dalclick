@@ -1013,7 +1013,7 @@ end
 local function dalclick_loop(mode)
     if mode then -- loop true
         if not dcutls.localfs:file_exists( defaults.dc_config_path.."/loop" ) then
-            dcutls.localfs:create_file( defaults.dc_config_path.."/loop","" )
+            dcutls.localfs:save_or_create_new_file( defaults.dc_config_path.."/loop","" )
         end
     else
         if dcutls.localfs:file_exists( defaults.dc_config_path.."/loop" ) then
