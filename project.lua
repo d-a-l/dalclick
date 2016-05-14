@@ -242,7 +242,12 @@ function project:create( regnum, title )
 end
 
 function project:save_current_and_create_new_project(defaults)
+    -- ToDo: esta funcion deberia ser general, no de proyecto! 
     -- guarda el proyecto en curso y crea uno nuevo
+    -- opciones return: 
+    --   true  -> se guardo el proyecto actual y se creo uno nuevo con exito
+    --   nil   -> crear nuevo proyecto cancelado por el usuario
+    --   false -> ocurrio un error
     if not self:write() then
         print(" error: no se pudo guardar el proyecto actual.")
         return false
