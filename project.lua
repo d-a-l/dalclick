@@ -56,8 +56,8 @@ function project:is_broken()
     end
 end
 
-function project:clear()
-    -- clear existing project
+function project:delete_running_project()
+    -- delete reference to existing running project (close)
     if dcutls.localfs:delete_file(self.dalclick.dc_config_path.."/running_project") then
         return true    
     else
@@ -123,7 +123,7 @@ function project:open()
           if od.value == self.settings.regnum then
               iup.Alarm("Cargando proyecto", "El proyecto seleccionado es el proyecto abierto actualmente" ,"Continuar")
           else
-              a = iup.Alarm("Cargando proyecto", "Carpeta seleccionada: "..od.value ,"OK", "Cancelar")
+              a = iup.Alarm("Cargando proyecto", "Carpeta seleccionada:\n"..od.value ,"OK", "Cancelar")
               if a == 1 then 
                   load_dir_error = false
                   regnum_dir = od.value
@@ -164,7 +164,8 @@ function project:open()
     end
 end
 
-function project:create()
+
+function project:get_project_newname()
 
     guisys.init()
 
@@ -174,6 +175,9 @@ function project:create()
     local format = "Iniciar Proyecto\nNúmero de registro: %100.30%s\nTítulo:%300.30%s\n"
     repeat
         scanf_regnum, scanf_title = iup.Scanf(format, regnum, title)
+        if scanf_regnum == nil then 
+            return nil, nil
+        end
         if scanf_regnum == "" then 
             iup.Message("Iniciar Proyecto", "El campo 'Número de registro' es obligatorio para iniciar un proyecto")
         else
@@ -189,8 +193,15 @@ function project:create()
         end
     until false
 
-    self.settings.regnum = scanf_regnum
-    self.settings.title = scanf_title
+    return scanf_regnum, scanf_title
+    
+end
+
+
+function project:create( regnum, title )
+
+    self.settings.regnum = regnum
+    self.settings.title = title
     
     print(" Se está creando un nuevo proyecto:\n")
     print(" === "..self.settings.regnum.." ===")
@@ -210,17 +221,20 @@ function project:create()
 
         -- serialize table to save
         local content = util.serialize(self.settings)
+        
         -- create dir tree
-        if self.mkdir_tree(self.dalclick, self.settings) then
-            -- create settings file
-            if dcutls.localfs:create_file(settings_path, content) then
-                -- create running_project 
-                if dcutls.localfs:create_file(self.dalclick.dc_config_path.."/running_project",settings_path) then
-                    return true -- status and counter
-                end
-            end
+        if not self.mkdir_tree(self.dalclick, self.settings) then
+            return false
         end
-        return false
+        -- create settings file
+        if not dcutls.localfs:create_file(settings_path, content) then
+            return false
+        end
+        -- create running_project 
+        if not dcutls.localfs:create_file(self.dalclick.dc_config_path.."/running_project",settings_path) then
+            return false
+        end
+        return true
     else
         print("create_project_tree: no se ha recibido un número de registro válido!\n")
         return false
@@ -233,22 +247,28 @@ function project:save_current_and_create_new_project(defaults)
         print(" error: no se pudo guardar el proyecto actual.")
         return false
     end
-    if not self:clear() then
-        print(" error: no se pudo actualizar la configuración interna de DALclick")
-        return false
+    
+    local regnum, title = self:get_project_newname()
+    if regnum == nil then
+        return nil
     end
-
+    
     print(); print(" Creando proyecto nuevo..."); print()
-
+    
     if not self:init(defaults) then
         print("No se pudo inicializar un proyecto")
         return false
     end
-    if self:create() then
+    if self:create(regnum, title) then
+        if not self:delete_running_project() then
+            print(" error: no se pudo actualizar la configuración interna de DALclick")
+            return false
+        end
         return true
-    else
-        print("No se pudo crear un nuevo proyecto")
+    else      
+        print(" Error: No se pudo crear un nuevo proyecto.")
         return false
+
     end
 end
 
