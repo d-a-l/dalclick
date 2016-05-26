@@ -1,7 +1,10 @@
 #!/bin/bash
 
+
 DALCLICK_SCRIPTS_DIR="$(dirname "$0")"
 cd "$DALCLICK_SCRIPTS_DIR"
+PWDIR="$(pwd -P)"
+DALCLICK_SCRIPTS_DIRNAME="${PWDIR##*/}"
 
 if [[ -f "CONFIG" ]]
  then
@@ -21,7 +24,7 @@ fi
 
 cd /opt/src/chdkptp
 
-export LUA_PATH="./lua/?.lua;../dalclick/?.lua"
+export LUA_PATH="./lua/?.lua;../$DALCLICK_SCRIPTS_DIRNAME/?.lua"
 
 gsettings set org.gnome.desktop.media-handling automount "false"
 gsettings set org.gnome.desktop.media-handling automount-open "false"

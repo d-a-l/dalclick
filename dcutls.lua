@@ -29,7 +29,7 @@ function dcutls.localfs:delete_file(path)
     end
 end
 
-function dcutls.localfs:save_or_create_new_file(path,content)
+function dcutls.localfs:create_file(path,content)
 
     if path == "" then 
         return false

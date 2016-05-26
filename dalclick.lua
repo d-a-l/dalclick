@@ -214,8 +214,8 @@ function init_cam(lcon)
     end
     sys.sleep(600)
     local status, err = lcon:connect()
-    printf("conectando camara: ")
-    print(status, err)
+    -- printf("conectando camara: ")
+    -- print(status, err)
     sys.sleep(600)
     local status, err = lcon:execwait('return dc_init_cam_alt('..util.serialize(opts)..')',{libs={'dalclick_identify'}})
     return status, err
@@ -446,7 +446,7 @@ end
 
 
 
-function mc:init_cams_all()
+function mc:init_cams_all(zoom)
 
     print(" Iniciando cámaras...\n")
     if not mc:connect_all() then
@@ -524,22 +524,22 @@ function mc:init_cams_all()
         return false
     end
     --
-    local restored_counter = false
+    local restore_saved_counter = false
     if type(p.state.counter) == 'table' then
         local idname, count
         for idname, count in pairs(p.state.counter) do
             -- If the value is 0 or 1 means not yet made ​​any capture
-            if count > 1 then restored_counter = true end
+            if count > 1 then restore_saved_counter = true end
         end
     end
-    if not restored_counter then
+    if not restore_saved_counter then
         print(" [contador] se reiniciará:")
         p.state.counter = {}
     else
         print(" [contador]:")
     end
     for i,lcon in ipairs(self.cams) do
-        if restored_counter then
+        if restore_saved_counter then
             if p.state.counter[lcon.idname] then
                 lcon.count = p.state.counter[lcon.idname]
                 print(" ["..i.."] cámara '"..lcon.idname.."': "..lcon.count)
@@ -566,8 +566,7 @@ function mc:init_cams_all()
         print("\n\n Inicie un nuevo proyecto o corrija manualmente el problema.")
         return false
     end
-
-    -- originalmente esta verificacion no estaba aqui: TEST
+    --
     if p.state.counter then
         print(" guardando estado de variables de cámaras...")
         if not p:save_state() then
@@ -580,6 +579,18 @@ function mc:init_cams_all()
     end
 
     -- inicio de camaras
+    if type(zoom) == 'number' then
+        p.state.zoom_pos = zoom
+        print(" debug: zoom actualizado a "..tostring(zoom))
+    end
+    
+    if type(p.state.zoom_pos) == "number" then
+        if not p:save_state() then
+            print(" error de lectura: No se pudieron guardar las variables del estado del contador en el disco (3)")
+            return false
+        end
+    end
+    
     for i,lcon in ipairs(self.cams) do
         if type(p.state.zoom_pos) == "number" then
             print(" ["..i.."] poniendo modo 'rec', fijando el zoom a "..p.state.zoom_pos.." y enfocando... ")
@@ -592,7 +603,7 @@ function mc:init_cams_all()
             init_fail_err = err
             break
         end
-    end
+    end    
     print()
     --
     if init_fail then
@@ -603,7 +614,7 @@ function mc:init_cams_all()
     return true
 end
 
-local function init_cams_or_retry()
+local function init_cams_or_retry(zoom)
 
     local status
     local menu = [[
@@ -627,7 +638,7 @@ local function init_cams_or_retry()
 ==============================================================================]]
 
     while true do
-        status = mc:init_cams_all()
+        status = mc:init_cams_all(zoom)
         if status then
             break
         else
@@ -949,7 +960,7 @@ local function start_options(mode)
     -- iniciando proyecto (carga proyecto anterior o crea nuevo)
     local running_project_loaded = false
 
-    if mode == "try_to_restore_running_project" then    
+    if mode == "restore_running_project" then    
         local settings_path = p:is_broken() -- get settings_path from saved running project
         if settings_path then
             print(" Se encontró un proyecto en ejecución.")
@@ -1013,7 +1024,7 @@ end
 local function dalclick_loop(mode)
     if mode then -- loop true
         if not dcutls.localfs:file_exists( defaults.dc_config_path.."/loop" ) then
-            dcutls.localfs:save_or_create_new_file( defaults.dc_config_path.."/loop","" )
+            dcutls.localfs:create_file( defaults.dc_config_path.."/loop","" )
         end
     else
         if dcutls.localfs:file_exists( defaults.dc_config_path.."/loop" ) then
@@ -1046,7 +1057,7 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
     print(" =========================")
     print()
     
-    -- el objetivo de este bloque es que las camaras tenga que estar apagadas y se tengan que encender ahora
+    -- el objetivo de este bloque es que las camaras esten apagadas y se enciendan ahora
     if not mc:connect_all() then
         print(" Por favor, encienda las cámaras.\n")
         io.write(" luego presione <enter>")
@@ -1065,7 +1076,7 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
     end
     
     -- opciones al inicio
-    if not start_options('try_to_restore_running_project') then
+    if not start_options('restore_running_project') then
         dalclick_loop(false)
         return false
     end
@@ -1104,8 +1115,8 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
  [t] test de captura         [o] abrir proyecto           de referencia
  [f] refocus                 [w] guardar proyecto     [b] bip bip bip cámara
  [s] sincronizar zoom        [c] cerrar proyecto          de referencia
- [d] borrar última captura       y salir              [r] modo 'rec'
- [v] preview última captura                           [p] modo 'play'
+ [d] borrar última captura       y salir             [zz] ingresar un valor
+ [v] preview última captura  [i] reiniciar cámaras        de zoom manualmente
  [x] apagar cámaras          [q] salir                [m] modo seg/norm/rápido
 
 ]]
@@ -1176,6 +1187,27 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
             elseif key == "d" then
                 print("borrando última captura...")
                 remove_last('counter_prev')
+            elseif key == "zz" then                
+                print("ingrese un valor para el zoom:")
+                printf(">> ")
+                local zkey = io.stdin:read'*l'
+                if zkey ~= "" and zkey ~= nil then
+                    local zoom = tonumber(zkey)
+                    print(" Valor de zoom ingresado: "..tostring(zoom))
+                    if zoom >= 0 then
+                        p.state.zoom_pos = zoom
+                        if p:save_state() then
+                            print(" nuevo valor de zoom guardado")
+                        else
+                            print(" error: no se pudieron guardar las variables de estado en el disco")
+                        end
+                        print(" Reiniciando camaras... ")
+                        if not init_cams_or_retry() then
+                            exit = true
+                            break
+                        end 
+                    end
+                end
             elseif key == "r" then
                 mc:switch_mode_all('rec',true)
             elseif key == "p" then
@@ -1225,6 +1257,8 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
                 exit = true
                 break
             elseif key == "n" then
+                local zoom = p.state.zoom_pos
+                print("debug: zoom ----> "..tostring(zoom).." - "..type(zoom))
                 local status = p:save_current_and_create_new_project(defaults)
                 if status == nil then
                     -- continue
@@ -1232,7 +1266,7 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
                     exit = true
                     break
                 else                
-                    if not init_cams_or_retry() then
+                    if not init_cams_or_retry(zoom) then
                         exit = true
                         break
                     end
@@ -1287,6 +1321,10 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
                 print("reinciando cámaras...")
                 break
             elseif key == "q" then
+                if not p:save_state() then
+                    print(" error: no se pudieron guardar las variables de estado en el disco")
+                    print("debug: zoom_pos: "..tostring(p.state.zoom_pos))
+                end
                 if not mc:shutdown_all() then
                     print("alguna de las cámaras deberá ser apagada manualmente")
                 end
@@ -1307,6 +1345,11 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
                     exit = true
                     break
                 end
+                if not init_cams_or_retry() then
+                   exit = true
+                   break
+                end
+            elseif key == "i" then
                 if not init_cams_or_retry() then
                    exit = true
                    break

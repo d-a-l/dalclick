@@ -74,7 +74,7 @@ function project:update_running_project(settings_path)
             return false
         end
     end
-    if dcutls.localfs:save_or_create_new_file(self.dalclick.dc_config_path.."/running_project",settings_path) then
+    if dcutls.localfs:create_file(self.dalclick.dc_config_path.."/running_project",settings_path) then
         return true -- running project actualizado con el path recibido
     else
         print(" Error: No se pudo crear: '"..self.dalclick.dc_config_path.."/running_project'.")
@@ -87,7 +87,7 @@ function project:write()
     local state = util.serialize(self.state)
     local settings = util.serialize(self.settings)
 
-    if dcutls.localfs:save_or_create_new_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_state",state) and dcutls.localfs:save_or_create_new_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_settings",settings) then
+    if dcutls.localfs:create_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_state",state) and dcutls.localfs:create_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_settings",settings) then
         print(" '"..self.settings.regnum.."' guardado")
         return true    
     else
@@ -227,13 +227,20 @@ function project:create( regnum, title )
             return false
         end
         -- create settings file
-        if not dcutls.localfs:save_or_create_new_file(settings_path, content) then
+        if not dcutls.localfs:create_file(settings_path, content) then
             return false
         end
         -- create running_project 
-        if not dcutls.localfs:save_or_create_new_file(self.dalclick.dc_config_path.."/running_project",settings_path) then
+        if self:update_running_project(settings_path) then
+            return true -- success!!
+        else
+            print(" [Crear proyecto] Error: no se pudo actualizar la configuración interna de DALclick" )
             return false
         end
+            
+        -- if not dcutls.localfs:create_file(self.dalclick.dc_config_path.."/running_project",settings_path) then
+        --    return false
+        -- end
         return true
     else
         print("create_project_tree: no se ha recibido un número de registro válido!\n")
@@ -242,12 +249,7 @@ function project:create( regnum, title )
 end
 
 function project:save_current_and_create_new_project(defaults)
-    -- ToDo: esta funcion deberia ser general, no de proyecto! 
     -- guarda el proyecto en curso y crea uno nuevo
-    -- opciones return: 
-    --   true  -> se guardo el proyecto actual y se creo uno nuevo con exito
-    --   nil   -> crear nuevo proyecto cancelado por el usuario
-    --   false -> ocurrio un error
     if not self:write() then
         print(" error: no se pudo guardar el proyecto actual.")
         return false
@@ -265,10 +267,10 @@ function project:save_current_and_create_new_project(defaults)
         return false
     end
     if self:create(regnum, title) then
-        if not self:delete_running_project() then
-            print(" error: no se pudo actualizar la configuración interna de DALclick")
-            return false
-        end
+        -- if not self:update_running_project() then
+        --    print(" error: no se pudo actualizar la configuración interna de DALclick")
+        --    return false
+        -- end
         return true
     else      
         print(" Error: No se pudo crear un nuevo proyecto.")
@@ -384,8 +386,8 @@ end
 
 function project:save_state()
     local content = util.serialize(self.state)
-    --if dcutls.localfs:save_or_create_new_file(self.dalclick.dc_config_path.."/.dc_state",content) then
-    if dcutls.localfs:save_or_create_new_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_state",content) then
+    --if dcutls.localfs:create_file(self.dalclick.dc_config_path.."/.dc_state",content) then
+    if dcutls.localfs:create_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_state",content) then
         return true
     else
         return false
@@ -407,8 +409,8 @@ function project:make_preview()
     -- path = {}, basepath = {}, basename = {},    idname = {},
     local previews = {}
     local rotate = {}
-    rotate.odd = "90"
-    rotate.even = "-90"
+    rotate.odd = "-90"
+    rotate.even = "90"
     rotate.all = "-90" --TODO usar valores de config
 
     for idname, saved_file in pairs( self.state.saved_files ) do
