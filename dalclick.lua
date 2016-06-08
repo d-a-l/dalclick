@@ -1033,7 +1033,7 @@ local function dalclick_loop(mode)
     end
 end
 
-function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
+function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR)
 
     -- debug
     if false then
@@ -1048,6 +1048,13 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS)
         defaults.root_project_path = DALCLICK_PROJECTS
     end
 
+    if DALCLICK_PWDIR then 
+        defaults.qm_sendcmd_path = DALCLICK_PWDIR.."/qm/qm_sendcmd.sh"
+        defaults.qm_daemon_path = DALCLICK_PWDIR.."/qm/qm_daemon.sh"
+        defaults.empty_thumb_path = DALCLICK_PWDIR.."/empty_g.jpg"
+        defaults.empty_thumb_path_error = DALCLICK_PWDIR.."/empty.jpg"
+    end
+    
     dalclick_loop(false)
 
     local exit = false

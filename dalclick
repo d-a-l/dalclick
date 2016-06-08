@@ -49,7 +49,7 @@ fi
 while
 true # Loop forever
 do
-    ./chdkptp -e"exec mc=require('dalclick')" -e"exec return mc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS')" 2> $DALCLICK_HOME/lua_errors
+    ./chdkptp -e"exec mc=require('dalclick')" -e"exec return mc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR')" 2> $DALCLICK_HOME/lua_errors
     cat "$DALCLICK_HOME/lua_errors"
     LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )
     if [[ $LUA_ERRORS != "" ]]
