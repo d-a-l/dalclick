@@ -431,7 +431,18 @@ function mc:shutdown_all()
 end
 
 function mc:init_daemons()
-    os.execute("killall qm_daemon.sh") -- TODO: q & d!!!! hay un bug y qm_daemon se inicia aunque haya otro daemos funcioando!
+
+    -- os.execute("ps aux | grep '[q]m_daemon.sh' > /tmp/qm_daemon_ps_info")
+    -- if dcutls.localfs:file_exists('/tmp/qm_daemon_ps_info') then
+    --     local content = dcutls.localfs:read_file('/tmp/qm_daemon_ps_info')
+    --     if content ~= "" then
+    --         print("proceso/s encontrado: "..tostring(content))
+    --     end
+    -- end
+
+    print(" iniciando procesos en segundo plano...")
+    os.execute("killall qm_daemon.sh 2>&1") -- TODO: q & d!!!! hay un bug y qm_daemon se inicia aunque haya otro daemos funcioando!
+    
     if not dcutls.localfs:file_exists(p.settings.path_raw.odd) or not dcutls.localfs:file_exists(p.settings.path_raw.even) then
         print(" error: init_daemons: no existen path_raw... \n  "..p.settings.path_raw.odd.."\n  "..p.settings.path_raw.odd)
         return false
@@ -444,7 +455,10 @@ function mc:init_daemons()
     -- os.execute(p.dalclick.qm_sendcmd_path..' "'..p.path_raw.even..'"')
 end
 
-
+function mc:kill_daemons()
+    print(" terminando procesos en segundo plano...")
+    os.execute("killall qm_daemon.sh 2>&1") -- TODO: qm_daemon se deberia apagar creando un archivo 'quit' en job folder
+end
 
 function mc:init_cams_all(zoom)
 
@@ -1273,7 +1287,9 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR)
                     exit = true
                     break
                 else                
-                    if not init_cams_or_retry(zoom) then
+                    if init_cams_or_retry(zoom) then
+                        mc:init_daemons()
+                    else
                         exit = true
                         break
                     end
@@ -1296,7 +1312,9 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR)
                 print(); status = p:open(); print()
                 sys.sleep(2000) -- pausa para dejar ver los mensajes
                 if status then
-                    if not init_cams_or_retry() then
+                    if init_cams_or_retry() then
+                       mc:init_daemons()
+                    else
                        exit = true
                        break
                     end
@@ -1363,6 +1381,9 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR)
                 end
             end
         end -- /while loop 
+        
+        mc:kill_daemons()
+        
     end
     if exit == true then
         dalclick_loop(false)
