@@ -70,6 +70,8 @@ local defaults={
     capt_pre = "IMG_",
     capt_ext = "JPG",
     capt_type = 'S', -- D=direct shoot S=standart
+    rotate_odd = '-90',
+    rotate_even = '90'
     -- regnum = '',
 }
 
@@ -604,7 +606,21 @@ function mc:init_cams_all(zoom)
             return false
         end
     end
-    
+
+    if not p.state.rotate then
+        p.state.rotate = {}
+    end    
+    if not p.state.rotate.odd or not p.state.rotate.even then
+        p.state.rotate.odd = defaults.rotate_odd
+        print(" asignada rotación por defecto para cámara de páginas impares: "..p.state.rotate.odd)
+        p.state.rotate.even = defaults.rotate_even
+        print(" asignada rotación por defecto para cámara de páginas pares: "..p.state.rotate.even)
+        if not p:save_state() then
+            print(" error de lectura: No se pudieron guardar las variables del estado del contador en el disco (3)")
+            return false
+        end
+    end
+                    
     for i,lcon in ipairs(self.cams) do
         if type(p.state.zoom_pos) == "number" then
             print(" ["..i.."] poniendo modo 'rec', fijando el zoom a "..p.state.zoom_pos.." y enfocando... ")
@@ -672,17 +688,13 @@ end
 function mc:rotate_all()
     local command, path
     local rotate_fail = false
-    local rotate = {}
-    rotate['even'] = "90"
-    rotate['odd'] = "-90"
-    rotate['all'] = "0"
     for idname,saved_file in pairs(p.state.saved_files) do
         -- saved_files[lcon.idname] = {
         -- saved_file.path
         -- path = local_path..file_name
         -- basepath = local_path
         -- basename = file_name
-        command = "econvert -i "..saved_file.path.." --rotate "..rotate[idname].." -o "..p.settings.path_proc[idname].."/"..saved_file.basename.." > /dev/null 2>&1"
+        command = "econvert -i "..saved_file.path.." --rotate "..p.state.rotate[idname].." -o "..p.settings.path_proc[idname].."/"..saved_file.basename.." > /dev/null 2>&1"
         print(" ["..idname.."] enviando comando (rotar) a la cola de acciones") 
         if not os.execute(p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"') then
             print(" error: falló: "..p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"')
@@ -947,19 +959,12 @@ end
 function mc:preprocess_raw()
 
     print("TODO untested!!!")
-    local rotate = 0
     local outtype = 'tiff'
     local outdepth = 8
     local command
 
     for idname,saved_file in pairs(p.state.saved_files) do
-        if idname == p.dalclick.odd_name then
-            rotate = 90
-        elseif idname == p.dalclick.even_name then
-            rotate = -90
-        end
-
-        command = "ufraw-batch --rotate "..rotate.." --out-type="..outtype.." --out-depth="..outdepth.." --out-path="..saved_file.basepath.." "..saved_file.path
+        command = "ufraw-batch --rotate "..p.state.rotate[idname].." --out-type="..outtype.." --out-depth="..outdepth.." --out-path="..saved_file.basepath.." "..saved_file.path
         print(command)
     end
 end
@@ -1047,7 +1052,7 @@ local function dalclick_loop(mode)
     end
 end
 
-function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR)
+function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAULT,ROTATE_EVEN_DEFAULT)
 
     -- debug
     if false then
@@ -1067,6 +1072,13 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR)
         defaults.qm_daemon_path = DALCLICK_PWDIR.."/qm/qm_daemon.sh"
         defaults.empty_thumb_path = DALCLICK_PWDIR.."/empty_g.jpg"
         defaults.empty_thumb_path_error = DALCLICK_PWDIR.."/empty.jpg"
+    end
+
+    if ROTATE_ODD_DEFAULT then 
+        defaults.rotate_odd = ROTATE_ODD_DEFAULT
+    end
+    if ROTATE_EVEN_DEFAULT then 
+        defaults.rotate_even = ROTATE_EVEN_DEFAULT
     end
     
     dalclick_loop(false)

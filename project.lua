@@ -34,6 +34,10 @@ function project:init(globalconf)
     self.state.saved_files = nil -- last capture paths
     -- self.state.focus = nil -- ojo puede no ser igual para las dos cams
     -- self.state.resolution = nil
+    self.state.rotate = {
+        odd = nil,
+        even = nil
+    }
     return true
 end
 
@@ -313,6 +317,21 @@ function project:load(settings_path)
                     end
                 end
                 print()
+                if not self.state.rotate then
+                    self.state.rotate = {}
+                end
+                if self.state.rotate.odd then
+                    print(" = cámara de páginas impares - rotación: "..self.state.rotate.odd)
+                else
+                    self.state.rotate.odd = self.dalclick.rotate_odd
+                    print(" asignada rotación por defecto para cámara de páginas impares: "..self.state.rotate.odd)
+                end
+                if self.state.rotate.even then
+                    print(" = cámara de páginas pares - rotación: "..self.state.rotate.even)
+                else
+                    self.state.rotate.even = self.dalclick.rotate_even
+                    print(" asignada rotación por defecto para cámara de páginas pares: "..self.state.rotate.even)
+                end
             else
                 self.state = {} -- asegurarse que no queda cargado un estado de un proyecto anterior
                 print(" ATENCION: no se ha podido cargar un estado del contador.")
@@ -408,10 +427,6 @@ function project:make_preview()
     -- TODO Quick and Dirty!!!
     -- path = {}, basepath = {}, basename = {},    idname = {},
     local previews = {}
-    local rotate = {}
-    rotate.odd = "-90"
-    rotate.even = "90"
-    rotate.all = "-90" --TODO usar valores de config
 
     for idname, saved_file in pairs( self.state.saved_files ) do
 
@@ -460,71 +475,55 @@ function project:show_capts(previews)
     require"cdluaim"
     require"iuplua"
     require"iupluacd"
-    local sarasa = {
-        image = {},
-        cnv = {},
+
+    local left = {}
+    local right = {}
+       
+    left.image = im.FileImageLoad( previews.even )
+    left.cnv = iup.canvas{rastersize = left.image:Width().."x"..left.image:Height(), border = "YES"}
+    function left.cnv:map_cb()       -- the CD canvas can only be created when the IUP canvas is mapped
+        self.canvas = cd.CreateCanvas(cd.IUP, self)
+    end
+    function left.cnv:action()          -- called everytime the IUP canvas needs to be repainted
+      self.canvas:Activate()
+      self.canvas:Clear()
+      left.image:cdCanvasPutImageRect(self.canvas, 0, 0, 0, 0, 0, 0, 0, 0) -- use default values
+    end
+            
+    right.image = im.FileImageLoad( previews.odd )    
+    right.cnv = iup.canvas{rastersize = right.image:Width().."x"..right.image:Height(), border = "YES"}
+    function right.cnv:map_cb()       -- the CD canvas can only be created when the IUP canvas is mapped
+        self.canvas = cd.CreateCanvas(cd.IUP, self)
+    end
+    function right.cnv:action()          -- called everytime the IUP canvas needs to be repainted
+      self.canvas:Activate()
+      self.canvas:Clear()
+      right.image:cdCanvasPutImageRect(self.canvas, 0, 0, 0, 0, 0, 0, 0, 0) -- use default values
+    end    
+
+    local viewers = iup.hbox{ 
+        left.cnv,
+        right.cnv 
     }
-    local cosas = {}
-    local i = 1
-    for idname, preview_path in pairs( previews ) do
-        local image = im.FileImageLoad( preview_path ) -- directly load the image at index 0. it will open and close the file
-        local cnv = iup.canvas{rastersize = image:Width().."x"..image:Height(), border = "YES"}
-        cnv.image = image -- store the new image in the IUP canvas as an attribute
-        --
-        function cnv:map_cb()       -- the CD canvas can only be created when the IUP canvas is mapped
-          self.canvas = cd.CreateCanvas(cd.IUP, self)
-        end
-
-        function cnv:action()          -- called everytime the IUP canvas needs to be repainted
-          self.canvas:Activate()
-          self.canvas:Clear()
-          self.image:cdCanvasPutImageRect(self.canvas, 0, 0, 0, 0, 0, 0, 0, 0) -- use default values
-        end
-        cosas[i] = { cnv = cnv, image = image }
-        i = i + 1
-    end
-
---[[
-    local function fl4()
-        image = im.FileImageLoad("/opt/src/samples_imlua5/lena.jpg")
-        cnv.image = image
-        iup.Update(cnv)
-    end
-
-    local function fl3()
-        image = im.FileImageLoad("/opt/src/samples_imlua5/flower3.jpg")
-        cnv.image = image
-        iup.Update(cnv)
-    end
-
-    local function fl2()
-        image = im.FileImageLoad("/opt/src/samples_imlua5/flower2.jpg")
-        cnv.image = image
-        iup.Update(cnv)
-    end
-]]
-
---[[
-    local buts = iup.hbox{
-      iup.button{title="First", image="IUP_MediaGotoBegin", action=function(self) fl3() end}, 
-      iup.button{title="Previous", image="IUP_MediaRewind", action=function(self) fl2() end}, 
-      iup.button{title="Pause", image="IUP_MediaPause", action=function(self) fl4() end}, 
-      iup.button{title="Next", image="IUP_MediaForward", action=function(self) end}, 
-      iup.button{title="Last", image="IUP_MediaGoToEnd", action=function(self) end}, 
-      }
-]]
-    local imgs = iup.hbox{ cosas[2].cnv, cosas[1].cnv }
 
     -- dlg = iup.dialog{cnv}
     -- local dlg = iup.dialog{iup.vbox{imgs, buts},title="DALclick", margin="5x5", gap=10}
-    local dlg = iup.dialog{iup.vbox{imgs},title="DALclick", margin="5x5", gap=10}
+    local dlg = iup.dialog{
+        iup.vbox{
+            viewers
+        },
+        title="DALclick",
+        margin="5x5",
+        gap=10
+    }
 
 
     function dlg:close_cb()
-        for i, cosa in ipairs( cosas ) do
-            cosa.image:Destroy()
-            cosa.cnv.canvas:Kill()
-        end
+        right.image:Destroy()
+        right.cnv.canvas:Kill()
+        left.image:Destroy()
+        left.cnv.canvas:Kill()
+
         self:destroy()
         return iup.IGNORE -- because we destroy the dialog
     end

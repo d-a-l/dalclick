@@ -34,6 +34,8 @@ echo "Main paths:"
 echo
 echo " Dalclick working folder: '$DALCLICK_HOME'"
 echo " Projects folder: '$DALCLICK_PROJECTS'"
+echo " Default rotate - odd: $ROTATE_ODD_DEFAULT"
+echo " Default rotate - even: $ROTATE_EVEN_DEFAULT"
 echo
 
 [[ -d $DALCLICK_PROJECTS ]] || { echo "ERROR: la carpeta de proyectos '$DALCLICK_PROJECTS' no existe, revise la configuracion de directorios."; exit 0; }
@@ -49,7 +51,7 @@ fi
 while
 true # Loop forever
 do
-    ./chdkptp -e"exec mc=require('dalclick')" -e"exec return mc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR')" 2> $DALCLICK_HOME/lua_errors
+    ./chdkptp -e"exec mc=require('dalclick')" -e"exec return mc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT')" 2> $DALCLICK_HOME/lua_errors
     cat "$DALCLICK_HOME/lua_errors"
     LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )
     if [[ $LUA_ERRORS != "" ]]
