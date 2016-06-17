@@ -71,7 +71,8 @@ local defaults={
     capt_ext = "JPG",
     capt_type = 'S', -- D=direct shoot S=standart
     rotate_odd = '-90',
-    rotate_even = '90'
+    rotate_even = '90',
+    tempfolder_name = '.tmp'
     -- regnum = '',
 }
 
@@ -862,8 +863,18 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
     local saved_files = {}
     for i,lcon in ipairs(self.cams) do
         --
-        local local_path = p.dalclick.root_project_path.."/"..p.settings.regnum.."/"..p.dalclick.raw_name.."/"..lcon.idname.."/"
+        local local_path = p.dalclick.root_project_path..
+                            "/"..p.settings.regnum..
+                            "/"..p.dalclick.raw_name..
+                            "/"..lcon.idname.."/"
         local file_name
+        --
+        if not dcutls.localfs:file_exists( local_path..defaults.tempfolder_name ) then
+            if not dcutls.localfs:create_folder( local_path..defaults.tempfolder_name ) then
+                return false
+            end
+        end
+        --
         if mode == 'test' then
             file_name = "test.jpg"
         else
@@ -871,8 +882,8 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
         end
         --
         print(" ["..i.."] descargando... "..lcon.remote_path.." -> "..file_name)
-        local results,err = lcon:download(lcon.remote_path, local_path..file_name)
-        if results and dcutls.localfs:file_exists(local_path..file_name) then
+        local results,err = lcon:download(lcon.remote_path, local_path..defaults.tempfolder_name.."/"..file_name)
+        if results and dcutls.localfs:file_exists(local_path..defaults.tempfolder_name.."/"..file_name) then
             saved_files[lcon.idname] = {
                 path = local_path..file_name,
                 basepath = local_path,
@@ -903,15 +914,35 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
             end
         end
     end
+    --
     if download_fail then
-        -- for practical purposes remove all captures downloaded of this loop
+        -- remove all captures from temporal folder
         for idname, saved_file in pairs(saved_files) do
-            if remove_last() then
-                print(" se borró la captura incompleta")
+            if saved_file.basepath ~= nil then
+                local tmppath = saved_file.basepath..defaults.tempfolder_name.."/"..saved_file.basename
+                if dcutls.localfs:delete_file(tmppath) then
+                    print(" eliminando descarga del archivo temporal..OK")
+                else
+                    print(" ATENCION: no se pudo eliminar '"..tmppath.."'")
+                end
             end
         end
         return true, false -- capture is not performed but main_loop can continue
     else
+        -- move from temporal folder to permanent raw folder
+        for idname, saved_file in pairs(saved_files) do
+            if saved_file.basepath ~= nil then
+                local tmppath = saved_file.basepath..defaults.tempfolder_name.."/"..saved_file.basename
+                local permpath = saved_file.basepath..saved_file.basename
+                
+                if os.rename(tmppath, permpath) then
+                    print(" ["..idname.."] moviendo '"..saved_file.basename.."' desde el archivo temporal..OK")
+                else
+                    print(" ERROR: no se pudo mover '"..tmppath.."' a '".. permpath.."'")
+                    return true, true
+                end
+            end
+        end        
         p.state.saved_files = saved_files
         return false, false
     end
