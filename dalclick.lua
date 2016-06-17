@@ -836,7 +836,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
     return lastdir, lastcapt
     ]]    )
         if lastdir and lastcapt then
-            print("      -> A/DCIM/"..lastdir.."/"..lastcapt)
+            print("      * A/DCIM/"..lastdir.."/"..lastcapt)
             lcon.remote_path = "A/DCIM/"..lastdir.."/"..lastcapt
             if p.state.saved_files then
                 local prev_capt = p.state.saved_files[lcon.idname]
@@ -870,7 +870,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
             file_name = string.format("%04d", p.state.counter[lcon.idname])..".".."jpg"
         end
         --
-        print(" ["..i.."] descargando... "..lcon.remote_path.."\n     "..file_name)
+        print(" ["..i.."] descargando... "..lcon.remote_path.." -> "..file_name)
         local results,err = lcon:download(lcon.remote_path, local_path..file_name)
         if results and dcutls.localfs:file_exists(local_path..file_name) then
             saved_files[lcon.idname] = {
@@ -886,6 +886,23 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
         end
     end
     --
+    -- remove remote files
+    for i,lcon in ipairs(self.cams) do
+        if lcon.remote_path ~= "" and lcon.remote_path ~= nil then
+            local status, err = lcon:execwait('os.stat("'..lcon.remote_path..'")')
+            if status ~= nil then
+                print(" ["..i.."] borrando de la cámara: '"..lcon.remote_path.."'")
+                local status, err = lcon:execwait('os.remove("'..lcon.remote_path..'")')
+                if status ~= nil then
+                    print("     OK")
+                else
+                    print("     ATENCION: no se pudo borrar: '"..lcon.remote_path.."'")
+                end
+            else
+                print(" ATENCION: '"..lcon.remote_path.. "' no existe")
+            end
+        end
+    end
     if download_fail then
         -- for practical purposes remove all captures downloaded of this loop
         for idname, saved_file in pairs(saved_files) do
