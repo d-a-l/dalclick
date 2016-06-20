@@ -28,7 +28,6 @@ function project:init(globalconf)
     self.settings.ref_cam = "even"
     self.settings.rotate = true
     self.settings.mode = 'secure'
-    self.settings.thumbfolder_name = self.dalclick.thumbfolder_name
     --
     self.state.counter = nil -- *siguiente* captura a la ultima realizada
     self.state.zoom_pos = nil
@@ -431,24 +430,27 @@ function project:make_preview()
 
     for idname, saved_file in pairs( self.state.saved_files ) do
 
-        local proc_path = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.proc_name.."/"..idname.."/"
-
-        if not dcutls.localfs:file_exists( proc_path..".previews" ) then
-            if dcutls.localfs:create_folder( proc_path..".previews" ) then
-                print(" ["..idname.."] creado... "..proc_path..".previews")
+        -- local proc_path = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.proc_name.."/"..idname.."/"
+        -- self.settings.path_proc[idname]
+        local preview_folder = self.settings.path_proc[idname].."/"..self.dalclick.thumbfolder_name
+        if not dcutls.localfs:file_exists( preview_folder ) then
+            if dcutls.localfs:create_folder( preview_folder ) then
+                -- print(" ["..idname.."] creado... '"..preview_folder.."'") -- create_folder() ya genera mensaje
             else
                 return false
             end
         end
 
-        local thumb_path = proc_path..".previews/"..saved_file.basename
-        local big_path = proc_path..saved_file.basename
-        print(" ["..idname.."] creando vista previa... "..thumb_path)
+        local thumb_path = preview_folder.."/"..saved_file.basename
+        local big_path = self.settings.path_proc[idname].."/"..saved_file.basename
 
         if dcutls.localfs:file_exists( big_path ) then
-            os.execute("econvert -i "..big_path.." --thumbnail ".."0.125".." -o "..thumb_path.." > /dev/null 2>&1")
             if not dcutls.localfs:file_exists( thumb_path ) then
-                thumb_path = self.dalclick.empty_thumb_path_error
+                print(" creando vista previa... "..thumb_path)
+                os.execute("econvert -i "..big_path.." --thumbnail ".."0.125".." -o "..thumb_path.." > /dev/null 2>&1")
+                if not dcutls.localfs:file_exists( thumb_path ) then
+                    thumb_path = self.dalclick.empty_thumb_path_error
+                end
             end
         else
             thumb_path = self.dalclick.empty_thumb_path

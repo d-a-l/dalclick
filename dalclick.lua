@@ -72,7 +72,8 @@ local defaults={
     capt_type = 'S', -- D=direct shoot S=standart
     rotate_odd = '-90',
     rotate_even = '90',
-    tempfolder_name = '.tmp'
+    tempfolder_name = '.tmp',
+    thumbfolder_name = '.previews'
     -- regnum = '',
 }
 
@@ -806,6 +807,37 @@ function mc:rotate_all()
     end
 end
 
+function mc:rotate_and_resize_all()
+    local command, path
+    local rotate_fail = false
+    for idname,saved_file in pairs(p.state.saved_files) do
+        local thumbpath = p.settings.path_proc[idname].."/"..p.dalclick.thumbfolder_name
+        if not dcutls.localfs:file_exists( thumbpath ) then
+            if not dcutls.localfs:create_folder( thumbpath ) then
+                print(" ERROR: no se pudo crear '"..thumbpath.."'")
+                return false
+            end
+        end
+        command = 
+            "econvert -i "..saved_file.path
+          .." --rotate "..p.state.rotate[idname]
+          .." -o "..p.settings.path_proc[idname].."/"..saved_file.basename
+          .." --thumbnail ".."0.125"
+          .." -o "..thumbpath.."/"..saved_file.basename
+          .." > /dev/null 2>&1"
+        print(" ["..idname.."] enviando comando (rotar + crear vista previa de '"..saved_file.basename.."') a la cola de acciones.") 
+        if not os.execute(p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"') then
+            print(" error: falló: "..p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"')
+            rotate_fail = true
+        end
+    end
+    if rotate_fail then
+        return false
+    else
+        return true
+    end
+end
+
 function mc:check_if_sdcams_are_empty()
 
     local out = {}
@@ -913,7 +945,7 @@ function mc:capt_all(mode)
                     --print("DEBUG p.state.zoom_pos:\n"..util.serialize(p.state.zoom_pos))
                     -- mc:rotate_all( saved_files )
                     if p.state.saved_files and p.settings.rotate == true then
-                        if mc:rotate_all() then
+                        if mc:rotate_and_resize_all() then
                         else
                             print(" Error: alguna de las imágenes no pudo ser rotada")
                             return false
