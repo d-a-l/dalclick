@@ -28,6 +28,7 @@ function project:init(globalconf)
     self.settings.ref_cam = "even"
     self.settings.rotate = true
     self.settings.mode = 'secure'
+    self.settings.thumbfolder_name = self.dalclick.thumbfolder_name
     --
     self.state.counter = nil -- *siguiente* captura a la ultima realizada
     self.state.zoom_pos = nil

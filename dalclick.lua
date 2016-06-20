@@ -465,12 +465,11 @@ end
 
 function mc:init_cams_all(zoom)
 
-    print(" Iniciando cámaras...\n")
     if not mc:connect_all() then
-        print(" Revise la conexión de las cámaras y si están encendidas.\n")
+        print(" falló el intento de conectarse a las cámaras")
         return false
     end
-
+    
     local init_fail = false
     local init_fail_err = ""
     local previous_cam_idname
@@ -596,6 +595,25 @@ function mc:init_cams_all(zoom)
     end
 
     -- inicio de camaras
+
+    -- check SD
+    print()
+    local check_status = mc:check_sdcams_options() 
+    if check_status == nil then
+        print(" Apagando cámaras...")
+        if not mc:shutdown_all() then
+            print("alguna de las cámaras deberá ser apagada manualmente")
+        end
+        sys.sleep(1000)
+        return nil
+    elseif check_status == false then
+        print(" debug: check_sdcams_options() = false")
+        return false
+    end
+    
+    -- set cams
+    --
+    print()
     if type(zoom) == 'number' then
         p.state.zoom_pos = zoom
         print(" debug: zoom actualizado a "..tostring(zoom))
@@ -621,7 +639,8 @@ function mc:init_cams_all(zoom)
             return false
         end
     end
-                    
+    
+    print(" Preparando cámaras:")
     for i,lcon in ipairs(self.cams) do
         if type(p.state.zoom_pos) == "number" then
             print(" ["..i.."] poniendo modo 'rec', fijando el zoom a "..p.state.zoom_pos.." y enfocando... ")
@@ -669,10 +688,12 @@ local function init_cams_or_retry(zoom)
 ==============================================================================]]
 
     while true do
-        status = mc:init_cams_all(zoom)
-        if status then
+        status = mc:init_cams_all(zoom) -- true: ok, seguir - false: error, reintentar - nil: se eligio salir
+        if status == true then
             break
-        else
+        elseif status == nil then
+            return nil
+        elseif status == false then
             print(menu)
             printf(" >> ")
             local key = io.stdin:read'*l'
@@ -684,6 +705,82 @@ local function init_cams_or_retry(zoom)
     end
     return true
     
+end
+
+function mc:check_sdcams_options()
+
+    local empty = true
+    local menu = [[
+ ====================================================================
+ ATENCION: Se recomienda borrar todas las imágenes contenidas en las 
+ tarjetas SD de las cámaras antes de comenzar.
+ ====================================================================
+
+ opciones:
+
+ [enter] para borrar todas las imágenes
+ [c] para continuar sin borrar
+ [e] para salir de dalclick ahora
+ 
+]]
+
+    print(" Verificando tarjetas SD..")
+    local status, data = mc:check_if_sdcams_are_empty()
+    if status then
+        for i, adata in pairs(data) do
+            if adata.count > 0 then
+                print(" ["..i.."] no está vacía: "..tostring(adata.count).." archivo/s.")
+                empty = false
+            else
+                print(" ["..i.."] vacía: "..tostring(adata.count))
+            end
+        end
+    else
+        print(" ERROR: no se pudo verificar si las tarjetas SD estan vacías")
+    end
+
+    if not empty then
+        print()
+        while true do
+
+            print(menu)
+            printf(" >> ")
+            local key = io.stdin:read'*l'
+            print()
+
+            if key == "" then
+                -- borrar
+                print(" \nborrando....")
+                local edata = mc:empty_sdcams()
+                if type(edata) == 'table' and next(edata) then
+                    for i, data in pairs(edata) do
+                        if data.status then
+                            print(" ["..i.."] eliminados "..data.count.." archivos:")
+                            print(data.removed_files)
+                            if data.err_log ~= "" then
+                                print(" se produjeron errores al intentar borrar achivos en:")
+                                print(data.err_log)
+                            end
+                        else
+                            print(" ["..i.."] ERROR: no pudieron borrarse archivos.")
+                        end
+                    end
+                else
+                    print(" ERROR: no pudieron borrarse archivos.")
+                end
+                return true
+            elseif key == "c" then
+                return true
+            elseif key == "e" then
+                return nil
+            end            
+            print(" no ha seleccionado ninguna opción válida!")
+            print()
+        end
+    end
+    
+    print(" OK")
+    return true
 end
 
 function mc:rotate_all()
@@ -707,6 +804,79 @@ function mc:rotate_all()
     else
         return true
     end
+end
+
+function mc:check_if_sdcams_are_empty()
+
+    local out = {}
+    for i,lcon in ipairs(self.cams) do
+        local status, count, err = lcon:execwait([[
+    dir = os.listdir("A/DCIM")
+    sleep(100)
+    count = 0
+    if dir then
+        for n, dname in ipairs(dir) do
+            if string.match(dname,"^%d") then
+                files = os.listdir("A/DCIM/"..dname)
+                if files then
+                    for n, fname in ipairs(files) do
+                        if string.match(fname,"%.JPG$") then
+                            count = count + 1
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return count
+        ]] )
+        if not status then
+            return false, err
+        end
+        -- print(" mcdebug "..tostring(status)..", "..tostring(count)..", "..tostring(err))
+        sys.sleep(100)
+        out[i] = { count = tonumber(count), err = err }
+    end
+    return true, out
+end
+
+function mc:empty_sdcams()
+
+    local out = {}
+    for i,lcon in ipairs(self.cams) do
+        local status, count, removed_files, err_log, err = lcon:execwait([[
+dir = os.listdir("A/DCIM")
+sleep(100)
+count = 0
+removed_files = ""
+err_log = ""
+if dir then
+    for n, dname in ipairs(dir) do
+        if string.match(dname,"^%d") then
+            files = os.listdir("A/DCIM/"..dname)
+            if files then
+                for n, fname in ipairs(files) do
+                    if string.match(fname,"%.JPG$") then
+                        if os.remove("A/DCIM/"..dname.."/"..fname) then
+                            count = count + 1
+                            removed_files = removed_files.."   A/DCIM/"..dname.."/"..fname.."\n"
+                        else
+                            err_log = err_log.."   error: 'A/DCIM/"..dname.."/"..fname.."' can't be removed".."\n"
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+return count, removed_files, err_log
+        ]] )
+        sys.sleep(100)
+        out[i] = { status = status, count = count, removed_files = removed_files, err_log = err_log }
+    end
+    return out
 end
 
 function mc:capt_all(mode)
@@ -846,12 +1016,18 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
                     print(" ATENCION: no se esta descargando la ultima captura!!!!")
                     print(" ======================================================")
                     print(" Vuelva a intentarlo...")
-                    print(" Si el problema persiste pruebe en modo 'seguro' ó 'normal'")
+                    print(" Si el problema persiste pruebe en modo 'seguro' ó 'normal'.")
+                    print(" Verifique que se estén borrando las imágenes de la tarjeta SD de la cámara.")
                     return true, false
                 end
             end
         else
-            print(" no se puedo obtener el nombre de la última captura\n status: "..tostring(status)..", lastdir: "..tostring(lastdir)..", lastcapt: "..tostring(lastcapt)..", err: "..tostring(err))
+            print()
+            print(" ATENCION: no se puedo obtener el nombre de la última captura") 
+            print(" Vuelva a intentarlo...")
+            print(" Si el problema persiste pruebe en modo 'seguro' ó 'normal'.")
+            print()
+            --"status: "..tostring(status)..", lastdir: "..tostring(lastdir)..", lastcapt: "..tostring(lastcapt)..", err: "..tostring(err))
             return true, false
         end
         sys.sleep(100)
@@ -1201,13 +1377,17 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
  [x] apagar cámaras          [q] salir                [m] modo seg/norm/rápido
 
 ]]
-    if not init_st then
-        print("No se pudieron inicializar correctamente las cámaras")
+    if init_st == false then
+        print(" No se pudieron inicializar correctamente las cámaras.")
+        dalclick_loop(false)
+        return false
+    elseif init_st == nil then
+        print(" Eligió salir.")
         dalclick_loop(false)
         return false
     else
 
-        -- init daemons!
+        -- init daemons
         mc:init_daemons()
 
         local loopmsg = "", margin
@@ -1414,7 +1594,7 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                     print("alguna de las cámaras deberá ser apagada manualmente")
                 end
                 sys.sleep(3000)
-                print("saliendo...")
+                print(" saliendo...")
                 exit = true
                 break
             elseif key == "c" then
