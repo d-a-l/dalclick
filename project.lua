@@ -29,7 +29,7 @@ function project:init(globalconf)
     self.settings.rotate = true
     self.settings.mode = 'secure'
     --
-    self.state.counter = nil -- *siguiente* captura a la ultima realizada
+    self.state.counter = nil
     self.state.zoom_pos = nil
     self.state.saved_files = nil -- last capture paths
     -- self.state.focus = nil -- ojo puede no ser igual para las dos cams
@@ -316,7 +316,7 @@ function project:load(settings_path)
                         print(" = cámara de páginas pares - próxima captura: "..count)
                     end
                 end
-                print()
+                
                 if not self.state.rotate then
                     self.state.rotate = {}
                 end
@@ -401,6 +401,51 @@ function project:counter_prev()
     end
     self.state.counter = prev_counter
     return true
+end
+
+function project:get_counter_max_min()
+
+    local min, max, counter_min, counter_max
+    for idname, n in pairs(self.state.counter) do
+        if idname == self.dalclick.odd_name or idname == self.dalclick.even_name then
+            for f in lfs.dir(self.settings.path_raw[idname]) do
+                if lfs.attributes(self.settings.path_raw[idname].."/"..f,"mode") == "file" then
+                    if f:match("^(%d+)%.jpg$") or f:match("^(%d+)%.JPG$" ) then
+                        if min ~= nil then
+                            if f < min.f then min = { f = f, idname = idname } end
+                        else
+                            min = { f = f, idname = idname }
+                        end
+                        if max ~= nil then
+                            if f > max.f then max = { f = f, idname = idname} end
+                        else
+                            max = { f = f, idname = idname}
+                        end
+                    end
+                end
+            end
+        else
+            return false, nil, nil
+        end
+    end
+    if min == nil or max == nil then
+        return true, nil, nil
+    else
+        min.f = tonumber(min.f:match("^(%d+)%..+$"))
+        max.f = tonumber(max.f:match("^(%d+)%..+$"))
+        if min.idname == self.dalclick.odd_name then
+            counter_min = { [self.dalclick.even_name] = min.f - 1, [self.dalclick.odd_name] = min.f }
+        elseif min.idname == self.dalclick.even_name then
+            counter_min = { [self.dalclick.even_name] = min.f, [self.dalclick.odd_name] = min.f + 1 }
+        end
+        if max.idname == self.dalclick.odd_name then
+            counter_max = { [self.dalclick.even_name] = max.f - 1, [self.dalclick.odd_name] = max.f }
+        elseif max.idname == self.dalclick.even_name then
+            counter_max = { [self.dalclick.even_name] = max.f, [self.dalclick.odd_name] = max.f + 1 }
+        end
+        return true, counter_min, counter_max
+    end
+
 end
 
 function project:save_state()

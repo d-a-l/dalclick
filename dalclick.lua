@@ -1129,7 +1129,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
             if saved_file.basepath ~= nil then
                 local tmppath = saved_file.basepath..defaults.tempfolder_name.."/"..saved_file.basename
                 if dcutls.localfs:delete_file(tmppath) then
-                    print(" eliminando descarga del archivo temporal..OK")
+                    print(" eliminando descarga carpeta temporal..OK")
                 else
                     print(" ATENCION: no se pudo eliminar '"..tmppath.."'")
                 end
@@ -1144,7 +1144,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
                 local permpath = saved_file.basepath..saved_file.basename
                 
                 if os.rename(tmppath, permpath) then
-                    print(" ["..idname.."] moviendo '"..saved_file.basename.."' desde el archivo temporal..OK")
+                    print(" ["..idname.."] moviendo '"..saved_file.basename.."' desde carpeta temporal..OK")
                 else
                     print(" ERROR: no se pudo mover '"..tmppath.."' a '".. permpath.."'")
                     return true, true
@@ -1358,10 +1358,16 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
             return false
         end
     else
-        print(" DALclick debe iniciarse con las cámaras apagadas.\n Por favor apáguelas y luego presione <enter>.\n")
+        print(" DALclick debe iniciarse con las cámaras apagadas.")
+        print(" Por favor apáguelas y luego presione <enter>.")
+        print()
+        print(" (Para continuar sin apagar las cámaras: [c] y luego <enter>)")
         local key = io.stdin:read'*l'
-        dalclick_loop(true)
-        return false
+
+        if key == "" then
+            dalclick_loop(false)
+            return false          
+        end   
     end
     
     -- opciones al inicio
@@ -1421,13 +1427,35 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
 
         -- init daemons
         mc:init_daemons()
-
-        local loopmsg = "", margin
+               
+        local loopmsg = ""
+        local margin
+        local status, counter_min, counter_max
         while true do
+
+            status, counter_min, counter_max = p:get_counter_max_min()
+            if not status then
+                print(" ERROR: no se puede actualizar la lista de capturas realizadas.")
+            end
+        
             mc:camsound_plip()
 
             print()
-            print(" Proyecto: ["..p.settings.regnum.."]")
+            print(" Proyecto: ["..p.settings.regnum.."]" )
+            if counter_min and counter_max then
+                printf(" Capturas realizadas: "
+                    ..string.format("%04d", counter_min[defaults.even_name])
+                    .."-"
+                    ..string.format("%04d", counter_min[defaults.odd_name])
+                    )
+                if counter_min[defaults.even_name] ~= counter_max[defaults.even_name] then
+                    print(" a "
+                    ..string.format("%04d", counter_max[defaults.even_name])
+                    .."-"
+                    ..string.format("%04d", counter_max[defaults.odd_name])
+                    )
+                end
+            end
             print()
             margin = math.floor( ( 76 - string.len(string.sub(p.settings.title, 0, 50)) ) / 2 )
             print( string.rep("=", margin).." "..string.sub(p.settings.title, 0, 50).." "..string.rep("=", margin))
