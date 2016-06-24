@@ -65,6 +65,7 @@ local defaults={
     raw_name = "raw",
     proc_name = "pre", -- processed
     doc_name = "done", -- destino final (pdf, epub, djvu, etc.)
+    test_name = 'test',
     img_match = "%.JPG$", -- lua exp to match with images in the camera
     folder_match = "^%d", -- lua exp to match with camera folders (las que empiezan con un numero)
     capt_pre = "IMG_",
@@ -73,10 +74,11 @@ local defaults={
     rotate_odd = '-90',
     rotate_even = '90',
     tempfolder_name = '.tmp',
-    thumbfolder_name = '.previews'
+    thumbfolder_name = '.previews',
+    test_high_name = '_high',
+    test_low_name = '_low'
     -- regnum = '',
 }
-
 
 defaults.dc_config_path = nil -- main(DIYCLICK_HOME)
 
@@ -369,6 +371,99 @@ function mc:refocus_cam_all()
     end
 end
 
+function get_caminfo(lcon, option)
+
+    if not lcon:is_connected() then return false end
+
+    if option == "focus" then
+        command = 'return dc_focus_info()'
+    else
+        return nil
+    end
+    
+    --
+    
+    local out
+
+    local status, info, err = lcon:execwait(command,{libs={'dalclick_utils'}})
+
+    if not status then
+        err = info
+        return false, err
+    elseif type(info) ~= 'string' then
+        return false, "return data error or no data!"
+    else
+        local info_to_table = {}
+        for key, data in pairs(util.string_split(info,"\n")) do
+            -- print(key, data)
+            local v = util.string_split(data, "\t")
+            if type(v) == 'table' then
+                if v[1] ~= nil then
+                    if v[2] == nil then
+                        v[2] = key
+                    end
+                    info_to_table[v[2]] = { value=v[1], item_name=v[3], desc=v[4]}
+                    -- [1] valor, [2] key, [3] key item, [4] info
+                end
+            else
+                info_to_table[key] = { value=data }
+            end
+        end
+        return true, info_to_table
+    end
+end
+
+function mc:print_caminfo(option)
+
+    if not option then return end
+    
+    for i,lcon in ipairs(self.cams) do
+        local status, val = get_caminfo(lcon, option)
+        if status then
+            print(" ["..i.."] "..option.." info:")
+            for k,v in pairs(val) do
+                local value = v.value or ""
+                local key = k or ""
+                local item_name = v.item_name or ""
+                local desc = v.desc or ""
+                if desc ~= "" then
+                    if desc:sub(1,1) == "&" then
+                        value = value.." "..desc:sub(2)
+                    else
+                        local desc_items = util.string_split(desc, ",")
+                        for n,desc_item in pairs(desc_items) do
+                            local desc_item_table = util.string_split(desc_item, "|")
+                            local ref_value = desc_item_table[1] or ""
+                            local description = desc_item_table[2] or ""
+                            if ref_value:sub(1,1) == ">" then
+                                if tonumber(value) ~= nil and tonumber(ref_value:sub(2)) ~= nil then
+                                    if tonumber(value) > tonumber(ref_value:sub(2)) then
+                                        value = description
+                                    end
+                                end
+                            end
+                            if ref_value:sub(1,1) == "<" then
+                                if tonumber(value) ~= nil and tonumber(ref_value:sub(2)) ~= nil then
+                                    if tonumber(value) < tonumber(ref_value:sub(2)) then
+                                        value = description
+                                    end
+                                end
+                            end
+                            if ref_value:sub(1,1) ~= "<" and ref_value:sub(1,1) ~= "<" then
+                                if value == ref_value then
+                                    value = description
+                                end
+                            end
+                        end
+                    end
+                end
+                print("     "..item_name..": "..value)
+            end
+        else
+            print("     --")
+        end
+    end
+end
 
 function mc:connect_all()
     local connect_fail = false
@@ -780,7 +875,7 @@ function mc:check_sdcams_options()
         end
     end
     
-    print(" OK")
+    -- print(" OK")
     return true
 end
 
@@ -825,7 +920,7 @@ function mc:rotate_and_resize_all()
           .." --thumbnail ".."0.125"
           .." -o "..thumbpath.."/"..saved_file.basename
           .." > /dev/null 2>&1"
-        print(" ["..idname.."] enviando comando (rotar + crear vista previa de '"..saved_file.basename.."') a la cola de acciones.") 
+        print(" ["..idname.."] enviando de comando de procesamiento a la cola de acciones ("..saved_file.basename..").") 
         if not os.execute(p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"') then
             print(" error: falló: "..p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"')
             rotate_fail = true
@@ -940,7 +1035,7 @@ function mc:capt_all(mode)
                     p:counter_next()
                 end
                 if p:save_state() then
-                    print("OK")
+                    -- print(" Guardando estado actual del proyecto .. OK")
                     --print("DEBUG p.state.counter:\n"..util.serialize(p.state.counter))
                     --print("DEBUG p.state.zoom_pos:\n"..util.serialize(p.state.zoom_pos))
                     -- mc:rotate_all( saved_files )
@@ -967,6 +1062,76 @@ function mc:capt_all(mode)
         print("error de lectura: no se pudieron guardar las variables de estado en el disco (2)")
         return false
     end
+end
+
+function mc:capt_all_test_and_preview() -- zzzz
+
+    if p:load_state() then
+
+        local shoot_fail, break_main_loop, saved_files = mc:shoot_and_download_all('test')
+        if not shoot_fail then
+            -- rotar y resize a test_paths test_preview_high.jpg test_preview_low.jpg
+            if type(saved_files) ~= 'table' then
+                print(" ERROR al intentar realizar la vista previa")
+                return true
+            end
+            -- process captured test
+            local command_fail = false
+            local command_paths = {}
+            local previews = {}
+            for idname, saved_file in pairs(saved_files) do
+                command_paths[idname] = {
+                    src_path  =
+                        p.settings.path_test[idname]
+                        .."/"..saved_file.basename_without_ext..".jpg",
+                    high_path =  
+                        p.settings.path_test[idname]
+                        .."/"..saved_file.basename_without_ext..defaults.test_high_name..".jpg",
+                    low_path  =
+                        p.settings.path_test[idname]
+                        .."/"..saved_file.basename_without_ext..defaults.test_low_name..".jpg"
+                }
+                local command = 
+                    "econvert"
+                  .." -i "..command_paths[idname].src_path
+                  .." --rotate "..p.state.rotate[idname]
+                  .." -o "..command_paths[idname].high_path
+                  .." --thumbnail ".."0.125"
+                  .." -o "..command_paths[idname].low_path
+                  .." > /dev/null 2>&1"
+
+                print(" Procesando test '"..saved_file.basename_without_ext.."'")
+                if not os.execute(command) then
+                    print(" error: falló: "..command..'"')
+                    command_fail = true
+                else
+                    previews[idname] = command_paths[idname].low_path
+                end
+            end
+            -- show preview
+            
+            if not command_fail then
+                -- preview
+                p:show_capts(previews)
+            end
+            -- remove test paths if any
+            for idname, paths in pairs(command_paths) do
+                dcutls.localfs:delete_file(paths.src_path)
+                dcutls.localfs:delete_file(paths.high_path)
+                dcutls.localfs:delete_file(paths.low_path)
+            end      
+        else
+            print("se produjeron errores en la captura en alguna de las cámaras")
+            if break_main_loop then
+                return false
+            end
+        end
+    else
+        print("error de lectura: no se pudieron guardar las variables de estado en el disco (2)")
+        return false
+    end
+    
+    return true
 end
 
 function mc:shoot_and_download_all(mode)
@@ -999,7 +1164,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
     end
     --
     for i,lcon in ipairs(self.cams) do
-        print(" ["..i.."] obteniendo nombre de captura... ")
+        printf(" ["..i.."] obteniendo nombre de captura... ")
         status, lastdir, lastcapt, err = lcon:execwait([[
     dir = os.listdir("A/DCIM")
     sleep(100)
@@ -1039,7 +1204,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
     return lastdir, lastcapt
     ]]    )
         if lastdir and lastcapt then
-            print("      * A/DCIM/"..lastdir.."/"..lastcapt)
+            print(" A/DCIM/"..lastdir.."/"..lastcapt)
             lcon.remote_path = "A/DCIM/"..lastdir.."/"..lastcapt
             if p.state.saved_files then
                 local prev_capt = p.state.saved_files[lcon.idname]
@@ -1067,15 +1232,26 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
     --
     sys.sleep(300)
     --
+   
     local download_fail = false
     local saved_files = {}
     for i,lcon in ipairs(self.cams) do
         --
-        local local_path = p.dalclick.root_project_path..
-                            "/"..p.settings.regnum..
-                            "/"..p.dalclick.raw_name..
-                            "/"..lcon.idname.."/"
-        local file_name
+        local local_path, file_name_we, file_name
+        file_name_we = string.format("%04d", p.state.counter[lcon.idname])
+        file_name = file_name_we..".".."jpg"
+        
+        if mode == 'test' then -- yyyy
+            local_path = p.dalclick.root_project_path..
+                        "/"..p.settings.regnum.. 
+                        "/"..p.dalclick.test_name..
+                        "/"..lcon.idname.."/"
+        else
+            local_path = p.dalclick.root_project_path..
+                        "/"..p.settings.regnum..
+                        "/"..p.dalclick.raw_name..
+                        "/"..lcon.idname.."/"            
+        end
         --
         if not dcutls.localfs:file_exists( local_path..defaults.tempfolder_name ) then
             if not dcutls.localfs:create_folder( local_path..defaults.tempfolder_name ) then
@@ -1083,22 +1259,19 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
             end
         end
         --
-        if mode == 'test' then
-            file_name = "test.jpg"
-        else
-            file_name = string.format("%04d", p.state.counter[lcon.idname])..".".."jpg"
-        end
+        printf(" ["..i.."] descargando... '"..lcon.remote_path.."' -> '"..file_name.."' ..")
         --
-        print(" ["..i.."] descargando... "..lcon.remote_path.." -> "..file_name)
         local results,err = lcon:download(lcon.remote_path, local_path..defaults.tempfolder_name.."/"..file_name)
+        --
         if results and dcutls.localfs:file_exists(local_path..defaults.tempfolder_name.."/"..file_name) then
             saved_files[lcon.idname] = {
                 path = local_path..file_name,
                 basepath = local_path,
                 basename = file_name,
+                basename_without_ext = file_name_we,
                 remote_path = lcon.remote_path,
             }
-            print("     OK")
+            print("OK")
         else
             download_fail = true
             break
@@ -1110,34 +1283,36 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
         if lcon.remote_path ~= "" and lcon.remote_path ~= nil then
             local status, err = lcon:execwait('os.stat("'..lcon.remote_path..'")')
             if status ~= nil then
-                print(" ["..i.."] borrando de la cámara: '"..lcon.remote_path.."'")
+                printf(" ["..i.."] borrando de la cámara: '"..lcon.remote_path.."' ..")
                 local status, err = lcon:execwait('os.remove("'..lcon.remote_path..'")')
                 if status ~= nil then
-                    print("     OK")
+                    print("OK")
                 else
                     print("     ATENCION: no se pudo borrar: '"..lcon.remote_path.."'")
                 end
             else
-                print(" ATENCION: '"..lcon.remote_path.. "' no existe")
+                print("     ATENCION: '"..lcon.remote_path.. "' no existe")
             end
         end
     end
     --
     if download_fail then
-        -- remove all captures from temporal folder
+        -- remove captures from temporal folder if any
         for idname, saved_file in pairs(saved_files) do
-            if saved_file.basepath ~= nil then
-                local tmppath = saved_file.basepath..defaults.tempfolder_name.."/"..saved_file.basename
-                if dcutls.localfs:delete_file(tmppath) then
-                    print(" eliminando descarga carpeta temporal..OK")
-                else
-                    print(" ATENCION: no se pudo eliminar '"..tmppath.."'")
+            if type(saved_file) == 'table' then
+                if saved_file.basepath ~= nil then -- quiza esta sea redundante
+                    local tmppath = saved_file.basepath..defaults.tempfolder_name.."/"..saved_file.basename
+                    if dcutls.localfs:delete_file(tmppath) then
+                        print(" eliminando descarga carpeta temporal..OK")
+                    else
+                        print(" ATENCION: no se pudo eliminar '"..tmppath.."'")
+                    end
                 end
             end
         end
         return true, false -- capture is not performed but main_loop can continue
     else
-        -- move from temporal folder to permanent raw folder
+        -- move from temporal folder to permanent raw folder and update project state
         for idname, saved_file in pairs(saved_files) do
             if saved_file.basepath ~= nil then
                 local tmppath = saved_file.basepath..defaults.tempfolder_name.."/"..saved_file.basename
@@ -1150,9 +1325,13 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
                     return true, true
                 end
             end
-        end        
-        p.state.saved_files = saved_files
-        return false, false
+        end
+        if mode == 'test' then
+            return false,false, saved_files
+        else
+            p.state.saved_files = saved_files
+            return false, false
+        end
     end
     --
 end
@@ -1280,13 +1459,16 @@ local function start_options(mode)
                 print(); print(" Seleccionó: Crear Nuevo Proyecto...")
                 local regnum, title = p:get_project_newname()
                 if regnum ~= nil then
+                    if not p:init(defaults) then
+                        return false
+                    end
                     if p:create( regnum, title ) then
                         break
                     end
                 end
             elseif key == "o" then
                 print(); print(" Seleccionó: Abrir Proyecto...")
-                if p:open() then
+                if p:open(defaults) then
                     break
                 end
             end
@@ -1349,7 +1531,7 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
     -- el objetivo de este bloque es que las camaras esten apagadas y se enciendan ahora
     if not mc:connect_all() then
         print(" Por favor, encienda las cámaras.\n")
-        io.write(" luego presione <enter>")
+        printf(" luego presione <enter>")
         local key = io.stdin:read'*l'
         if key == "" then
             print(" o/")
@@ -1479,7 +1661,8 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                 end
             elseif key == "t" then
                 print("captura de test a test.jpg...")
-                if mc:capt_all('test') then
+                if mc:capt_all_test_and_preview() then
+                -- if mc:capt_all('test') then
                     sys.sleep(500)
                 else
                     exit = true
@@ -1505,6 +1688,11 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                 else
                     loopmsg = "alguna de las cámaras no pudo reenfocar, por favor apáguelas y reinicie el programa\n"..info
                 end
+            elseif key == "ff" then
+                mc:print_caminfo('focus')
+                print()
+                print(" Presione <enter> para continuar...")
+                local key = io.stdin:read'*l'
             elseif key == "d" then
                 print("borrando última captura...")
                 remove_last('counter_prev')
@@ -1609,15 +1797,21 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                 end
             elseif key == "o" then
                 local status
-                print(); status = p:open(); print()
+                print(); status = p:open(defaults); print()
                 sys.sleep(2000) -- pausa para dejar ver los mensajes
-                if status then
+                if status == true then
                     if init_cams_or_retry() then
                        mc:init_daemons()
                     else
                        exit = true
                        break
                     end
+                elseif status == false then
+                    print(" saliendo...")
+                    sys.sleep(3000)
+                    exit = true
+                    break
+                -- con status == nil continua (significa que el usuario cancelo la operacion)
                 end
             elseif key == "w" then
                 p:write()
@@ -1876,26 +2070,52 @@ function dc_refocus()
 end
 
 function dc_focus_info()
-    sleep(200)
-    focus_info = {}
-    focus_info.focus_state = get_focus_state() -- 0 = OK
+
+    out = tostring(get_focus_state())
+        .."\t".."get_focus_state"
+        .."\t".."Focus state"
+        .."\t"..">0|focus successful,0|not successful,<0|MF (manual focus)"
+        .."\n"
     sleep(100)
-    focus_info.focus = get_focus() -- val
+    out = out..tostring(get_focus())
+        .."\t".."get_focus"
+        .."\t".."Focus"
+        .."\t".."&mm"
+        .."\n"
     sleep(100)
-    focus_info.focus_mode = get_focus_mode() -- 0=auto, 1=MF, 3=inf., 4=macro, 5=supermacro 
+    out = out..tostring(get_focus_mode())
+        .."\t".."get_focus_mode"
+        .."\t".."Focus mode"
+        .."\t".."0|auto,1|MF (manual Focus),3|infinite,4|macro,5|supermacro"
+        .."\n"
     sleep(100)
-    focus_info.IS_mode = get_IS_mode() -- 0,1,2,3 = continous, shoot only, panning, off 
+    out = out..tostring(get_IS_mode())
+        .."\t".."get_IS_mode"
+        .."\t".."IS mode"
+        .."\t".."0|continous,2|shoot only,3|panning,4|off "     -- newer cams
+--        .."\t".."0|continous,1|shoot only,2|panning,3|off "   -- older cams
+        .."\n"
     sleep(100)
+    out = out..tostring(get_sd_over_modes())
+        .."\t".."get_sd_over_modes"
+        .."\t".."SD over modes"
+        .."\t".."0x01|AutoFocus,0x02|AFL,0x04|MF (manual focus)"
+
+    sleep(100)
+    -- get_dofinfo()
 --
-    sleep(1000)
-    play_sound(4); sleep(150); play_sound(4); sleep(150); play_sound(4)
-    sleep(200) 
+    play_sound(4)
+    sleep(100) 
 --
-    return focus_info
+    return out
 end
 ]],
     })
 end
+
+
+
+
 
 init()
 

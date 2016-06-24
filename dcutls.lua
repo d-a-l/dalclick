@@ -70,7 +70,7 @@ function dcutls.localfs:create_folder(path)
             print("  '"..path.."' creado con éxito")
             return true
         else
-            print("  error: '"..path.."' no puedo ser creado")
+            print("  error: '"..path.."' no pudo ser creado")
             return false
         end
     else

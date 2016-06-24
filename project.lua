@@ -23,6 +23,11 @@ function project:init(globalconf)
         odd = nil,
         all = nil,
     }
+    self.settings.path_test = {
+        even = nil,
+        odd = nil,
+        all = nil,
+    }
     self.settings.title = nil
     self.settings.out_img_format = 'dng'
     self.settings.ref_cam = "even"
@@ -100,7 +105,10 @@ function project:write()
     end
 end
 
-function project:open()
+function project:open(defaults)
+    -- return true: proyecto abierto exitosamente
+    -- return nil: se cancelo la operacion o la seleccion no es valida -> continua el proyecto anterior
+    -- return false: no se pudo abrir el proyecto o contiene errores -> salir de dalclick o dar opcion de volver a abrior o crear
     -- 
     require( "iuplua" )
     local regnum_dir, status, load_dir_error, a
@@ -142,12 +150,15 @@ function project:open()
 
     if load_dir_error then
         print(" [Abrir proyecto] Error: no se pudo seleccionar una carpeta de proyecto válida.")
-        return false
+        return nil
     end
 
     -- All ok, load project
     
     if dcutls.localfs:file_exists(regnum_dir.."/.dc_settings") then
+        if not p:init(defaults) then
+            return false
+        end
         if self:load(regnum_dir.."/.dc_settings") then
             print(" [Abrir proyecto] Proyecto cargado con éxito desde '"..regnum_dir.."'." )
             -- guardar referencia al proyecto cargado como "running project"
@@ -164,7 +175,7 @@ function project:open()
         end
     else
             print(" [Abrir proyecto] La carpeta seleccionada no contiene un proyecto DALclick.")
-            return false
+            return nil
     end
 end
 
@@ -215,13 +226,17 @@ function project:create( regnum, title )
     if self.settings.regnum then
         local settings_path = self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_settings"
 
-        self.settings.path_raw.odd = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.raw_name.."/"..self.dalclick.odd_name
+        self.settings.path_raw.odd  = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.raw_name.."/"..self.dalclick.odd_name
         self.settings.path_raw.even = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.raw_name.."/"..self.dalclick.even_name
-        self.settings.path_raw.all = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.raw_name.."/"..self.dalclick.all_name
+        self.settings.path_raw.all  = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.raw_name.."/"..self.dalclick.all_name
 
-        self.settings.path_proc.odd = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.proc_name.."/"..self.dalclick.odd_name
+        self.settings.path_proc.odd  = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.proc_name.."/"..self.dalclick.odd_name
         self.settings.path_proc.even = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.proc_name.."/"..self.dalclick.even_name
-        self.settings.path_proc.all = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.proc_name.."/"..self.dalclick.all_name
+        self.settings.path_proc.all  = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.proc_name.."/"..self.dalclick.all_name
+
+        self.settings.path_test.odd  = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.test_name.."/"..self.dalclick.odd_name
+        self.settings.path_test.even = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.test_name.."/"..self.dalclick.even_name
+        self.settings.path_test.all  = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.test_name.."/"..self.dalclick.all_name
 
         -- serialize table to save
         local content = util.serialize(self.settings)
@@ -289,11 +304,11 @@ function project:print_self_p()
 end
 
 function project:load(settings_path)
-
+    -- es necesario hacer un init(defaults) antes de cargar un proyecto con :load
     if dcutls.localfs:file_exists(settings_path) then
         local content = dcutls.localfs:read_file(settings_path)
         if content then
-            -- print("restore: "..content)
+        
             self.settings = util.unserialize(content)
             print("\n Datos del proyecto cargado:\n")
             print(" = ID:     "..self.settings.regnum)
@@ -305,9 +320,17 @@ function project:load(settings_path)
                 print("  "..settings_path)
                 print("  "..self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_settings")
                 print()
+                return false
             end
             local status = self:load_state()
             if status then
+                -- para compatibiliada con proyectos anteriores
+                self:check_project_test_paths()
+                --
+                if self:check_project_paths() == false then
+                    print(" ERROR: las rutas indicadas en la configuracion del proyecto no son validas")
+                    return false
+                end
                 local idname, count
                 for idname, count in pairs(self.state.counter) do
                     if idname == 'odd' then
@@ -358,6 +381,100 @@ function project:load(settings_path)
     end
 end
 
+
+function project:check_project_test_paths() 
+
+    local test_folder_path = self.dalclick.root_project_path
+        .."/"..self.settings.regnum
+        .."/"..self.dalclick.test_name
+                       
+    if self.settings.path_test == nil or self.settings.path_test.even == nil then
+        self.settings.path_test = {}
+        self.settings.path_test.even = test_folder_path.."/"..self.dalclick.even_name
+        self.settings.path_test.odd  = test_folder_path.."/"..self.dalclick.odd_name
+        self.settings.path_test.all  = test_folder_path.."/"..self.dalclick.all_name
+    end
+
+    if not dcutls.localfs:file_exists( test_folder_path ) then
+        if not dcutls.localfs:create_folder( test_folder_path ) then
+            return false
+        end
+    end
+
+    for idname, path in pairs(self.settings.path_test) do
+        if not dcutls.localfs:file_exists( path ) then
+            if not dcutls.localfs:create_folder( path ) then
+                return false
+            end
+        end
+    end
+end
+
+function project:fix_paths(paths, pattern, rootpath)
+   local fixed = {}
+   local there_are_fixed_paths = false
+   for idname,path in pairs(paths) do
+        local rootpath_to_check = path:match("^(.+)/"..pattern.."/.+$")
+        if rootpath_to_check ~= rootpath then
+            there_are_fixed_paths = true
+            print(" ATENCION: las rutas cargadas de la configuración del proyecto no coinciden\n con su ubicación actual")
+            print(" Reemplazando '"..path.."'")
+            local relpath = path:match("^.+("..pattern..".+)$")
+            fixed[idname] = rootpath.."/"..relpath
+        end
+    end
+    if there_are_fixed_paths then
+        return fixed
+    else
+        return false
+    end
+end
+    
+function project:check_project_paths() 
+
+    fixed = self:fix_paths(
+                self.settings.path_proc, 
+                self.settings.regnum.."/"..self.dalclick.proc_name, 
+                self.dalclick.root_project_path)
+    if fixed then
+        print(" NOTA: Es probable que se hayan cambiado la ruta base donde guardan los proyectos.")
+        print()
+        self.settings.path_proc = fixed
+    end
+
+    fixed = self:fix_paths(
+                self.settings.path_raw,
+                self.settings.regnum.."/"..self.dalclick.raw_name, 
+                self.dalclick.root_project_path)
+    if fixed then
+        print(" NOTA: Es probable que se hayan cambiado la ruta base donde guardan los proyectos.")
+        print()
+        self.settings.path_raw = fixed
+    end
+
+    fixed = self:fix_paths(
+                self.settings.path_test,
+                self.settings.regnum.."/"..self.dalclick.test_name, 
+                self.dalclick.root_project_path)
+    if fixed then
+        print(" NOTA: Es probable que se hayan cambiado la ruta base donde guardan los proyectos.")
+        print()
+        self.settings.path_test = fixed
+    end    
+   
+    -- check state paths
+    local check = string.match(
+        self.state.saved_files.even.basepath,
+        "^(.+)/"..self.settings.regnum.."/"..self.dalclick.raw_name.."/.+$"
+        )
+    if check == nil then
+        print(" ATENCION: las rutas cargadas de la configuración del proyecto no coinciden\n con su ubicación actual")
+        self.state.saved_files = nil
+    end
+    
+    return true
+end
+
 function project.mkdir_tree(g,s)
 
     if not dcutls.localfs:file_exists(g.root_project_path.."/"..s.regnum) then
@@ -366,12 +483,16 @@ function project.mkdir_tree(g,s)
         dcutls.localfs:create_folder( g.root_project_path.."/"..s.regnum.."/"..g.raw_name)
         dcutls.localfs:create_folder( g.root_project_path.."/"..s.regnum.."/"..g.proc_name)
         dcutls.localfs:create_folder( g.root_project_path.."/"..s.regnum.."/"..g.doc_name)
+        dcutls.localfs:create_folder( g.root_project_path.."/"..s.regnum.."/"..g.test_name)
         dcutls.localfs:create_folder( s.path_raw.odd )
         dcutls.localfs:create_folder( s.path_raw.even )
         dcutls.localfs:create_folder( s.path_raw.all )
         dcutls.localfs:create_folder( s.path_proc.odd )
         dcutls.localfs:create_folder( s.path_proc.even )
         dcutls.localfs:create_folder( s.path_proc.all )
+        dcutls.localfs:create_folder( s.path_test.odd )
+        dcutls.localfs:create_folder( s.path_test.even )
+        dcutls.localfs:create_folder( s.path_test.all )
         return true
     else
         print("warn: '"..g.root_project_path.."/"..s.regnum.."' ya existe\n")
