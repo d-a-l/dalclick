@@ -151,10 +151,11 @@ function focus_info_cam(lcon)
 end
 
 function refocus_cam(lcon)
-    local status, err = lcon:execwait('return dc_refocus()',{libs={'dalclick_utils'}})
+    local status, var = lcon:execwait('return dc_refocus("'..'     '..'")',{libs={'dalclick_utils'}})
     if status then
-        return true
+        return true, var
     else
+        local err = var
         return status, err
     end
 end
@@ -340,20 +341,129 @@ function mc:set_zoom_other()
     return false
 end
 
+function get_cam_info(lcon, option)
+       
+    if not lcon:is_connected() then return false end
 
+    if option == "focus" then
+        command = 'return dc_focus_info()'
+    else
+        return nil
+    end
+    -- -- --
+    local status, data = lcon:execwait(command,{libs={'dalclick_utils','serialize'}})
+    -- -- --
+    if not status then
+        err = data
+        return false, err
+    elseif type(data) ~= 'string' then
+        return false, "return data error or no data!"
+    else
+        return true, data
+    end
+
+end
+
+function show_cam_info(data, depth, item)
+
+    local depth = depth or 0
+    local tab = string.rep(" ", depth * 5)
+
+    if type(data) ~= 'table' then
+        print(" -WTF?- ")
+        return
+    end
+    
+    for i,k in ipairs(data) do
+        if type(k) == 'table' then
+            -- recursion
+            show_cam_info(k, depth + 1, i)
+        else
+            print(tab..tostring(k))
+        end
+    end
+    
+    local value_descriptor = ""
+    if data.value then
+        if type(data.desc) == 'table' then
+            for i,k in ipairs(data.desc) do
+                local compare_val = k[1]
+                local opp = k[2]
+                local description = k[3]
+                if data.value ~= nil and type(data.value) == type(compare_val) then
+                    if opp == "=" then
+                        if data.value == compare_val then
+                            value_descriptor = value_descriptor..tostring(description).." "
+                        end
+                    elseif opp == "<" then
+                        if data.value < compare_val then
+                            value_descriptor = value_descriptor..tostring(description).." "
+                        end
+                    elseif opp == ">" then
+                        if data.value > compare_val then
+                            value_descriptor = value_descriptor..tostring(description).." "
+                        end
+                    end
+                end
+            end    
+        end
+
+        data.funcn = data.funcn or item
+        data.label = data.label or data.funcn
+        data.units = data.units or ""
+        --
+        if value_descriptor ~= "" then
+            print (tab..tostring(data.label)..": "..value_descriptor.." ("..tostring(data.value)..")")
+        else
+            print (tab..tostring(data.label)..": "..tostring(data.value)..tostring(data.units))
+        end
+        if data.help then
+            print (tab..tostring(data.help))
+        end
+    end 
+end
+
+function mc:get_cam_info(option)
+    if option == nil then
+        print(" ERROR: mc:get_cam_info() no option param")
+        return false
+    end
+    
+    for i,lcon in ipairs(self.cams) do
+        local status, data = get_cam_info(lcon, option)
+        if status then
+            print(" ["..i.."] Show cam info ("..option..")")
+            local arr_data = util.unserialize(data)
+            if type(arr_data) ~= 'table' then
+                print(" "..tostring(arr_data))
+            else
+                show_cam_info(arr_data, 0, option)
+            end
+        else
+            local err = data
+            print(" ["..i.."] ERROR! mensaje recibido desde la cámara:")
+            print(" "..tostring(err))
+        end 
+        print()
+    end
+    return true
+end
 
 function mc:refocus_cam_all()
-    print("refocus all cams...")
+    -- print("refocus all cams...")
     local refocus_fail = false
     local info = ""
     for i,lcon in ipairs(self.cams) do
         -- local status, focus_info, err = refocus_cam(lcon)
-        local status, err = refocus_cam(lcon)
+        local status, var = refocus_cam(lcon)
         if not status then
+            local err = var
             -- print("status: "..tostring(status)..", focus_info: "..tostring(focus_info)..", err: "..tostring(err))
             print("status: "..tostring(status)..", err: "..tostring(err))
             refocus_fail = true
         else
+            print(" ["..i.."] Refocus script log:")
+            print(var)
             -- if focus_info then
             --    if type(focus_info) == 'table' then
             --        info = info.." ["..i.."] focus info:\n"..util.serialize(focus_info).."\n"
@@ -367,101 +477,11 @@ function mc:refocus_cam_all()
     if refocus_fail then
         return false, info
     else
+        self:get_cam_info('focus')
+        print()
+        print(" Presione <enter> para continuar...")
+        local key = io.stdin:read'*l'
         return true, info        
-    end
-end
-
-function get_caminfo(lcon, option)
-
-    if not lcon:is_connected() then return false end
-
-    if option == "focus" then
-        command = 'return dc_focus_info()'
-    else
-        return nil
-    end
-    
-    --
-    
-    local out
-
-    local status, info, err = lcon:execwait(command,{libs={'dalclick_utils'}})
-
-    if not status then
-        err = info
-        return false, err
-    elseif type(info) ~= 'string' then
-        return false, "return data error or no data!"
-    else
-        local info_to_table = {}
-        for key, data in pairs(util.string_split(info,"\n")) do
-            -- print(key, data)
-            local v = util.string_split(data, "\t")
-            if type(v) == 'table' then
-                if v[1] ~= nil then
-                    if v[2] == nil then
-                        v[2] = key
-                    end
-                    info_to_table[v[2]] = { value=v[1], item_name=v[3], desc=v[4]}
-                    -- [1] valor, [2] key, [3] key item, [4] info
-                end
-            else
-                info_to_table[key] = { value=data }
-            end
-        end
-        return true, info_to_table
-    end
-end
-
-function mc:print_caminfo(option)
-
-    if not option then return end
-    
-    for i,lcon in ipairs(self.cams) do
-        local status, val = get_caminfo(lcon, option)
-        if status then
-            print(" ["..i.."] "..option.." info:")
-            for k,v in pairs(val) do
-                local value = v.value or ""
-                local key = k or ""
-                local item_name = v.item_name or ""
-                local desc = v.desc or ""
-                if desc ~= "" then
-                    if desc:sub(1,1) == "&" then
-                        value = value.." "..desc:sub(2)
-                    else
-                        local desc_items = util.string_split(desc, ",")
-                        for n,desc_item in pairs(desc_items) do
-                            local desc_item_table = util.string_split(desc_item, "|")
-                            local ref_value = desc_item_table[1] or ""
-                            local description = desc_item_table[2] or ""
-                            if ref_value:sub(1,1) == ">" then
-                                if tonumber(value) ~= nil and tonumber(ref_value:sub(2)) ~= nil then
-                                    if tonumber(value) > tonumber(ref_value:sub(2)) then
-                                        value = description
-                                    end
-                                end
-                            end
-                            if ref_value:sub(1,1) == "<" then
-                                if tonumber(value) ~= nil and tonumber(ref_value:sub(2)) ~= nil then
-                                    if tonumber(value) < tonumber(ref_value:sub(2)) then
-                                        value = description
-                                    end
-                                end
-                            end
-                            if ref_value:sub(1,1) ~= "<" and ref_value:sub(1,1) ~= "<" then
-                                if value == ref_value then
-                                    value = description
-                                end
-                            end
-                        end
-                    end
-                end
-                print("     "..item_name..": "..value)
-            end
-        else
-            print("     --")
-        end
     end
 end
 
@@ -1529,6 +1549,7 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
     print()
     
     -- el objetivo de este bloque es que las camaras esten apagadas y se enciendan ahora
+    local no_init_cam
     if not mc:connect_all() then
         print(" Por favor, encienda las cámaras.\n")
         printf(" luego presione <enter>")
@@ -1543,12 +1564,18 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
         print(" DALclick debe iniciarse con las cámaras apagadas.")
         print(" Por favor apáguelas y luego presione <enter>.")
         print()
-        print(" (Para continuar sin apagar las cámaras: [c] y luego <enter>)")
+        print(" (Para continuar sin apagar: [c] y luego <enter>)")
+        print(" (Para continuar sin apagar ni reiniciar: [cc] y luego <enter>)")
         local key = io.stdin:read'*l'
 
         if key == "" then
             dalclick_loop(false)
-            return false          
+            return false
+        elseif key == "c" then
+            -- continue
+        elseif key == "cc" then
+            no_init_cam = true
+            -- continue
         end   
     end
     
@@ -1557,8 +1584,14 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
         dalclick_loop(false)
         return false
     end
-   
-    local init_st = init_cams_or_retry()
+    
+    local init_st
+    if no_init_cam then
+        print(" Eligió no inicializar las cámaras.")
+        init_st = true
+    else
+        init_st = init_cams_or_retry()
+    end
 
     -- ToDo: el siguiente bloque parece redundante, no deberia poder cargarse un proyecto sin su contador ok
     --[[
@@ -1668,6 +1701,15 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                     exit = true
                     break
                 end
+            elseif key == "tt" then
+                local status, err = mc:testthis()
+                if status then
+                    sys.sleep(500)
+                else
+                    print("ERROR!")
+                    print(err)
+                end
+                local key = io.stdin:read'*l'
             elseif key == "m" then
                 if p.settings.mode == 'secure' then
                     p.settings.mode = 'normal'
@@ -1681,7 +1723,8 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                 end
 
             elseif key == "f" then
-                print("refocus...")
+                print(" refocus...")
+                print()
                 local status, info = mc:refocus_cam_all()
                 if status then
                     loopmsg = info
@@ -1689,7 +1732,7 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                     loopmsg = "alguna de las cámaras no pudo reenfocar, por favor apáguelas y reinicie el programa\n"..info
                 end
             elseif key == "ff" then
-                mc:print_caminfo('focus')
+                mc:get_cam_info('focus')
                 print()
                 print(" Presione <enter> para continuar...")
                 local key = io.stdin:read'*l'
@@ -2045,70 +2088,128 @@ function dc_set_mode(opts)
     end
 end
 
-function dc_refocus()
-    sleep(200)
-    set_aflock(0)
+function dc_refocus(tab)
+    local out = ""
+    local tab = tab or ""
+    local msg, focus_state
+    local focus_init_sleep = 100
+    
+    sleep(150)
+    set_aflock(0) 
     sleep(500)
+    
+    print('enfocando:')
     press('shoot_half')
-    i=0
-    while get_shooting() do
+    sleep(focus_init_sleep)
+        
+    local i=0
+    while not get_shooting() do
         sleep(10)
-        if i > 300 then
+       if i > 300 then
             break
-        end
-        i=i+1
+       end
+       i=i+1
     end
-    sleep(200)
+
+    sleep(150)
     set_aflock(1)
-    sleep(200)
+    sleep(150)
+
     release('shoot_half')
+    sleep(150)
+    
+    focus_state = get_focus_state()
+    print("debug get_focus_state()")
+
+    if focus_state > 0 then
+        msg = "focus_state: ".."focus successful ("..tostring(focus_state)..")"
+        print(msg)
+        out = out..tab..msg.."\n"
+    elseif focus_state == 0 then
+        msg = "focus_state: ".."focus not successful ("..tostring(focus_state)..")"
+        print(msg)
+        out = out..tab..msg.."\n"
+    elseif focus_state < 0 then
+        msg = "focus_state: ".."manual focus ("..tostring(focus_state)..")"
+        print(msg)
+        out = out..tab..msg.."\n"
+    end
+    
+    msg = "tiempo de ejecución: "..tostring(i * 10 + focus_init_sleep).." mseg."
+    print(msg)
+    out = out..tab..msg.."\n"
+
+    msg = "- foco fijado -"
+    print(msg)
+    out = out..tab..msg.."\n"
 --
-    sleep(1000)
-    play_sound(4); sleep(150); play_sound(4); sleep(150); play_sound(4)
-    sleep(200) 
+    if focus_state == 0 then
+        play_sound(6); sleep(200) 
+    else
+        sleep(200)
+        play_sound(4); sleep(150); play_sound(4); sleep(150); play_sound(4)
+        sleep(200) 
+    end
 --
+    return out
+    
+    -- TODO: out a log[1], log[2], log[3] ... y funcion para imprimir log sin necesidad de recibir tab
 end
 
 function dc_focus_info()
 
-    out = tostring(get_focus_state())
-        .."\t".."get_focus_state"
-        .."\t".."Focus state"
-        .."\t"..">0|focus successful,0|not successful,<0|MF (manual focus)"
-        .."\n"
+    local focus_state = { value = get_focus_state() }
+    focus_state.label = "Focus state"
+    focus_state.funcn  = "get_focus_state"
+    focus_state.desc = {
+        { 0, "<", "MF (manual focus)" }, 
+        { 0, "=", "not successful" }, 
+        { 0, ">", "focus successful" }
+    }
     sleep(100)
-    out = out..tostring(get_focus())
-        .."\t".."get_focus"
-        .."\t".."Focus"
-        .."\t".."&mm"
-        .."\n"
+    
+    local focus = { value = get_focus() }
+    focus.units = "mm"
+    focus.label = "Focus"
+    focus.funcn  = "get_focus"
     sleep(100)
-    out = out..tostring(get_focus_mode())
-        .."\t".."get_focus_mode"
-        .."\t".."Focus mode"
-        .."\t".."0|auto,1|MF (manual Focus),3|infinite,4|macro,5|supermacro"
-        .."\n"
-    sleep(100)
-    out = out..tostring(get_IS_mode())
-        .."\t".."get_IS_mode"
-        .."\t".."IS mode"
-        .."\t".."0|continous,2|shoot only,3|panning,4|off "     -- newer cams
---        .."\t".."0|continous,1|shoot only,2|panning,3|off "   -- older cams
-        .."\n"
-    sleep(100)
-    out = out..tostring(get_sd_over_modes())
-        .."\t".."get_sd_over_modes"
-        .."\t".."SD over modes"
-        .."\t".."0x01|AutoFocus,0x02|AFL,0x04|MF (manual focus)"
 
+    local focus_mode = { value = get_focus_mode() }
+    focus_mode.label = "Focus mode"
+    focus_mode.funcn  = "get_focus_mode"
+    focus_mode.desc = {
+        { 0, "=", "Auto" },
+        { 1, "=", "MF - Manual Focus" },
+        { 3, "=", "Infinite" },
+        { 4, "=", "Macro" },
+        { 5, "=", "Supermacro" }
+    }
     sleep(100)
-    -- get_dofinfo()
+
+    local IS_mode = { value = get_IS_mode() }
+    IS_mode.label = "IS mode"
+    IS_mode.funcn  = "get_IS_mode"
+    IS_mode.desc = {
+        { 0, "=", "Continous" },
+        { 2, "=", "Shoot only" },
+        { 3, "=", "Panning" },
+        { 4, "=", "Off" },
+    }
+    -- older cams -> 0 continous, 1 shoot only, 2 panning, 3 off
+    sleep(100)
+
+    local over_modes = { value = get_sd_over_modes() }
+    over_modes.label = "SD over modes"
+    over_modes.funcn  = "get_sd_over_modes"
+    -- TODO comparar bits "0x01|AutoFocus,0x02|AFL,0x04|MF (manual focus)"
 --
     play_sound(4)
     sleep(100) 
---
-    return out
+--    
+    return serialize( {focus, focus_state, focus_mode, IS_mode, over_modes} )
+
 end
+
 ]],
     })
 end

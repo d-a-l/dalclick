@@ -156,7 +156,7 @@ function project:open(defaults)
     -- All ok, load project
     
     if dcutls.localfs:file_exists(regnum_dir.."/.dc_settings") then
-        if not p:init(defaults) then
+        if not self:init(defaults) then
             return false
         end
         if self:load(regnum_dir.."/.dc_settings") then
