@@ -137,19 +137,6 @@ function identify_cam(lcon)
     end
 end
 
-function focus_info_cam(lcon)
-    local status, var1, var2 = lcon:execwait('return dc_refocus()',{libs={'dalclick_utils'}})
-    if status then
-        return status, var1, var2
-    else
-        if var2 then
-            return status, var1, var2
-        else
-            return status, false, var1
-        end
-    end
-end
-
 function refocus_cam(lcon)
     -- -- --
     local status, data = lcon:execwait('return dc_refocus()',{libs={'dalclick_utils','serialize'}})
