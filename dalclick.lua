@@ -151,11 +151,13 @@ function focus_info_cam(lcon)
 end
 
 function refocus_cam(lcon)
-    local status, var = lcon:execwait('return dc_refocus("'..'     '..'")',{libs={'dalclick_utils'}})
+    -- -- --
+    local status, data = lcon:execwait('return dc_refocus()',{libs={'dalclick_utils','serialize'}})
+    -- -- --
     if status then
-        return true, var
+        return true, data
     else
-        local err = var
+        local err = data
         return status, err
     end
 end
@@ -364,7 +366,7 @@ function get_cam_info(lcon, option)
 
 end
 
-function show_cam_info(data, depth, item)
+function print_cam_info(data, depth, item)
 
     local depth = depth or 0
     local tab = string.rep(" ", depth * 5)
@@ -377,7 +379,7 @@ function show_cam_info(data, depth, item)
     for i,k in ipairs(data) do
         if type(k) == 'table' then
             -- recursion
-            show_cam_info(k, depth + 1, i)
+            print_cam_info(k, depth + 1, i)
         else
             print(tab..tostring(k))
         end
@@ -437,7 +439,7 @@ function mc:get_cam_info(option)
             if type(arr_data) ~= 'table' then
                 print(" "..tostring(arr_data))
             else
-                show_cam_info(arr_data, 0, option)
+                print_cam_info(arr_data, 0, option)
             end
         else
             local err = data
@@ -450,35 +452,29 @@ function mc:get_cam_info(option)
 end
 
 function mc:refocus_cam_all()
-    -- print("refocus all cams...")
     local refocus_fail = false
     local info = ""
     for i,lcon in ipairs(self.cams) do
-        -- local status, focus_info, err = refocus_cam(lcon)
-        local status, var = refocus_cam(lcon)
+        local status, data = refocus_cam(lcon)
         if not status then
-            local err = var
-            -- print("status: "..tostring(status)..", focus_info: "..tostring(focus_info)..", err: "..tostring(err))
+            local err = data
             print("status: "..tostring(status)..", err: "..tostring(err))
             refocus_fail = true
         else
             print(" ["..i.."] Refocus script log:")
-            print(var)
-            -- if focus_info then
-            --    if type(focus_info) == 'table' then
-            --        info = info.." ["..i.."] focus info:\n"..util.serialize(focus_info).."\n"
-            --    else
-            --        info = info.." ["..i.."] focus info:\n"..tostring(focus_info).."\n"
-            --    end
-                -- print("["..i.."] focus info:\n"..format_focus_info(focus_info))
-            -- end
+            local arr_data = util.unserialize(data)
+            if type(arr_data) ~= 'table' then
+                print(" "..tostring(arr_data))
+            else
+                print_cam_info(arr_data, 1, '')
+            end
+            print()
         end
     end
     if refocus_fail then
         return false, info
     else
         self:get_cam_info('focus')
-        print()
         print(" Presione <enter> para continuar...")
         local key = io.stdin:read'*l'
         return true, info        
@@ -2088,9 +2084,8 @@ function dc_set_mode(opts)
     end
 end
 
-function dc_refocus(tab)
-    local out = ""
-    local tab = tab or ""
+function dc_refocus()
+    local log = {}
     local msg, focus_state
     local focus_init_sleep = 100
     
@@ -2124,24 +2119,24 @@ function dc_refocus(tab)
     if focus_state > 0 then
         msg = "focus_state: ".."focus successful ("..tostring(focus_state)..")"
         print(msg)
-        out = out..tab..msg.."\n"
+        table.insert(log, msg)
     elseif focus_state == 0 then
         msg = "focus_state: ".."focus not successful ("..tostring(focus_state)..")"
         print(msg)
-        out = out..tab..msg.."\n"
+        table.insert(log, msg)
     elseif focus_state < 0 then
         msg = "focus_state: ".."manual focus ("..tostring(focus_state)..")"
         print(msg)
-        out = out..tab..msg.."\n"
+        table.insert(log, msg)
     end
     
     msg = "tiempo de ejecución: "..tostring(i * 10 + focus_init_sleep).." mseg."
     print(msg)
-    out = out..tab..msg.."\n"
+    table.insert(log, msg)
 
     msg = "- foco fijado -"
     print(msg)
-    out = out..tab..msg.."\n"
+    table.insert(log, msg)
 --
     if focus_state == 0 then
         play_sound(6); sleep(200) 
@@ -2151,7 +2146,7 @@ function dc_refocus(tab)
         sleep(200) 
     end
 --
-    return out
+    return serialize(log)
     
     -- TODO: out a log[1], log[2], log[3] ... y funcion para imprimir log sin necesidad de recibir tab
 end
