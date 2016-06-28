@@ -311,6 +311,7 @@ function project:load(settings_path)
         
             self.settings = util.unserialize(content)
             print("\n Datos del proyecto cargado:\n")
+            print(" ===================================================")
             print(" = ID:     "..self.settings.regnum)
             if self.settings.title ~= "" then print(" = Título: '"..self.settings.title.."'") end
             print()
@@ -369,8 +370,9 @@ function project:load(settings_path)
                 print(" actualizar el estado del contador editando manualmente el")
                 print(" siguiente archivo (luego de inicializar las camaras):\n")
                 print("  "..self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_state")
-                print()
             end
+            print(" ===================================================")
+            print()
             return true
         else
             return false

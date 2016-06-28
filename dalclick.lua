@@ -52,10 +52,10 @@ local rsalt = require('rsalt')
 local p = require('project')
 
 local defaults={
-    qm_sendcmd_path = "/opt/src/dalclick/qm/qm_sendcmd.sh",
-    qm_daemon_path = "/opt/src/dalclick/qm/qm_daemon.sh",
-    empty_thumb_path = "/opt/src/dalclick/empty_g.jpg",
-    empty_thumb_path_error = "/opt/src/dalclick/empty.jpg", --TODO debug!
+    -- qm_sendcmd_path = "/opt/src/dalclick/qm/qm_sendcmd.sh",
+    -- qm_daemon_path = "/opt/src/dalclick/qm/qm_daemon.sh",
+    -- empty_thumb_path = "/opt/src/dalclick/empty_g.jpg",
+    -- empty_thumb_path_error = "/opt/src/dalclick/empty.jpg", --TODO debug!
     root_project_path = nil, -- -- main(DALCLICK_PROJECTS)
     left_cam_id_filename = "LEFT.TXT",
     right_cam_id_filename = "RIGHT.TXT",
@@ -89,31 +89,17 @@ local mc={}
 
 -- ### single cam functions ###
 
-local function switch_mode(lcon,m,wait)
-    if wait then
+local function switch_mode(lcon,mode)
+    if mode == "play" or mode == "rec" then   
         local opts = {
-            mode = m, -- 'play' or 'rec'
-            return_mode = true,
+            to_mode = mode,
+            log_format = "serialized"
         }
-        -- print("switch_mode options: "..serialize(opts))
-        local status, var1, var2 = lcon:execwait('return dc_set_mode('..util.serialize(opts)..')',{libs={'dalclick_utils'}})
-        if status then
-            return status, var1, var2 -- var1=mode var2=err
-        else
-            if var2 then 
-                return status, var1, var2
-            else 
-                return status, false, var1 -- var1=err
-            end
-        end
-    else
-        local opts = {
-            mode = m
-        }
-        local status, err = lcon:exec('dc_set_mode('..util.serialize(opts)..')',{libs={'dalclick_utils'}})
-        return status, false, err
+        local status, data = lcon:execwait('return dc_set_mode('..util.serialize(opts)..')',{libs={'dalclick_utils', 'serialize'}})
+        return status, data
     end
--- TODO cambiar m por mode y false por nil?
+    print(" ERROR: mode: "..tostring(mode))
+    return false
 end
 
 function identify_cam(lcon)
@@ -138,8 +124,11 @@ function identify_cam(lcon)
 end
 
 function refocus_cam(lcon)
+    local opts = {
+        log_format = "serialized"
+    }
     -- -- --
-    local status, data = lcon:execwait('return dc_refocus()',{libs={'dalclick_utils','serialize'}})
+    local status, data = lcon:execwait('return dc_refocus('..util.serialize(opts)..')',{libs={'dalclick_utils','serialize'}})
     -- -- --
     if status then
         return true, data
@@ -168,35 +157,20 @@ local function set_zoom(lcon)
     if type(p.state.zoom_pos) ~= 'number' then
         return false, "error: p.state.zoom_pos is not number!\n"
     end
-    local status, var1, var2, set_zoom_status
     print("  fijando zoom a '"..p.state.zoom_pos.."' en la cámara '"..lcon.idname.."'...")
-    status, var1 = lcon:execwait('return set_zoom('..p.state.zoom_pos..')')
-
-    local delay = 2
-    if p.settings.mode == 'secure' then
-        delay = 6
-    elseif p.settings.mode == 'normal' then
-        delay = 4
-    end
-    print(" esperando "..delay.." s...")
-    for n = 0,delay,1 do
-        sys.sleep(1000)
-        print(".")
-    end
-
+    -- status, var1 = lcon:execwait('return set_zoom('..p.state.zoom_pos..')')
+    local opts = { 
+	    zoom_pos = p.state.zoom_pos,
+	    -- zoom_sleep = 1000
+	    log_format = "serialized"
+    }
+    local status, data = lcon:execwait('return dc_set_zoom('..util.serialize(opts)..')',{libs={'dalclick_utils', 'serialize'}})
+    
     if status then
-        set_zoom_status = "zoom modificado a: "..p.state.zoom_pos.."\n"
-        if var1 then
-            set_zoom_status = set_zoom_status.." "..tostring(var1).."\n" -- hubo errores o algo paso
-        end
-        status, var1 = refocus_cam(lcon)
-        if var1 then
-            return status, set_zoom_status.."\n "..tostring(var1)
-        else
-            return status, set_zoom_status
-        end
+        return true, data
     else
-        return status, var1
+        err = data
+        return status, err
     end
 end
 
@@ -206,15 +180,23 @@ function init_cam(lcon)
     if p.state.zoom_pos ~= nil then
         opts = {
             zoom_pos = p.state.zoom_pos,
+            log_format = 'serialized'
         }
     end
-    sys.sleep(600)
-    local status, err = lcon:connect()
-    -- printf("conectando camara: ")
-    -- print(status, err)
-    sys.sleep(600)
-    local status, err = lcon:execwait('return dc_init_cam_alt('..util.serialize(opts)..')',{libs={'dalclick_identify'}})
-    return status, err
+    if not lcon:is_connected() then
+        print(" Atención: cámara desconectada")
+        printf(" reconectando...")
+        local status, err = lcon:connect()
+        if status then
+            print("OK")
+        else
+            print(' no se pudo conectar ('..'bus: '..tostring(lcon.condev.bus)..', dev: '..tostring(lcon.condev.dev))
+            return false
+        end
+    end
+    sys.sleep(300)
+    local status, var = lcon:execwait('return dc_init_cam_alt('..util.serialize(opts)..')',{libs={'dalclick_utils', 'serialize'}})
+    return status, var            
 end
 
 -- ### multicam functions ###
@@ -275,19 +257,23 @@ function mc:check_errors_all()
     end
 end
     
-function mc:switch_mode_all(mode,wait)
-    print(" set all cams to "..mode.." mode...")
+function mc:switch_mode_all(mode)
     local setmode_fail = false
     for i,lcon in ipairs(self.cams) do
-        local status, return_mode, err = switch_mode(lcon, mode, wait)
-        if not status then
-            printf(" status: %s, return_mode: %s, err: %s, \n", tostring(status), tostring(return_mode), tostring(err))
+        print(" ["..i.."] Poniendo en modo '"..tostring(mode).."'")
+        local status, data = switch_mode(lcon, mode)
+        if status then
+            local arr_data = util.unserialize(data)
+            if type(arr_data) ~= 'table' then
+                print(" "..tostring(arr_data))
+            else
+                print_cam_info(arr_data, 1, '')
+            end
+        else
+            local err = data
+            print(" ERROR: "..tostring(err))
             setmode_fail = true
             break
-        else
-            if return_mode then
-                printf("[%i] this cam is now in '%s' mode\n",i,tostring(return_mode))
-            end
         end
     end
     if setmode_fail then
@@ -317,14 +303,35 @@ end
 
 
 function mc:set_zoom_other()
-       for i,lcon in ipairs(self.cams) do
+    for i,lcon in ipairs(self.cams) do
         if lcon.idename ~= p.settings.ref_cam then
-            if set_zoom(lcon) then
-                return true
+            print(" ["..i.."] fijando zoom")
+            local status, data = set_zoom(lcon)
+            if status then
+                local arr_data = util.unserialize(data)
+                if type(arr_data) ~= 'table' then
+                    print(" "..tostring(arr_data))
+                else
+                    print_cam_info(arr_data, 1, '')
+                end
             else
                 print(" error: no se pudo fijar el zoom en la otra cámara")
                 return false
             end
+            print(" ["..i.."] reenfocando")
+            local status, data = refocus_cam(lcon)
+            if status then
+                local arr_data = util.unserialize(data)
+                if type(arr_data) ~= 'table' then
+                    print(" "..tostring(arr_data))
+                else
+                    print_cam_info(arr_data, 1, '')
+                end
+                return true
+            else
+                print(" error: no se pudo enfocar luego de ajustar el zoom")
+                return false
+            end            
         end
     end
     return false
@@ -336,6 +343,8 @@ function get_cam_info(lcon, option)
 
     if option == "focus" then
         command = 'return dc_focus_info()'
+    elseif option == "expo" then
+        command = 'return dc_expo_info()'
     else
         return nil
     end
@@ -468,6 +477,33 @@ function mc:refocus_cam_all()
     end
 end
 
+function mc:check_cam_connection()
+    if type(self.cams) == 'table' then
+        for i, lcon in ipairs(self.cams) do
+            if lcon:is_connected() then
+                print(" ["..i.."] verificando...OK")
+            else
+                print(" ["..i.."] Atención: cámara desconectada")
+                printf("     reconectando...")
+                local status, err = lcon:connect()
+                if status then
+                    print("OK")
+                else
+                    print(' FALLÓ ('..'bus: '..tostring(lcon.condev.bus)..', dev: '..tostring(lcon.condev.dev))
+                    return false
+                end
+            end
+        end
+        if not next(self.cams) then
+            return nil
+        end
+        print()
+        return true
+    else
+        return false
+    end
+end
+
 function mc:connect_all()
     local connect_fail = false
     local devices = chdk.list_usb_devices()
@@ -498,12 +534,14 @@ function mc:connect_all()
             printf(' %d:%s bus=%s dev=%s sn=%s\n',
                 i,
                 lcon.ptpdev.model,
-                lcon.condev.dev,
                 lcon.condev.bus,
+                lcon.condev.dev,
                 tostring(lcon.ptpdev.serial_number))
             lcon.mc_id = string.format('%d:%s',i,lcon.ptpdev.model)
             lcon.sn = tostring(lcon.ptpdev.serial_number)
+            -- -- --
             table.insert(self.cams,lcon)
+            -- -- --
         end
     end
     print()
@@ -564,15 +602,25 @@ end
 
 function mc:init_cams_all(zoom)
 
-    if not mc:connect_all() then
-        print(" falló el intento de conectarse a las cámaras")
-        return false
+    print(" Verificando conexión cámaras:")
+    local status = self:check_cam_connection()
+    if not status then
+        if status == false then
+            print(" Reiniciar conexión...")
+        else
+            print(" Iniciar conexión...")
+        end
+        if not self:connect_all() then
+            print(" falló el intento de conectarse a las cámaras")
+            return false
+        end
     end
     
     local init_fail = false
     local init_fail_err = ""
     local previous_cam_idname
     local count_cams = 0
+    print(" Identificando cámaras")
     for i,lcon in ipairs(self.cams) do
         count_cams = count_cams + 1
         local status, idname, err = identify_cam(lcon)
@@ -648,10 +696,10 @@ function mc:init_cams_all(zoom)
         end
     end
     if not restore_saved_counter then
-        print(" [contador] se reiniciará:")
+        print(" Contador reiniciado:")
         p.state.counter = {}
     else
-        print(" [contador]:")
+        print(" Contador:")
     end
     for i,lcon in ipairs(self.cams) do
         if restore_saved_counter then
@@ -739,25 +787,24 @@ function mc:init_cams_all(zoom)
         end
     end
     
-    print(" Preparando cámaras:")
     for i,lcon in ipairs(self.cams) do
-        if type(p.state.zoom_pos) == "number" then
-            print(" ["..i.."] poniendo modo 'rec', fijando el zoom a "..p.state.zoom_pos.." y enfocando... ")
+        print(" ["..i.."] preparando cámara:")
+        local status, var = init_cam(lcon)
+        if status then
+            local arr_data = util.unserialize(var)
+            print_cam_info(arr_data, 1, '')
+            print()
         else
-            print(" ["..i.."] poniendo modo 'rec' y enfocando... ")
-        end
-        local status, err = init_cam(lcon)
-        if not status then
             init_fail = true
-            init_fail_err = err
+            init_fail_err = var
             break
         end
     end    
     print()
     --
     if init_fail then
-        print("\n\n Alguna de las cámaras ha fallado, por favor apagarlas y volverlas a encender.\n")
-        print(init_fail_err)
+        print(" Alguna de las cámaras ha fallado, por favor apagarlas y volverlas a encender.\n")
+        print(" -> "..tostring(init_fail_err))
         return false
     end
     return true
@@ -1493,6 +1540,88 @@ local function dalclick_loop(mode)
     end
 end
 
+local function load_cam_scripts()
+    local file = io.open(defaults.dalclick_pwdir.."/chdk_dalclick_utils.lua", "r")
+    local dalclick_utils = file:read("*all")
+    file:close()
+    
+    if dalclick_utils == nil then 
+        return false
+    else
+        chdku.rlibs:register({
+            name = 'dalclick_utils',
+            code = dalclick_utils
+        })
+    end
+    
+    chdku.rlibs:register({
+        name='dalclick_identify',
+        code=[[
+function dc_identify_cam(opts)
+--     identify cam and return id name
+    files = os.listdir("A/")
+    if files then
+        for n, name in ipairs(files) do
+            if name == opts.left_fn then 
+                idname = opts.odd
+            end
+            if name == opts.right_fn then 
+                idname = opts.even
+            end
+        end
+    end
+    if not idname then
+        play_sound(2); sleep(150)
+        idname = opts.all
+    end
+    return idname
+end
+
+function dc_init_cam(opts)
+--  shoot_half and lock focus
+    play_sound(2)
+    sleep(200)
+    if not get_mode() then
+        switch_mode_usb(1)
+    end
+    local i=0
+    local capmode = require'capmode'
+    while capmode.get() == 0 and i < 300 do
+        sleep(10)
+        i=i+1
+    end
+--
+    sleep(1000); set_aflock(0); sleep(200)
+--
+    if opts.zoom_pos then
+        set_zoom(opts.zoom_pos)
+        sleep(1500)
+    end
+
+    press('shoot_half')
+    i=0
+    while get_shooting() do
+        sleep(10)
+        if i > 300 then
+            break
+        end
+        i=i+1
+    end
+    sleep(100)
+    set_aflock(1)
+    sleep(100)
+    release('shoot_half')
+--
+    sleep(1000)
+    play_sound(4); sleep(150); play_sound(4); sleep(150); play_sound(4)
+    sleep(200) 
+--
+end
+]],
+    })
+    return true
+end
+
 function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAULT,ROTATE_EVEN_DEFAULT)
 
     -- debug
@@ -1509,11 +1638,22 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
     end
 
     if DALCLICK_PWDIR then 
-        defaults.qm_sendcmd_path = DALCLICK_PWDIR.."/qm/qm_sendcmd.sh"
-        defaults.qm_daemon_path = DALCLICK_PWDIR.."/qm/qm_daemon.sh"
-        defaults.empty_thumb_path = DALCLICK_PWDIR.."/empty_g.jpg"
-        defaults.empty_thumb_path_error = DALCLICK_PWDIR.."/empty.jpg"
+        defaults.dalclick_pwdir = DALCLICK_PWDIR
+    else
+        defaults.dalclick_pwdir = '/opt/src/dalclick'
     end
+    
+    defaults.qm_sendcmd_path = defaults.dalclick_pwdir.."/qm/qm_sendcmd.sh"
+    defaults.qm_daemon_path = defaults.dalclick_pwdir.."/qm/qm_daemon.sh"
+    defaults.empty_thumb_path = defaults.dalclick_pwdir.."/empty_g.jpg"
+    defaults.empty_thumb_path_error = defaults.dalclick_pwdir.."/empty.jpg"
+
+    -- --
+    if not load_cam_scripts() then
+        print(' ERROR falló load_cam_scripts()')
+        return false
+    end
+    -- --
 
     if ROTATE_ODD_DEFAULT then 
         defaults.rotate_odd = ROTATE_ODD_DEFAULT
@@ -1719,9 +1859,21 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                 print()
                 print(" Presione <enter> para continuar...")
                 local key = io.stdin:read'*l'
+            elseif key == "ee" then
+                mc:get_cam_info('expo')
+                print()
+                print(" Presione <enter> para continuar...")
+                local key = io.stdin:read'*l'
             elseif key == "d" then
                 print("borrando última captura...")
                 remove_last('counter_prev')
+            elseif key == "gg" then
+                print(" recargando chdk scripts...")
+                if not load_cam_scripts() then
+                    print(' ERROR falló load_cam_scripts()')
+                    exit = true
+                    break
+                end
             elseif key == "zz" then                
                 print("ingrese un valor para el zoom:")
                 printf(">> ")
@@ -1744,11 +1896,11 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                     end
                 end
             elseif key == "r" then
-                mc:switch_mode_all('rec',true)
+                mc:switch_mode_all('rec')
             elseif key == "p" then
-                mc:switch_mode_all('play',true)
+                mc:switch_mode_all('play')
             elseif key == "z" then
-                mc:switch_mode_all('rec',true)
+                mc:switch_mode_all('rec')
                 local status, zoom_pos, err = self:get_zoom_from_ref_cam()
                 if status and zoom_pos then
                     p.state.zoom_pos = zoom_pos 
@@ -1765,7 +1917,7 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                 mc:camsound_ref_cam()
                 sys.sleep(2000)
             elseif key == "s" then -- sincronizar zoom
-                mc:switch_mode_all('rec',true)
+                mc:switch_mode_all('rec')
                 local status, zoom_pos, err = self:get_zoom_from_ref_cam()
                 if status and zoom_pos then
                     print(" Valor zoom leído de cámara de referencia: "..zoom_pos)
@@ -1913,132 +2065,9 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
 end
 
 
-local function init()
-    chdku.rlibs:register({
-        name='dalclick_identify',
-        code=[[
-function dc_identify_cam(opts)
---     identify cam and return id name
-    files = os.listdir("A/")
-    if files then
-        for n, name in ipairs(files) do
-            if name == opts.left_fn then 
-                idname = opts.odd
-            end
-            if name == opts.right_fn then 
-                idname = opts.even
-            end
-        end
-    end
-    if not idname then
-        play_sound(2); sleep(150)
-        idname = opts.all
-    end
-    return idname
-end
 
-function dc_init_cam(opts)
---  shoot_half and lock focus
-    play_sound(2)
-    sleep(200)
-    if not get_mode() then
-        switch_mode_usb(1)
-    end
-    local i=0
-    local capmode = require'capmode'
-    while capmode.get() == 0 and i < 300 do
-        sleep(10)
-        i=i+1
-    end
---
-    sleep(1000); set_aflock(0); sleep(200)
---
-    if opts.zoom_pos then
-        set_zoom(opts.zoom_pos)
-        sleep(1500)
-    end
 
-    press('shoot_half')
-    i=0
-    while get_shooting() do
-        sleep(10)
-        if i > 300 then
-            break
-        end
-        i=i+1
-    end
-    sleep(100)
-    set_aflock(1)
-    sleep(100)
-    release('shoot_half')
---
-    sleep(1000)
-    play_sound(4); sleep(150); play_sound(4); sleep(150); play_sound(4)
-    sleep(200) 
---
-end
-
-function dc_init_cam_alt(opts)
-
---  ToDo: Not testing!!!
-
---  shoot_half and lock focus
-    print('== dc_init_cam_alt ==')
-    sleep(100); set_aflock(0); sleep(200)
-    play_sound(2)
-    sleep(200)
-    if not get_mode() then
-        -- Set the camera to record mode (1)
-        print('Set the camera to record mode')
-        switch_mode_usb(1)
-    end
-    local i=0
-    local capmode = require'capmode'
-    print('capmode previous loop:')
-    print(capmode.get())
-    while capmode.get() == 0 and i < 300 do
-        sleep(10)
-        i=i+1
-    end
-    print('capmode post loop:')
-    print(capmode.get())
---
-    sleep(1000);
---
-    if opts.zoom_pos then
-        set_zoom(opts.zoom_pos)
-        print('Set zoom to:')
-        print(opts.zoom_pos)
-        sleep(1500)
-    end
-
-    print('enfocando:')
-    press('shoot_half')
-    i=0
-    while get_shooting() do
-        sleep(10)
-        if i > 300 then
-            break
-        end
-        i=i+1
-    end
-    release('shoot_half')
-    print('enfocando loop status:')
-    print(i)
-    
-    sleep(100); set_aflock(1); sleep(100)
-
---
-    sleep(1000)
-    play_sound(4); sleep(150); play_sound(4); sleep(150); play_sound(4)
-    sleep(200) 
---
-end
-]],
-    })
-    chdku.rlibs:register({
-        name='dalclick_utils',
-        code=[[
+--[[
 function dc_set_mode(opts)
     if opts.mode == 'play' then
         if get_mode() then
@@ -2070,138 +2099,7 @@ function dc_set_mode(opts)
         return capmode.get_name()
     end
 end
-
-function dc_refocus()
-    local log = {}
-    local msg, focus_state
-    local focus_init_sleep = 100
-    
-    sleep(150)
-    set_aflock(0) 
-    sleep(500)
-    
-    print('enfocando:')
-    press('shoot_half')
-    sleep(focus_init_sleep)
-        
-    local i=0
-    while not get_shooting() do
-        sleep(10)
-       if i > 300 then
-            break
-       end
-       i=i+1
-    end
-
-    sleep(150)
-    set_aflock(1)
-    sleep(150)
-
-    release('shoot_half')
-    sleep(150)
-    
-    focus_state = get_focus_state()
-    print("debug get_focus_state()")
-
-    if focus_state > 0 then
-        msg = "focus_state: ".."focus successful ("..tostring(focus_state)..")"
-        print(msg)
-        table.insert(log, msg)
-    elseif focus_state == 0 then
-        msg = "focus_state: ".."focus not successful ("..tostring(focus_state)..")"
-        print(msg)
-        table.insert(log, msg)
-    elseif focus_state < 0 then
-        msg = "focus_state: ".."manual focus ("..tostring(focus_state)..")"
-        print(msg)
-        table.insert(log, msg)
-    end
-    
-    msg = "tiempo de ejecución: "..tostring(i * 10 + focus_init_sleep).." mseg."
-    print(msg)
-    table.insert(log, msg)
-
-    msg = "- foco fijado -"
-    print(msg)
-    table.insert(log, msg)
---
-    if focus_state == 0 then
-        play_sound(6); sleep(200) 
-    else
-        sleep(200)
-        play_sound(4); sleep(150); play_sound(4); sleep(150); play_sound(4)
-        sleep(200) 
-    end
---
-    return serialize(log)
-    
-    -- TODO: out a log[1], log[2], log[3] ... y funcion para imprimir log sin necesidad de recibir tab
-end
-
-function dc_focus_info()
-
-    local focus_state = { value = get_focus_state() }
-    focus_state.label = "Focus state"
-    focus_state.funcn  = "get_focus_state"
-    focus_state.desc = {
-        { 0, "<", "MF (manual focus)" }, 
-        { 0, "=", "not successful" }, 
-        { 0, ">", "focus successful" }
-    }
-    sleep(100)
-    
-    local focus = { value = get_focus() }
-    focus.units = "mm"
-    focus.label = "Focus"
-    focus.funcn  = "get_focus"
-    sleep(100)
-
-    local focus_mode = { value = get_focus_mode() }
-    focus_mode.label = "Focus mode"
-    focus_mode.funcn  = "get_focus_mode"
-    focus_mode.desc = {
-        { 0, "=", "Auto" },
-        { 1, "=", "MF - Manual Focus" },
-        { 3, "=", "Infinite" },
-        { 4, "=", "Macro" },
-        { 5, "=", "Supermacro" }
-    }
-    sleep(100)
-
-    local IS_mode = { value = get_IS_mode() }
-    IS_mode.label = "IS mode"
-    IS_mode.funcn  = "get_IS_mode"
-    IS_mode.desc = {
-        { 0, "=", "Continous" },
-        { 2, "=", "Shoot only" },
-        { 3, "=", "Panning" },
-        { 4, "=", "Off" },
-    }
-    -- older cams -> 0 continous, 1 shoot only, 2 panning, 3 off
-    sleep(100)
-
-    local over_modes = { value = get_sd_over_modes() }
-    over_modes.label = "SD over modes"
-    over_modes.funcn  = "get_sd_over_modes"
-    -- TODO comparar bits "0x01|AutoFocus,0x02|AFL,0x04|MF (manual focus)"
---
-    play_sound(4)
-    sleep(100) 
---    
-    return serialize( {focus, focus_state, focus_mode, IS_mode, over_modes} )
-
-end
-
-]],
-    })
-end
-
-
-
-
-
-init()
-
+]]--
 
 -- ########################
 
