@@ -76,13 +76,17 @@ local defaults={
     tempfolder_name = '.tmp',
     thumbfolder_name = '.previews',
     test_high_name = '_high',
-    test_low_name = '_low'
+    test_low_name = '_low',
+    mode_enable_qm_daemon = false,
+    autorestore_project_on_init = true
     -- regnum = '',
 }
 
 defaults.dc_config_path = nil -- main(DIYCLICK_HOME)
 
 local mc={}
+
+local loopmsg = ""
 
 -- ### Gnome automount ###
 
@@ -177,11 +181,9 @@ end
 function init_cam(lcon)
 -- set focus, zoom, and rec mode
     local opts = {}
+    opts.log_format = 'serialized'
     if p.state.zoom_pos ~= nil then
-        opts = {
-            zoom_pos = p.state.zoom_pos,
-            log_format = 'serialized'
-        }
+        opts.zoom_pos = p.state.zoom_pos
     end
     if not lcon:is_connected() then
         print(" Atención: cámara desconectada")
@@ -362,9 +364,10 @@ function get_cam_info(lcon, option)
 
 end
 
-function print_cam_info(data, depth, item)
+function print_cam_info(data, depth, item, opts)
 
     local depth = depth or 0
+    if type(opts) ~= 'table' then opts = {} end
     local tab = string.rep(" ", depth * 5)
 
     if type(data) ~= 'table' then
@@ -409,12 +412,21 @@ function print_cam_info(data, depth, item)
         data.funcn = data.funcn or item
         data.label = data.label or data.funcn
         data.units = data.units or ""
+        data.alt_value = data.alt_value or ""
+        data.alt_units = data.alt_units or ""
+        
         --
         if value_descriptor ~= "" then
-            print (tab..tostring(data.label)..": "..value_descriptor.." ("..tostring(data.value)..")")
+            printf (tab..tostring(data.label)..": "..value_descriptor.." ("..tostring(data.value)..")")
         else
-            print (tab..tostring(data.label)..": "..tostring(data.value)..tostring(data.units))
+            printf (tab..tostring(data.label)..": "..tostring(data.value)..tostring(data.units))
         end
+        if data.alt_value ~= "" then
+            print ("( "..tostring(data.alt_value)..tostring(data.alt_units).." )")
+        else
+            printf("\n")
+        end
+        -- if data.help and opts.print_help == true then
         if data.help then
             print (tab..tostring(data.help))
         end
@@ -510,7 +522,7 @@ function mc:connect_all()
 
     self.cams={}
     if not next(devices) then
-        print(" Aparentemente no hay cámaras conectadas al equipo\n")
+        -- print(" Aparentemente no hay cámaras conectadas al equipo\n")
         return false
     end
     for i, devinfo in ipairs(devices) do
@@ -792,7 +804,12 @@ function mc:init_cams_all(zoom)
         local status, var = init_cam(lcon)
         if status then
             local arr_data = util.unserialize(var)
-            print_cam_info(arr_data, 1, '')
+            if type(arr_data) == 'table' then
+                print_cam_info(arr_data, 1, '')
+            else
+                print(" ! "..tostring(arr_data))
+                print(" ATENCION: reinicie nuevamente las cámaras antes de comenzar!")
+            end
             print()
         else
             init_fail = true
@@ -939,10 +956,22 @@ function mc:rotate_all()
         -- basepath = local_path
         -- basename = file_name
         command = "econvert -i "..saved_file.path.." --rotate "..p.state.rotate[idname].." -o "..p.settings.path_proc[idname].."/"..saved_file.basename.." > /dev/null 2>&1"
-        print(" ["..idname.."] enviando comando (rotar) a la cola de acciones") 
-        if not os.execute(p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"') then
-            print(" error: falló: "..p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"')
-            rotate_fail = true
+        
+        if defaults.mode_enable_qm_daemon then
+            print(" ["..idname.."] enviando comando (rotar) a la cola de acciones") 
+            if not os.execute(p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"') then
+               print(" error: falló: "..p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"')
+               rotate_fail = true
+            end
+        else
+            printf(" ["..idname.."] rotando("..saved_file.basename..")...") -- sin testear!!
+            if not os.execute(command) then
+                print("ERROR")
+                print("     falló: '"..command.."'")
+                rotate_fail = true
+            else
+                print("OK")
+            end
         end
     end
     if rotate_fail then
@@ -970,10 +999,21 @@ function mc:rotate_and_resize_all()
           .." --thumbnail ".."0.125"
           .." -o "..thumbpath.."/"..saved_file.basename
           .." > /dev/null 2>&1"
-        print(" ["..idname.."] enviando de comando de procesamiento a la cola de acciones ("..saved_file.basename..").") 
-        if not os.execute(p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"') then
-            print(" error: falló: "..p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"')
-            rotate_fail = true
+        if defaults.mode_enable_qm_daemon then
+            print(" ["..idname.."] enviando de comando de procesamiento a la cola de acciones ("..saved_file.basename..").") 
+            if not os.execute(p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"') then
+                print(" error: falló: "..p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"')
+                rotate_fail = true
+            end
+        else
+            printf(" ["..idname.."] rotando y generando vista previa ("..saved_file.basename..")...") 
+            if not os.execute(command) then
+                print("ERROR")
+                print("    falló: '"..command.."'")
+                rotate_fail = true
+            else
+                print("OK")
+            end
         end
     end
     if rotate_fail then
@@ -1150,11 +1190,13 @@ function mc:capt_all_test_and_preview() -- zzzz
                   .." -o "..command_paths[idname].low_path
                   .." > /dev/null 2>&1"
 
-                print(" Procesando test '"..saved_file.basename_without_ext.."'")
+                printf(" Procesando test '"..saved_file.basename_without_ext.."'...")
                 if not os.execute(command) then
-                    print(" error: falló: "..command..'"')
+                    print("ERROR")
+                    print("    falló: '"..command.."'")
                     command_fail = true
                 else
+                    print("OK")
                     previews[idname] = command_paths[idname].low_path
                 end
             end
@@ -1162,7 +1204,7 @@ function mc:capt_all_test_and_preview() -- zzzz
             
             if not command_fail then
                 -- preview
-                p:show_capts(previews)
+                p:show_capts(previews, {odd = 'PREVIEW', even = 'PREVIEW'})
             end
             -- remove test paths if any
             for idname, paths in pairs(command_paths) do
@@ -1185,6 +1227,13 @@ function mc:capt_all_test_and_preview() -- zzzz
 end
 
 function mc:shoot_and_download_all(mode)
+
+    for i,lcon in ipairs(self.cams) do
+        if lcon.idname == nil then
+            loopmsg = " Las cámaras no estan inicializadas!!\n Use la opción [i] para inicializar"
+            return true, false
+        end
+    end
 
     for i,lcon in ipairs(self.cams) do
         local status, err = lcon:exec([[
@@ -1386,6 +1435,18 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
     --
 end
 
+local function check_overwrite(idname)
+    local local_path, file_name_we, file_name
+    file_name_we = string.format("%04d", p.state.counter[idname])
+    file_name = file_name_we..".".."jpg"
+    
+    if dcutls.localfs:file_exists( p.settings.path_raw[idname].."/"..file_name ) then
+        return true
+    else
+        return false
+    end
+end
+
 local function remove_last(mode)
     local remove_fail = false
     if type(p.state.saved_files) == 'table' then
@@ -1455,7 +1516,7 @@ function mc:preprocess_raw()
 end
 
 local function start_options(mode)
-    -- 
+    -- mode -> 'restore_running_project' ó 'new_project' (por ahora igual a '')
     -- iniciando la estructura para un proyecto
     if not p:init(defaults) then
         return false
@@ -1469,8 +1530,15 @@ local function start_options(mode)
         if settings_path then
             print(" Se encontró un proyecto en ejecución.")
             print(" Restaurando proyecto...")
-            if p:load(settings_path) then
-                running_project_loaded = true
+            local load_status, project_status = p:load(settings_path)
+            if load_status then
+                if project_status == 'opened' then
+                    running_project_loaded = true
+                else
+                    print(" ATENCION: Está intentado cargar al inicio un proyecto en formato obsoleto.")
+                    print(" Por favor cárguelo seleccionando la opción [o] a continuación.")
+                    print()
+                end
             else
                 print(" Ha ocurrido un error mientras se intentaba restaurar el proyecto")
                 sys.sleep(2000)
@@ -1518,8 +1586,15 @@ local function start_options(mode)
                 end
             elseif key == "o" then
                 print(); print(" Seleccionó: Abrir Proyecto...")
-                if p:open(defaults) then
-                    break
+                local open_status, project_status = p:open(defaults)
+                if open_status then
+                    if project_status == 'modified' then
+                        printf(" guardando proyecto actualizado...")
+                        if p:write() then print("OK") else print("ERROR") end
+                    end
+                    if project_status ~= 'canceled' then
+                        break
+                    end
                 end
             end
         until false
@@ -1673,39 +1748,76 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
     
     -- el objetivo de este bloque es que las camaras esten apagadas y se enciendan ahora
     local no_init_cam
+    
     if not mc:connect_all() then
         print(" Por favor, encienda las cámaras.\n")
-        printf(" luego presione <enter>")
+        print(" Luego presione:")
+        print()
+        print(" [enter]")
+        print("     Para continuar con el último proyecto cargado (autorestaurar)")
+        print()
+        print(" [n] + enter")
+        print("     Para iniciar o abrir otro proyecto")
+        print(" [s] + enter")
+        print("     Para salir")
+        print()
+        
         local key = io.stdin:read'*l'
         if key == "" then
             print(" o/")
+        elseif key == "n" then
+            defaults.autorestore_project_on_init = false
         else
             dalclick_loop(false)
             return false
         end
+        if not mc:connect_all() then
+            print(" #######################################")
+            print(" ## Las cámaras no fueron encendidas! ##")
+            print(" #######################################")
+            print()
+            dalclick_loop(true)
+            return true
+        end
     else
         print(" DALclick debe iniciarse con las cámaras apagadas.")
-        print(" Por favor apáguelas y luego presione <enter>.")
+        print(" Por favor apáguelas y luego presione [enter]")
         print()
-        print(" (Para continuar sin apagar: [c] y luego <enter>)")
-        print(" (Para continuar sin apagar ni reiniciar: [cc] y luego <enter>)")
+        print(" Otras opciones:")
+        print()
+        print(" [c] + enter")
+        print("     Para continuar sin apagar")
+        print(" [s] + enter")
+        print("     Para salir")
+        print()
+        
         local key = io.stdin:read'*l'
 
         if key == "" then
-            dalclick_loop(false)
-            return false
+            dalclick_loop(true)
+            return true
         elseif key == "c" then
             -- continue
         elseif key == "cc" then
             no_init_cam = true
             -- continue
-        end   
+        else
+            dalclick_loop(false)
+            return false
+        end  
     end
     
     -- opciones al inicio
-    if not start_options('restore_running_project') then
-        dalclick_loop(false)
-        return false
+    if defaults.autorestore_project_on_init then
+        if not start_options('restore_running_project') then
+            dalclick_loop(false)
+            return false
+        end
+    else   
+        if not start_options('new_project') then
+            dalclick_loop(false)
+            return false
+        end 
     end
     
     local init_st
@@ -1740,18 +1852,21 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
     -- print(util.serialize(p.dalclick))
 --if 1 then return false end
 
-    local menu = [[
+    local menu = [[ [enter] capturar                                    [q] salir
 
- -- cámaras --               -- proyectos --          -- varios --
-
- [enter] capturar            [n] nuevo proyecto       [z] leer zoom de cámara
- [t] test de captura         [o] abrir proyecto           de referencia
- [f] refocus                 [w] guardar proyecto     [b] bip bip bip cámara
- [s] sincronizar zoom        [c] cerrar proyecto          de referencia
- [d] borrar última captura       y salir             [zz] ingresar un valor
- [v] preview última captura  [i] reiniciar cámaras        de zoom manualmente
- [x] apagar cámaras          [q] salir                [m] modo seg/norm/rápido
-
+ [t] test de captura        [n] nuevo proyecto       [z] sincronizar zoom 
+                            [o] abrir proyecto           desde la camara de
+ [v] vista previa de        [w] guardar proyecto         referencia
+     la ultima captura      [c] cerrar proyecto     [zz] ingresar valor de
+ [BARRA] visualizador           y salir                  zoom manualmente
+                            [x] cerrar proyecto      
+ [i] iniciar cámaras            y postprocesar       [f] enfocar
+ [b] bip en cámara de                                
+     referencia                                      [m] modo seg/norm/rápido
+     
+ - - - - - - - - - - - - -  - - - - - - - - - - - - - - - - - - - - - - - - -
+ [r] < retroceder una       [p] ir a página...       [u] avanzar una >
+                                                    [uu] avanzar al final >>>
 ]]
     if init_st == false then
         print(" No se pudieron inicializar correctamente las cámaras.")
@@ -1764,42 +1879,75 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
     else
 
         -- init daemons
-        mc:init_daemons()
+        if defaults.mode_enable_qm_daemon then
+            mc:init_daemons()
+        end
                
-        local loopmsg = ""
         local margin
         local status, counter_min, counter_max
+        local e_overwt, o_overwt
         while true do
-
+            
+            o_overwt = false; e_overwt = false
             status, counter_min, counter_max = p:get_counter_max_min()
             if not status then
                 print(" ERROR: no se puede actualizar la lista de capturas realizadas.")
             end
+            if type(p.state.counter) ~= 'table' then
+                if p.state.counter.even == nil or p.state.counter.even == nil then
+                    loopmsg = " ATENCION Hubo un error al cargar el contador"
+                    if counter_max.odd then
+                        p:set_counter(counter_max.odd)
+                    else
+                        p:set_counter(1)
+                    end
+                    p:save_state()
+                end
+            end
         
             mc:camsound_plip()
 
+            if check_overwrite(defaults.even_name) then
+                e_overwt = true
+            end
+            if check_overwrite(defaults.odd_name) then
+                o_overwt = true
+            end
             print()
             print(" Proyecto: ["..p.settings.regnum.."]" )
             if counter_min and counter_max then
                 printf(" Capturas realizadas: "
-                    ..string.format("%04d", counter_min[defaults.even_name])
+                    ..string.format("%04d", counter_min.even)
                     .."-"
-                    ..string.format("%04d", counter_min[defaults.odd_name])
+                    ..string.format("%04d", counter_min.odd)
                     )
-                if counter_min[defaults.even_name] ~= counter_max[defaults.even_name] then
+                if counter_min.even ~= counter_max.even then
                     print(" a "
-                    ..string.format("%04d", counter_max[defaults.even_name])
+                    ..string.format("%04d", counter_max.even)
                     .."-"
-                    ..string.format("%04d", counter_max[defaults.odd_name])
+                    ..string.format("%04d", counter_max.odd)
                     )
                 end
+            end
+            if p.state.zoom_pos then
+                print(" Valor del Zoom: "..tostring(p.state.zoom_pos))
+            else
+                print(" Valor del Zoom: Sin definir")
             end
             print()
             margin = math.floor( ( 76 - string.len(string.sub(p.settings.title, 0, 50)) ) / 2 )
             print( string.rep("=", margin).." "..string.sub(p.settings.title, 0, 50).." "..string.rep("=", margin))
             print()
             print(menu)
-            print("= "..string.format("%04d", p.state.counter['even']).." ================================================================ "..string.format("%04d", p.state.counter['odd']).." =")
+            print(
+                "= "
+                ..string.format("%04d", p.state.counter[defaults.even_name])
+                ..(e_overwt and " ##RECAPT## " or " ===========")
+                .."=========================================="
+                ..(o_overwt and " ##RECAPT## " or "=========== ")
+                ..string.format("%04d", p.state.counter[defaults.odd_name])
+                .." ="
+                )
             if loopmsg ~= "" then 
                 print(loopmsg)
                 loopmsg = ""
@@ -1814,6 +1962,17 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                 else
                     exit = true
                     break
+                end
+            elseif key == "reparar" then
+                local status, no_errors = p:reparar() 
+                if status then
+                    if no_errors == true then
+                        loopmsg = " Reparacion del proyecto exitosa."
+                    else
+                        loopmsg = " Hubo errores al intentar reparar el proyecto."
+                    end
+                else
+                        loopmsg = " No se pudo reparar el proyecto."
                 end
             elseif key == "t" then
                 print("captura de test a test.jpg...")
@@ -1864,15 +2023,70 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                 print()
                 print(" Presione <enter> para continuar...")
                 local key = io.stdin:read'*l'
-            elseif key == "d" then
-                print("borrando última captura...")
-                remove_last('counter_prev')
-            elseif key == "gg" then
+            elseif key == "r" then
+                printf(" retrocediendo un lugar para volver a realizar la captura...")
+                -- p.state.counter[defaults.odd_name] = p.state.counter[defaults.odd_name] - 2
+                -- p.state.counter[defaults.even_name] = p.state.counter[defaults.even_name] - 2
+                if p:counter_prev() then
+                    print('OK')
+                    p:save_state()
+                else
+                    loopmsg =  " No se puede retroceder, está al inicio de la lista"
+                end
+                -- remove_last('counter_prev')
+            elseif key == "u" then
+                    printf(" avanzando un lugar hacia adelante...")
+                    -- p.state.counter[defaults.odd_name] = p.state.counter[defaults.odd_name] + 2
+                    -- p.state.counter[defaults.even_name] = p.state.counter[defaults.even_name] + 2
+                    if p:counter_next(counter_max.odd) then
+                        print('OK')
+                        p:save_state()
+                    else
+                        loopmsg = " No se puede avanzar mas, está al final de la lista"
+                    end
+                    p:save_state()
+            elseif key == "uu" then
+                p.state.counter.odd = counter_max.odd + 2
+                p.state.counter.even = counter_max.even + 2
+                p:save_state()
+            elseif key == "p" then
+                print(" Ir a la pagina...")
+                print(" ingresar valor numérico, no es necesario agregar ceros a la izquierda:")
+                printf(">> ")
+                local pos = io.stdin:read'*l'
+                if pos ~= "" and pos ~= nil then
+                    p:set_counter(pos)
+                    p:save_state()
+                end                
+            elseif key == "chdk" then
                 print(" recargando chdk scripts...")
                 if not load_cam_scripts() then
                     print(' ERROR falló load_cam_scripts()')
                     exit = true
                     break
+                end
+            elseif key == "rr" then
+                mc:switch_mode_all('rec')
+            elseif key == "pp" then
+                mc:switch_mode_all('play')
+            elseif key == "z" then
+                -- mc:switch_mode_all('rec')
+                local status, zoom_pos, err = self:get_zoom_from_ref_cam()
+                if status and zoom_pos then
+                    p.state.zoom_pos = zoom_pos 
+                    loopmsg = "Valor zoom leído de cámara de referencia: "..zoom_pos.."\n"
+                    if p:save_state() then
+                        print(" nuevo valor de zoom guardado")
+                        print(" Reiniciando camaras... ")
+                        if not init_cams_or_retry() then
+                            exit = true
+                            break
+                        end
+                    else
+                        loopmsg = " Error: no se pudieron guardar las variables de estado en el disco"
+                    end
+                else
+                    loopmsg = " Error: no se pudo leer el valor de zoom de la cámara de referencia.\n error: "..err.."\n"
                 end
             elseif key == "zz" then                
                 print("ingrese un valor para el zoom:")
@@ -1885,38 +2099,20 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                         p.state.zoom_pos = zoom
                         if p:save_state() then
                             print(" nuevo valor de zoom guardado")
+                            print(" Reiniciando camaras... ")
+                            if not init_cams_or_retry() then
+                                exit = true
+                                break
+                            end 
                         else
-                            print(" error: no se pudieron guardar las variables de estado en el disco")
+                            loopmsg = " Error: no se pudieron guardar las variables de estado en el disco"
                         end
-                        print(" Reiniciando camaras... ")
-                        if not init_cams_or_retry() then
-                            exit = true
-                            break
-                        end 
                     end
-                end
-            elseif key == "r" then
-                mc:switch_mode_all('rec')
-            elseif key == "p" then
-                mc:switch_mode_all('play')
-            elseif key == "z" then
-                mc:switch_mode_all('rec')
-                local status, zoom_pos, err = self:get_zoom_from_ref_cam()
-                if status and zoom_pos then
-                    p.state.zoom_pos = zoom_pos 
-                    loopmsg = "Valor zoom leído de cámara de referencia: "..zoom_pos.."\n"
-                    if p:save_state() then
-                        print(" nuevo valor de zoom guardado")
-                    else
-                        print(" error: no se pudieron guardar las variables de estado en el disco")
-                    end
-                else
-                    loopmsg = " Error: No se pudo leer el valor de zoom de la cámara de referencia.\n error: "..err.."\n"
                 end
             elseif key == "b" then
                 mc:camsound_ref_cam()
                 sys.sleep(2000)
-            elseif key == "s" then -- sincronizar zoom
+            elseif key == "sinc" then -- sincronizar zoom testear!
                 mc:switch_mode_all('rec')
                 local status, zoom_pos, err = self:get_zoom_from_ref_cam()
                 if status and zoom_pos then
@@ -1935,14 +2131,6 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                 else
                     print(" No se pudo leer el valor de zoom de la cámara de referencia.")
                 end
-            elseif key == "x" then
-                print("apagando cámaras...")
-                if not mc:shutdown_all() then
-                    print("alguna de las cámaras deberá ser apagada manualmente")
-                end
-                sys.sleep(1000)
-                exit = true
-                break
             elseif key == "n" then
                 local zoom = p.state.zoom_pos
                 print("debug: zoom ----> "..tostring(zoom).." - "..type(zoom))
@@ -1954,7 +2142,9 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                     break
                 else                
                     if init_cams_or_retry(zoom) then
-                        mc:init_daemons()
+                        if defaults.mode_enable_qm_daemon then
+                            mc:init_daemons()
+                        end
                     else
                         exit = true
                         break
@@ -1975,28 +2165,44 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                 end
             elseif key == "o" then
                 local status
-                print(); status = p:open(defaults); print()
+                print(); status, project_status = p:open(defaults); print()
                 sys.sleep(2000) -- pausa para dejar ver los mensajes
-                if status == true then
-                    if init_cams_or_retry() then
-                       mc:init_daemons()
-                    else
-                       exit = true
-                       break
+                if status then
+                    if project_status == 'canceled' then
+                        -- no se hace nada
+                    elseif project_status == 'modified' then
+                        printf(" guardando proyecto actualizado...")
+                        if p:write() then print("OK") else print("ERROR") end
+                        if init_cams_or_retry() then
+                           if defaults.mode_enable_qm_daemon then
+                               mc:init_daemons()
+                           end
+                        else
+                           exit = true
+                           break
+                        end                   
+                    elseif project_status == 'opened' then
+                        if init_cams_or_retry() then
+                            if defaults.mode_enable_qm_daemon then
+                                mc:init_daemons()
+                            end
+                        else
+                           exit = true
+                           break
+                        end                    
                     end
-                elseif status == false then
+                else
                     print(" saliendo...")
                     sys.sleep(3000)
                     exit = true
                     break
-                -- con status == nil continua (significa que el usuario cancelo la operacion)
                 end
             elseif key == "w" then
                 p:write()
-            elseif key == "rr" then
+            elseif key == "rrr" then
                 -- set to rec mode without waiting (only for testing)
                 mc:switch_mode_all('rec')
-            elseif key == "pp" then
+            elseif key == "ppp" then
                 -- set to play mode without waiting (only for testing)
                 mc:switch_mode_all('play')
             elseif key == "v" then
@@ -2005,18 +2211,31 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                 -- os.execute("/opt/src/test &")
                 if p.state.saved_files then
                     -- debug print("1) p.state.saved_files: "..util.serialize(p.state.saved_files))
-                    local status, previews = p:make_preview()
+                    local status, previews, filenames = p:make_preview()
                     if status then
                         -- debug print("2) previews: "..util.serialize(previews))
-                        p:show_capts( previews )
+                        p:show_capts( previews, filenames, counter_max, '' )
                     end
+                else
+                    print(" No hay registro de ultima captura")
                 end
             elseif key == " " then
-                print(" Apague las cámaras, luego presiona <enter>")
-                printf(">> ")
-                local key = io.stdin:read'*l'
-                print("reinciando cámaras...")
-                break
+                local set_init_pos = true
+                if p.state.counter.odd > counter_max.odd then
+                    if p:set_counter(counter_max.odd) then
+                        print('inciando visualizador desde posición: '..tostring(counter_max.odd))
+                        p:save_state()
+                    else
+                        loopmsg =  " Error!"
+                        set_init_pos = false
+                    end
+                end
+                if set_init_pos then
+                    local status, previews, filenames = p:make_preview('actual')
+                    if status then
+                        p:show_capts( previews, filenames, counter_max, "with_counter" )
+                    end
+                end
             elseif key == "q" then
                 if not p:save_state() then
                     print(" error: no se pudieron guardar las variables de estado en el disco")
@@ -2054,7 +2273,9 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
             end
         end -- /while loop 
         
-        mc:kill_daemons()
+        if defaults.mode_enable_qm_daemon then
+            mc:kill_daemons()
+        end
         
     end
     if exit == true then
