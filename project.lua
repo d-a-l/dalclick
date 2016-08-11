@@ -468,8 +468,8 @@ function project:fix_paths(paths, pattern, rootpath)
         else
             printf(".")        
         end
-        print()
     end
+    print()
     if there_are_fixed_paths then
         return fixed
     else
@@ -611,7 +611,7 @@ function project:reparar()
             
             while true do
             for idname,count in pairs(self.state.counter) do
-                print("-- "..tostring(count))
+                print(" -- "..tostring(count))
                 if type(count) ~= 'number' then 
                     print(" Error: count")
                     return false 
@@ -853,11 +853,81 @@ function project:alter_counter_and_make_preview(action, max)
     return true, previews, filenames
 end
 
+function project:guest_counter_and_make_preview(action, max, local_counter)
+
+    local previews = {}
+    local filenames = {}
+
+    local actualize = true
+    local new_counter = {}
+    if action == "next" then
+        for idname,count in pairs(local_counter) do
+            count = count + 2
+            if type(max) == 'number' and count > max then
+                print(" el contador llegó al valor maximo")
+                actualize = false
+                break
+            else
+                new_counter[idname] = count
+            end
+        end
+    elseif action == "prev" then
+        for idname,count in pairs(local_counter) do
+            count = count - 2
+            if count < 0 then
+                print(" el contador llegó al valor de inicio")
+                actualize = false
+                break
+            else
+                new_counter[idname] = count
+            end
+        end
+    elseif action == "idle" then
+        new_counter = local_counter
+    else
+        return false
+    end
+
+    if actualize then
+        local_counter = new_counter    
+    end
+    
+    for idname, count in pairs( local_counter ) do
+        local filename_we = string.format("%04d", count)..".jpg"
+        previews[idname] = self:get_thumb_path(idname, filename_we)
+        filenames[idname] = filename_we
+    end
+    
+    return true, previews, filenames, local_counter
+end
+
 function project:show_capts(previews, filenames, counter_max, mode)
 
-    counter_max = counter_max or {}
-    filenames = filenames or {}
-
+    if type(counter_max) ~= 'table' then
+        if mode == "with_guest_counter" then
+            print()
+            print(" Todavía no hay capturas en este proyecto")
+            print()
+            sys.sleep(2000)
+            return false
+        else
+            counter_max = {}
+        end
+    end
+    
+    local max = counter_max.odd
+    local local_counter = self.state.counter
+    
+    if type(filenames) ~= 'table' or type(previews) ~= 'table' then
+        if local_counter.odd > counter_max.odd then
+            local status
+            status, previews, filenames, local_counter = self:guest_counter_and_make_preview('prev', max, local_counter)
+        else
+            local status
+            status, previews, filenames, local_counter = self:guest_counter_and_make_preview('idle', max, local_counter)
+        end
+    end
+        
     if type(previews) ~= 'table' then
         return false
     end
@@ -874,7 +944,8 @@ function project:show_capts(previews, filenames, counter_max, mode)
 
     local left = {}
     local right = {}
-    local max = counter_max.odd
+
+
     
     local function shift_images(stat, action, previews, filenames)
        if stat then
@@ -882,6 +953,7 @@ function project:show_capts(previews, filenames, counter_max, mode)
            right.image = im.FileImageLoad( previews.odd ); right.cnv:action()
            left.label.title = filenames.even
            right.label.title = filenames.odd
+           -- gbtn_go.tip = "Go to "..filenames.even.." | "..filenames.odd
        end
     end
            
@@ -917,6 +989,7 @@ function project:show_capts(previews, filenames, counter_max, mode)
         title = filenames.odd --, expand = "HORIZONTAL", padding = "10x5"
     }
     
+    -- 'with_counter' mode buttons
     local btn_previous = iup.button{
         image = "IUP_ArrowLeft", 
         flat = "Yes", 
@@ -929,12 +1002,50 @@ function project:show_capts(previews, filenames, counter_max, mode)
     local btn_next = iup.button{
         image = "IUP_ArrowRight", 
         flat = "Yes", 
-        action = function() local stat, previews, filenames = self:alter_counter_and_make_preview('next', max); shift_images(stat, 'next', previews, filenames) end, 
+        action = function() local stat, previews, filenames = self:alter_counter_and_make_preview('next', max); shift_images(stat, 'next', previews, filenames) end,
         canfocus="No", 
         tip = "Next",
         padding = '5x5'
     }   
+
+    -- with 'guest' counter mode (contador "interno" solo actualiza state.counter al hacer click en return)
+
+    local gbtn_previous = iup.button {
+        image = "IUP_ArrowLeft", 
+        flat = "Yes", 
+        action = function() local stat, previews, filenames, new_counter = self:guest_counter_and_make_preview('prev', max, local_counter); local_counter = new_counter; shift_images(stat, 'prev', previews, filenames) end,
+        canfocus="No", 
+        tip = "Previous",
+        padding = '5x5'
+    }
+        
+    local gbtn_next = iup.button{
+        image = "IUP_ArrowRight", 
+        flat = "Yes", 
+        action = function() local stat, previews, filenames, new_counter = self:guest_counter_and_make_preview('next', max, local_counter); local_counter = new_counter; shift_images(stat, 'next', previews, filenames) end,  
+        canfocus="No", 
+        tip = "Next",
+        padding = '5x5'
+    }
     
+    local gbtn_go = iup.button{
+        title = "Go",
+        flat = "No", 
+        padding = "15x2",
+        action = function()  end,  
+        canfocus="No", 
+        tip = "",
+    }
+
+    local gbtn_cancel = iup.button{
+        title = "Cancel",
+        flat = "No", 
+        padding = "15x2",
+        canfocus="No", 
+        tip = "Cancel",
+    }
+    
+
     -------
 
     local viewers = iup.hbox{ 
@@ -961,15 +1072,48 @@ function project:show_capts(previews, filenames, counter_max, mode)
         margin = "10x10",
         gap = 2,
     }
-    -- dlg = iup.dialog{cnv}
-    -- local dlg = iup.dialog{iup.vbox{imgs, buts},title="DALclick", margin="5x5", gap=10}
-    local dlg
+    
+    --
+    
+    local gcenter_buttons = iup.hbox{
+        gbtn_go,
+        gbtn_cancel,
+    }
+    
+    local bottombar_guest = iup.hbox{
+        gbtn_previous, 
+        iup.fill {
+            expand="HORIZONTAL"
+        },
+        gcenter_buttons,
+        iup.fill {
+            expand="HORIZONTAL"
+        },
+        gbtn_next,
+        margin = "10x10",
+        gap = 2,
+    }
+
+    -- -- -- --
+    
+    local dlg    
     if mode == "with_counter" then
         dlg = iup.dialog{
             iup.vbox{
                 viewers,
                 labelbar,
                 bottombar
+            },
+            title="DALclick",
+            margin="5x5",
+            gap=10
+        }
+    elseif mode == "with_guest_counter" then
+        dlg = iup.dialog{
+            iup.vbox{
+                viewers,
+                labelbar,
+                bottombar_guest
             },
             title="DALclick",
             margin="5x5",
@@ -987,18 +1131,42 @@ function project:show_capts(previews, filenames, counter_max, mode)
         }
     end
 
-    function dlg:close_cb()
+
+    local function destroy_dialog() 
+        print("cerrando  ...")
         right.image:Destroy()
         right.cnv.canvas:Kill()
         left.image:Destroy()
         left.cnv.canvas:Kill()
+        iup.ExitLoop() -- should be removed if used inside a bigger application
+        dlg:destroy()
+    end
+    
+    local function set_counter()
+        self.state.counter = local_counter
+        self:save_state()
+        print(" Se actualizó el contador a: "..tostring(self.state.counter.even).."|"..tostring(self.state.counter.odd))
+    end
+    
+    function gbtn_go:action() 
+        set_counter()
+        destroy_dialog()
+        return iup.IGNORE -- because we destroy the dialog
+    end
 
-        self:destroy()
+    function gbtn_cancel:action()
+        destroy_dialog()
+        return iup.IGNORE -- because we destroy the dialog
+    end
+    
+    function dlg:close_cb() -- si se cierra desde la ventana
+        destroy_dialog()
         return iup.IGNORE -- because we destroy the dialog
     end
 
     dlg:show()
     iup.MainLoop()
+    --iup.Close()
 end
 
 return project

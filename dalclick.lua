@@ -90,7 +90,6 @@ local loopmsg = ""
 
 -- ### Gnome automount ###
 
-
 -- ### single cam functions ###
 
 local function switch_mode(lcon,mode)
@@ -1857,9 +1856,9 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
  [t] test de captura        [n] nuevo proyecto       [z] sincronizar zoom 
                             [o] abrir proyecto           desde la camara de
  [v] vista previa de        [w] guardar proyecto         referencia
-     la ultima captura      [c] cerrar proyecto     [zz] ingresar valor de
- [BARRA] visualizador           y salir                  zoom manualmente
-                            [x] cerrar proyecto      
+     la ultima captura      [c] finalizar proyecto   [zz] ingresar valor de
+ [e] explorador                 y salir                  zoom manualmente
+                            [x] finalizar proyecto
  [i] iniciar cámaras            y postprocesar       [f] enfocar
  [b] bip en cámara de                                
      referencia                                      [m] modo seg/norm/rápido
@@ -2217,29 +2216,32 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                         p:show_capts( previews, filenames, counter_max, '' )
                     end
                 else
-                    print(" No hay registro de ultima captura")
+                    print()
+                    print(" No hay registro de última captura")
+                    print()
+                    sys.sleep(2000)
                 end
-            elseif key == " " then
-                local set_init_pos = true
-                if p.state.counter.odd > counter_max.odd then
-                    if p:set_counter(counter_max.odd) then
-                        print('inciando visualizador desde posición: '..tostring(counter_max.odd))
-                        p:save_state()
-                    else
-                        loopmsg =  " Error!"
-                        set_init_pos = false
-                    end
-                end
-                if set_init_pos then
-                    local status, previews, filenames = p:make_preview('actual')
-                    if status then
-                        p:show_capts( previews, filenames, counter_max, "with_counter" )
-                    end
-                end
+            elseif key == "e" then
+                -- local set_init_pos = true
+                -- if p.state.counter.odd > counter_max.odd then
+                --    if p:set_counter(counter_max.odd) then
+                --        print('inciando visualizador desde posición: '..tostring(counter_max.odd))
+                --        p:save_state()
+                --    else
+                --        loopmsg =  " Error!"
+                --        set_init_pos = false
+                --    end
+                -- end
+                -- if set_init_pos then
+                    -- local status, previews, filenames = p:make_preview('actual')
+                    -- if status then
+                        p:show_capts( previews, filenames, counter_max, "with_guest_counter" )
+                    -- end
+                -- end
             elseif key == "q" then
                 if not p:save_state() then
                     print(" error: no se pudieron guardar las variables de estado en el disco")
-                    print("debug: zoom_pos: "..tostring(p.state.zoom_pos))
+                    -- print("debug: zoom_pos: "..tostring(p.state.zoom_pos))
                 end
                 if not mc:shutdown_all() then
                     print("alguna de las cámaras deberá ser apagada manualmente")
@@ -2252,19 +2254,15 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                 if p:delete_running_project() then
                     print(" Proyecto '"..p.settings.title.."' cerrado.")
                 end
-                if not start_options() then
-                    if not mc:shutdown_all() then
-                        print(" Error: Alguna de las cámaras deberá ser apagada manualmente.")
-                        sys.sleep(3000)
-                    end
-                    print(" Saliendo de DALclick...")
-                    exit = true
-                    break
+                if not mc:shutdown_all() then
+                    print(" Error: Alguna de las cámaras deberá ser apagada manualmente.")
                 end
-                if not init_cams_or_retry() then
-                   exit = true
-                   break
-                end
+                sys.sleep(3000)
+                print(" Saliendo de DALclick...")
+                exit = true
+                break
+            elseif key == "x" then
+                loopmsg = " Esta función todavía no fue implementada"
             elseif key == "i" then
                 if not init_cams_or_retry() then
                    exit = true
