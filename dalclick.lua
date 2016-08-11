@@ -1696,7 +1696,7 @@ end
     return true
 end
 
-function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAULT,ROTATE_EVEN_DEFAULT)
+function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAULT,ROTATE_EVEN_DEFAULT,DALCLICK_MODE)
 
     -- debug
     if false then
@@ -1737,6 +1737,77 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
     end
     
     dalclick_loop(false)
+
+    if DALCLICK_MODE == "reparar-proyectos" then
+        -- settings_path = "/str/biblio/bib_test/cnba/enesimomio/.dc_settings"
+        local projects_paths = {}
+        print(" Buscando proyectos en '"..tostring(defaults.root_project_path).."'")
+        for f in lfs.dir(defaults.root_project_path) do
+	        if lfs.attributes(defaults.root_project_path.."/"..f,"mode") == "directory" then
+	            if dcutls.localfs:file_exists( defaults.root_project_path.."/"..f..'/.dc_settings' ) then		
+		            table.insert(projects_paths, defaults.root_project_path.."/"..f..'/.dc_settings')
+	            end
+	        end
+        end
+        print()
+        for a,b in pairs(projects_paths) do
+	        print(a, b)
+        end
+        
+        print()
+        print(" ¿Desea reparar los proyectos listados? [s/n]")
+        printf(">> ")
+        local key = io.stdin:read'*l'
+
+        if key == "S" or key == "s" then
+            print(" Procesando lista de proyectos obtenida")
+            print()
+            local fail = {}
+            local success = {}
+            for index,path in pairs(projects_paths) do
+                if not p:init(defaults) then
+                    print(" ERROR: no se pueden inicializar proyectos!")
+                    break
+                end
+                local load_status, project_status = p:load(path)
+                if load_status then
+                    print(" Procesando: '"..tostring(path).."'")
+                    print(" Proyecto abierto con exito. Estado: "..tostring(project_status))
+                    local status, no_errors = p:reparar() 
+                    if status then
+                        if no_errors == true then
+                            table.insert(success, path)
+                            print(" Reparacion del proyecto exitosa.")
+                        else
+           		            table.insert(fail, path.." \n   Error: Hubo errores mientras se reparaba el proyecto.")
+                            print(" Hubo errores al intentar reparar el proyecto.")
+                        end
+                    else
+                        table.insert(fail, path.."\n   Error: No se pudo reparar el proyecto.")
+                        print(" No se pudo reparar el proyecto.")
+                    end
+                else
+                    print(" Ha ocurrido un error mientras se intentaba cargar el proyecto")
+                    table.insert(fail, path.."\n   Error: No se pudo cargar el proyecto")
+                end
+            end
+            
+            print()
+            print(" Proyectos reparados existosamente:")
+            for a,b in pairs(success) do
+	            print(" - "..tostring(b))
+            end
+            
+            print()
+            print(" Proyectos que no pudieron ser reparados o generaron mensajes de error:")
+            for a,b in pairs(fail) do
+	            print(" - "..tostring(b))
+            end
+        end
+        print("")
+        dalclick_loop(false) 
+        return false
+    end
 
     local exit = false
     print()
@@ -1893,7 +1964,7 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                 print(" ERROR: no se puede actualizar la lista de capturas realizadas.")
             end
             if type(p.state.counter) ~= 'table' then
-                if p.state.counter.even == nil or p.state.counter.even == nil then
+                if p.state.counter.even == nil or p.state.counter.odd == nil then
                     loopmsg = " ATENCION Hubo un error al cargar el contador"
                     if counter_max.odd then
                         p:set_counter(counter_max.odd)

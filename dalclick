@@ -5,6 +5,8 @@ DALCLICK_SCRIPTS_DIR="$(dirname "$0")"
 cd "$DALCLICK_SCRIPTS_DIR"
 PWDIR="$(pwd -P)"
 DALCLICK_SCRIPTS_DIRNAME="${PWDIR##*/}"
+MODE="$1"
+
 
 if [[ -f "CONFIG" ]]
  then
@@ -48,10 +50,17 @@ then
     mkdir $DALCLICK_HOME
 fi
 
+if [[ "$MODE" != "" ]]
+then
+    DALCLICK_MODE="$MODE"
+else
+    DALCLICK_MODE=""
+fi
+
 while
 true # Loop forever
 do
-    ./chdkptp -e"exec mc=require('dalclick')" -e"exec return mc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT')" 2> $DALCLICK_HOME/lua_errors
+    ./chdkptp -e"exec mc=require('dalclick')" -e"exec return mc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$DALCLICK_MODE')" 2> $DALCLICK_HOME/lua_errors
     cat "$DALCLICK_HOME/lua_errors"
     LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )
     if [[ $LUA_ERRORS != "" ]]
