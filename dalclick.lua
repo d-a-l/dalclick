@@ -65,6 +65,7 @@ local defaults={
     raw_name = "raw",
     proc_name = "pre", -- processed
     doc_name = "done", -- destino final (pdf, epub, djvu, etc.)
+    doc_filename = "output.pdf", 
     test_name = 'test',
     img_match = "%.JPG$", -- lua exp to match with images in the camera
     folder_match = "^%d", -- lua exp to match with camera folders (las que empiezan con un numero)
@@ -1696,7 +1697,78 @@ end
     return true
 end
 
-function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAULT,ROTATE_EVEN_DEFAULT,DALCLICK_MODE)
+local function send_post_proc_actions()
+    if defaults.post_proc_script then
+
+        local reprocess = ""
+        local project_path = defaults.root_project_path.."/"..p.settings.regnum
+        local output_path = project_path.."/"..defaults.doc_name.."/"..defaults.doc_filename
+        
+        if dcutls.localfs:file_exists( output_path ) then
+            print(" ATENCION: ya existe un post-procesamiento previo para este proyecto.")
+            print(" Se ejecutará un nuevo post-procesamiento que sobrescribirá el anterior")
+            print(" si decide continuar. ")
+            print()
+            reprocess = " reprocess"
+        end
+    
+        print(" Seleccionar perfil de procesamiento y luego presiones <enter>")
+        print()
+        print( "  [1] blanco y negro (1bit)" )
+        print( "  [2] autodetectar imagenes en color o blanco y negro" )
+        print( "  [3] color o escala de grises" )
+        print()
+        print( "  [x] para cancelar" )
+        print()
+        
+        printf(">> ")        
+        local key = io.stdin:read'*l'
+
+        local profile
+        if key == "1" then
+            profile = "1"
+        elseif key == "2" then
+            profile = "2"
+        elseif key == "3" then
+            profile = "3"
+        else
+            return false
+        end
+
+        local ppcommand = 
+            defaults.ppm_sendcmd_path
+            ..' "'
+            ..defaults.post_proc_script
+            .." "..project_path
+            .." no-interactive"
+            .." profile="..profile
+            ..reprocess
+            ..'"'
+
+         -- print( ppcommand )
+
+         if not os.execute(ppcommand) then
+             print("ERROR")
+             print("    falló: '"..ppcommand.."'")
+             return false
+         else
+             print()
+             return true
+         end         
+     else
+        print(" ERROR: La ruta al script de procesamiento no esta correctamente configurada")
+        return false
+     end
+end
+
+function mc:main(
+    DALCLICK_HOME,
+    DALCLICK_PROJECTS,
+    DALCLICK_PWDIR,
+    ROTATE_ODD_DEFAULT,
+    ROTATE_EVEN_DEFAULT,
+    DALCLICK_MODE,
+    POST_PROC_SCRIPT)
 
     -- debug
     if false then
@@ -1716,9 +1788,18 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
     else
         defaults.dalclick_pwdir = '/opt/src/dalclick'
     end
-    
+
+    if POST_PROC_SCRIPT then 
+        if dcutls.localfs:file_exists( POST_PROC_SCRIPT ) then		
+            defaults.post_proc_script = POST_PROC_SCRIPT
+        end
+    end
+        
     defaults.qm_sendcmd_path = defaults.dalclick_pwdir.."/qm/qm_sendcmd.sh"
     defaults.qm_daemon_path = defaults.dalclick_pwdir.."/qm/qm_daemon.sh"
+    
+    defaults.ppm_sendcmd_path = defaults.dalclick_pwdir.."/ppm/ppm_sendcmd.sh" -- post process mananager
+
     defaults.empty_thumb_path = defaults.dalclick_pwdir.."/empty_g.jpg"
     defaults.empty_thumb_path_error = defaults.dalclick_pwdir.."/empty.jpg"
 
@@ -2333,7 +2414,16 @@ function mc:main(DALCLICK_HOME,DALCLICK_PROJECTS,DALCLICK_PWDIR,ROTATE_ODD_DEFAU
                 exit = true
                 break
             elseif key == "x" then
-                loopmsg = " Esta función todavía no fue implementada"
+                if send_post_proc_actions() then
+                    if p:delete_running_project() then
+                        print(" Proyecto "..p.settings.regnum.. ": '"..p.settings.title.."' enviado.")
+                    end
+                    sys.sleep(2000)
+                    if not start_options('') then
+                        dalclick_loop(false)
+                        return false
+                    end 
+                end
             elseif key == "i" then
                 if not init_cams_or_retry() then
                    exit = true

@@ -7,6 +7,10 @@
 ERROR_LOG=/var/tmp/qm_sendcmd.log
 QMBNAME=$( basename $0 )
 QMBNAME='[PPM Send]'
+
+THISDIR="$(dirname "$0")"
+cd "$THISDIR"
+
 # Check to see if a two parameter has been given
 if [ $# != 1 ]
 then
@@ -20,7 +24,7 @@ if [[ -f "../CONFIG" ]]
   . ../CONFIG
 else
   echo
-  echo " Necesita crear el archivo 'CONFIG' en '$DALCLICK_SCRIPTS_DIR/'"
+  echo " Necesita crear el archivo 'CONFIG' en '$THISDIR/'"
   echo " con la configuración de directorios de su proyecto."
   echo " Renombre el archivo 'CONFIG.example' y reemplace las rutas"
   echo " que considere necesarias."
