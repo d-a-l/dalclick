@@ -6,7 +6,7 @@
 
 # QMBNAME=$( basename $0 )
 
-echo
+echo -en "\033[0m"
 echo
 echo " ==== Bienvenido al Gestor de Post-procesado ===="
 echo
@@ -34,23 +34,23 @@ fi
 
 QUEUEPATH=$DALCLICK_PROJECTS"/.queue"
 
-QMBNAME='[Gestor]'
+QMBNAME='Gestor> '
 ERROR_LOG=/var/tmp/qm_daemon_$$.log
 
-echo " ${QMBNAME}: Leyendo cola de trabajos desde: '$QUEUEPATH'"
+echo "${QMBNAME}Leyendo cola de trabajos desde: '$QUEUEPATH'"
 
 # Check to see if one parameter has been given
 
 # if [ $# != 1 ]
 # then
-# 	echo "${QMBNAME}: ERROR: Se recibieron $# parámetro/s, se esperaba 1 (ruta a la cola de archivos)" >> $ERROR_LOG
+# 	echo "${QMBNAME}ERROR: Se recibieron $# parámetro/s, se esperaba 1 (ruta a la cola de archivos)" >> $ERROR_LOG
 # 	exit 1
 # fi
 
 # Check to see if queue path exist
 # if [[ ! -d $1 ]]
 # then
-# 	echo "${QMBNAME}: ERROR: La ruta a la cola de archivos no existe o no es un directorio: '$1'" >> $ERROR_LOG
+# 	echo "${QMBNAME}ERROR: La ruta a la cola de archivos no existe o no es un directorio: '$1'" >> $ERROR_LOG
 # 	exit 1
 # else
 # 	QUEUEPATH=$1"/.queue"
@@ -58,7 +58,7 @@ echo " ${QMBNAME}: Leyendo cola de trabajos desde: '$QUEUEPATH'"
 
 if [[ -e "${QUEUEPATH}" ]] # another qm maybe here
 then
-    echo -n " ${QMBNAME}: Verificando si otro gestor está ejecutando esta cola de archivos..."
+    echo -n "${QMBNAME}Verificando si otro gestor está ejecutando esta cola de archivos..."
     if [[ -e "${QUEUEPATH}/qmpid" ]] # another qm maybe here
     then
 	    PID=$( cat "${QUEUEPATH}/qmpid" )
@@ -74,8 +74,8 @@ then
 		    fi
 	    fi
 	    echo "OK"
-	    echo "${QMBNAME}: ATENCION: ¿Quizá otro gestor de post procesado se canceló anormalmente?" >> $ERROR_LOG
-	    echo "${QMBNAME}: ATENCION: ¿Quizá otro gestor de post procesado se canceló anormalmente?"
+	    echo "${QMBNAME}ATENCION: ¿Quizá otro gestor de post procesado se canceló anormalmente?" >> $ERROR_LOG
+	    echo "${QMBNAME}ATENCION: ¿Quizá otro gestor de post procesado se canceló anormalmente?"
 	    echo "   queuepath: '${QUEUEPATH}', pid: '${PID}', pid paths: '${CHECKPID}'" >> $ERROR_LOG
 	    echo "   queuepath: '${QUEUEPATH}', pid: '${PID}', pid paths: '${CHECKPID}'"
 	    rm -f "${QUEUEPATH}/.qmpid"
@@ -94,7 +94,7 @@ echo "----$(date +%y%m%d%H%M%S)----" >> $LOG
 # count=0
 
 # save actual pid
-echo "${QMBNAME}: actual pid: $$" >> $LOG
+echo "${QMBNAME}actual pid: $$" >> $LOG
 echo -n "$$" > "${QUEUEPATH}/.qmpid"
 
 # Ensure a commands to quit doesn't already exist
@@ -102,7 +102,7 @@ echo -n "$$" > "${QUEUEPATH}/.qmpid"
 rm -f "${QUEUEPATH}/quit"
 rm -f "${QUEUEPATH}/quit_if_empty"
 
-echo -n " ${QMBNAME}: Buscando trabajos previos pendientes en cola..."
+echo -n "${QMBNAME}Buscando trabajos previos pendientes en cola..."
 
 EXISTING_JOBS=$(ls -d "${QUEUEPATH}"/* | grep .job)
 
@@ -117,11 +117,11 @@ if [ ! -z "$EXISTING_JOBS" ]
          then
             i=$((i + 1))
             JOBNAME=$(basename $line)
-            PROJPATH=$(cat "$line" | cut -d " " -f 2)
-            PROJNAME=$(cat "$line" | cut -d " " -f 2 | xargs basename )
-            EVENIMG=$(ls "$PROJPATH/pre/even" | wc -w)
+            PROJPATH=$(cat "$line" | cut -d "#" -f 2)
+            PROJNAME=$(cat "$line" | cut -d "#" -f 2 | xargs basename )
+            EVENIMG=$(ls "$PROJPATH/pre/even" | grep .jpg | wc -w)
             FINISHED=$(ls "$PROJPATH/done" | grep .pdf | wc -w)
-            ODDIMG=$(ls "$PROJPATH/pre/odd" | wc -w)
+            ODDIMG=$(ls "$PROJPATH/pre/odd" | grep .jpg | wc -w)
             IMGS=$(( EVENIMG + ODDIMG ))
             if (( FINISHED > 0 ))
              then
@@ -153,30 +153,30 @@ if (( i > 0 ))
             echo " Procesando..."
             ;;
         x)
-            echo " ${QMBNAME}: Eliminando trabajos anteriores..."
-            echo "${QMBNAME}: Se seleccionó remover archivos en cola pervia" >> $LOG
+            echo "${QMBNAME}Eliminando trabajos anteriores..."
+            echo "${QMBNAME}Se seleccionó remover archivos en cola pervia" >> $LOG
             ls -d "${QUEUEPATH}"/* | grep .job | xargs rm -v
             ;;
         *) 
-            echo " ${QMBNAME}: Eligió salir"
+            echo "${QMBNAME}Eligió salir"
             exit 0
             ;;
     esac
 else
-    echo "${QMBNAME}: No hay archivos pendientes para procesar" >> $LOG
+    echo "${QMBNAME}No hay archivos pendientes para procesar" >> $LOG
     echo " (No hay archivos pendientes para procesar)"
 fi
 
 #exit 0
 
-echo "${QMBNAME}: Queue Manager Initialising..." >> $LOG
+echo "${QMBNAME}Queue Manager Initialising..." >> $LOG
 echo '   Entering looping state...' >> $LOG
 echo ' ' >> $LOG
 echo 
 
 echo 
-echo " ${QMBNAME}: Iniciando loop de espera..."
-echo " ${QMBNAME}: (Para salir use Ctrl+C)"
+echo "${QMBNAME}Iniciando loop de espera..."
+echo "${QMBNAME}(Para salir use Ctrl+C)"
 echo
 
 while
@@ -191,24 +191,26 @@ do
 	then
 	    echo
         echo
-		echo " ${QMBNAME}: Leído un nuevo trabajo en la cola para ser ejecutado!"
-		echo "${QMBNAME}: Job ${nextjob%%.job} Started" >> $LOG
-		echo " ${QMBNAME}: Ejecutando..."
+		echo "${QMBNAME}Leído un nuevo trabajo en la cola para ser ejecutado!"
+		echo "${QMBNAME}Job ${nextjob%%.job} Started" >> $LOG
+		echo "${QMBNAME}Ejecutando..."
 		echo
 		echo "- - - - - - INICIO ${nextjob} - - - - - - "
 		echo
 		
+		echo -en "\033[36m"
 		bash "${QUEUEPATH}/$nextjob"
+        echo -en "\033[0m"
 
         echo
 		echo "- - - - - - FIN ${nextjob}  - - - - - - - "
 		echo
-		echo " ${QMBNAME}: Trabajo terminado"
+		echo "${QMBNAME}Trabajo terminado"
 
-		echo " ${QMBNAME}: Eliminar trabajo ya ejecutado de la lista"
+		echo "${QMBNAME}Eliminar trabajo ya ejecutado de la lista"
 		rm -f "${QUEUEPATH}/${nextjob}"
-		echo "${QMBNAME}: Job ${nextjob%%.job} Finished" >> $LOG
-		echo " ${QMBNAME}: ${nextjob} Eliminado"
+		echo "${QMBNAME}Job ${nextjob%%.job} Finished" >> $LOG
+		echo "${QMBNAME}${nextjob} Eliminado"
 		# set timeout counter to 0 when There's a new job to run
 		# count=0
 		echo 
@@ -219,13 +221,13 @@ do
 		then
 			if [[ -O "${QUEUEPATH}/quit_if_empty" ]]
 			then
-				echo "${QMBNAME}: Quit file if empty detected. The Queue Manager is shutting down..." >> $LOG
-				echo " ${QMBNAME}: Quit file if empty detected. The Queue Manager is shutting down..."
+				echo "${QMBNAME}Quit file if empty detected. The Queue Manager is shutting down..." >> $LOG
+				echo "${QMBNAME}Quit file if empty detected. The Queue Manager is shutting down..."
 				rm -f "${QUEUEPATH}/quit_if_empty"
 				break
 			else
-				echo "${QMBNAME}: WARNING: Owner of file different to `whoami`. Removing file" >> $LOG
-				echo " ${QMBNAME}: WARNING: Owner of file different to `whoami`. Removing file"
+				echo "${QMBNAME}WARNING: Owner of file different to `whoami`. Removing file" >> $LOG
+				echo "${QMBNAME}WARNING: Owner of file different to `whoami`. Removing file"
 				rm -f "${QUEUEPATH}/quit_if_empty"
 			fi
 		fi
@@ -254,14 +256,14 @@ do
 		if [[ -O "${QUEUEPATH}/quit" ]]
 		then
 		    echo
-			echo "${QMBNAME}: Quit file detected. The Queue Manager is shutting down..." >> $LOG
-			echo " ${QMBNAME}: Quit file detected. The Queue Manager is shutting down..."
+			echo "${QMBNAME}Quit file detected. The Queue Manager is shutting down..." >> $LOG
+			echo "${QMBNAME}Quit file detected. The Queue Manager is shutting down..."
 			rm -f "${QUEUEPATH}/quit"
 			break
 		else
 		    echo
-			echo "${QMBNAME}: WARNING: Owner of file different to `whoami`. Removing file" >> $LOG
-			echo " ${QMBNAME}: WARNING: Owner of file different to `whoami`. Removing file"
+			echo "${QMBNAME}WARNING: Owner of file different to `whoami`. Removing file" >> $LOG
+			echo "${QMBNAME}WARNING: Owner of file different to `whoami`. Removing file"
 			rm -f "${QUEUEPATH}/quit"
 		fi
 	fi
@@ -274,12 +276,12 @@ do
 done
 
 echo
-echo " ${QMBNAME}: Clean-up dir"
+echo "${QMBNAME}Clean-up dir"
 rm -f "${QUEUEPATH}/.filelist"
 rm -f "${QUEUEPATH}/.qmpid"
 
-echo "${QMBNAME}: Clean-up complete. Queue Manager finished." >> $LOG
-echo " ${QMBNAME}: Clean-up complete. Queue Manager finished."
+echo "${QMBNAME}Clean-up complete. Queue Manager finished." >> $LOG
+echo "${QMBNAME}Clean-up complete. Queue Manager finished."
 echo "-----"  >> $LOG
 echo
 

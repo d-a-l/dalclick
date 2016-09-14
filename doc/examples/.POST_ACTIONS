@@ -1,0 +1,20 @@
+# las acciones que coloque en este archivo seran ejecutadas luego de realizar el postproceso
+# variables de entorno
+# $PROJECT_PATH la ruta absoluta a la carpeta principal del proyecto
+# $DONEPATH: la ruta absoluta a la carpeta 'done' dentro del proyecto
+# $OUTPUT_NAME: el nombre del archivo PDF"
+# $OUTPUT_PATH: la ruta absoluta al archivo PDF"
+# $PROJECT_TITLE: el titulo del proyecto
+
+echo "chequeando variables de entorno dentro de .POST_ACTIONS"
+echo "PROJECT_PATH: $PROJECT_PATH"
+echo "DONEPATH: $DONEPATH"
+echo "OUTPUT_NAME: $OUTPUT_NAME"
+echo "OUTPUT_PATH: $OUTPUT_PATH"
+echo "PROJECT_TITLE: $PROJECT_TITLE"
+
+# ej:
+# cp "$OUTPUT_PATH" "/tmp/$PROJECT_TITLE.pdf"
+# copia el pdf final a la carpeta "/tmp" usando el titulo dep proyecto como nombre
+
+cp "$OUTPUT_PATH" "/tmp/$PROJECT_TITLE.pdf"

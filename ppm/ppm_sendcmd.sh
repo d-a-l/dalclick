@@ -6,7 +6,7 @@
 
 ERROR_LOG=/var/tmp/qm_sendcmd.log
 QMBNAME=$( basename $0 )
-QMBNAME='[PPM Send]'
+QMBNAME='Send> '
 
 THISDIR="$(dirname "$0")"
 cd "$THISDIR"
@@ -39,7 +39,7 @@ fi
 
 QUEUEPATH=$DALCLICK_PROJECTS"/.queue"
 echo
-echo "${QMBNAME}: Enviando trabajo a: '$QUEUEPATH'"
+echo "${QMBNAME} Enviando trabajo a: '$QUEUEPATH'"
 
 # Check to see if queue path exist
 # if [[ ! -d "${QUEUEPATH}" ]]
@@ -51,7 +51,7 @@ echo "${QMBNAME}: Enviando trabajo a: '$QUEUEPATH'"
 # Generate vars
 
 LOG=${QUEUEPATH}"/sendcmd_log"
-COMMAND=$1
+COMMAND="$1"
 jobid=$(date +%y%m%d%H%M%S)-$(printf "%05d" $RANDOM)
 
 echo "----$(date +%y%m%d%H%M%S)----" >> $LOG
@@ -61,12 +61,12 @@ echo "${COMMAND}" > "${QUEUEPATH}/${jobid}.job"
 
 if [ $? -ne 0 ]
 then
-		echo "${QMBNAME}: ERROR: Unable to create ${jobid}.job on ${QUEUEPATH}" >> $LOG
+		echo "${QMBNAME} ERROR: Unable to create ${jobid}.job on ${QUEUEPATH}" >> $LOG
 		exit 1
 fi
 
-echo "${QMBNAME}: job ID ${jobid} assigned" >> $LOG
-echo "${QMBNAME}: Nuevo trabajo '${jobid}' en cola para procesar!"
+echo "${QMBNAME} job ID ${jobid} assigned" >> $LOG
+echo "${QMBNAME} Nuevo trabajo '${jobid}' en cola para procesar!"
 echo 
 echo "-----"  >> $LOG
 

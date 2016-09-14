@@ -1,0 +1,58 @@
+#!/bin/bash
+
+THIS_DIR="$(dirname "$0")"
+cd "$THIS_DIR"
+PWDIR="$(pwd -P)"
+
+# --- process param
+
+while [ $# -ne 0 ]
+  do
+    arg="$1"
+    case "$arg" in
+        project=*) 
+            PROJECT_PATH="${arg#*=}"
+            PROJECT_PATH="${PROJECT_PATH%/}" #remove last slash if any
+            ;;
+        done=*)
+            DONEPATH="${arg#*=}"
+            DONEPATH="${DONEPATH%/}"
+            ;;
+        name=*) # pdf file name without path
+            OUTPUT_NAME="${arg#*=}"
+            ;;
+        output_path=*) # abs pdf path
+            OUTPUT_PATH="${arg#*=}"
+            ;;
+        title=*)
+            PROJECT_TITLE="${arg#*=}"
+            ;;
+    esac
+    shift
+  done  
+
+# --- check param and paths
+
+echo "Iniciando acciones para ejecutar luego del post-proceso iniciado."
+
+[[ -z "$PROJECT_PATH" ]] && { echo "ERROR No se ha ingresado una ruta de proyecto"; exit 1; }
+[[ -d "$PROJECT_PATH" ]] || { echo "ERROR La ruta al proyecto no existe: '$PROJECT_PATH'"; exit 1; }
+[[ -f "$PROJECT_PATH/.POST_ACTIONS" ]] && echo " Detectado .POST_ACTIONS en $PROJECT_PATH" || echo " No se encontro ningun archivo .POST_ACTIONS en la carpeta del proyecto."
+[[ -f "$PROJECT_PATH/../.POST_ACTIONS" ]] && echo " Detectado .POST_ACTIONS en carpeta contenedora de '$PROJECT_PATH'." || echo " No se encontro ningun archivo .POST_ACTIONS en (../)."
+
+if [[ -f "$PROJECT_PATH/.POST_ACTIONS" ]] 
+ then   
+    echo " Ejecutando acciones en '.'"
+    cd "$PROJECT_PATH"
+    . .POST_ACTIONS
+elif [[ -f "$PROJECT_PATH/../.POST_ACTIONS" ]]
+ then
+    echo " Ejecutando acciones en '../'"
+    cd "$PROJECT_PATH"
+    cd ../
+    . .POST_ACTIONS
+else
+    echo ""
+fi
+
+exit 0

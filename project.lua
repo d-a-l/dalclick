@@ -46,25 +46,6 @@ function project:init(globalconf)
     return true
 end
 
-function project:is_broken()
-    local settings_path
-    if dcutls.localfs:file_exists(self.dalclick.dc_config_path.."/running_project") then
-        settings_path = dcutls.localfs:read_file(self.dalclick.dc_config_path.."/running_project")
-        -- local settings_path = util.unserialize(content)
-        if dcutls.localfs:file_exists(settings_path) then
-            return settings_path
-        else
-            -- archivo running_project corrupto, no existe el proyecto
-            print(" El proyecto referenciado en "..self.dalclick.dc_config_path.."/running_project".." no existe.")
-            print(" Eliminando "..self.dalclick.dc_config_path.."/running_project")
-            dcutls.localfs:delete_file(self.dalclick.dc_config_path.."/running_project")
-            return false
-        end
-    else
-        return false
-    end
-end
-
 function project:delete_running_project()
     -- delete reference to existing running project (close)
     if dcutls.localfs:delete_file(self.dalclick.dc_config_path.."/running_project") then
@@ -97,10 +78,10 @@ function project:write()
     local settings = util.serialize(self.settings)
 
     if dcutls.localfs:create_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_state",state) and dcutls.localfs:create_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_settings",settings) then
-        print(" '"..self.settings.regnum.."' guardado")
+        -- print(" '"..self.settings.regnum.."' guardado")
         return true    
     else
-        print("no se pudo guardar la configuracion del proyecto actual en:  "..self.dalclick.root_project_path.."/"..self.settings.regnum.."/")
+        -- print("no se pudo guardar la configuracion del proyecto actual en:  "..self.dalclick.root_project_path.."/"..self.settings.regnum.."/")
         return false
     end
 end
@@ -114,34 +95,39 @@ function project:open(defaults)
     -- return false: no se pudo abrir el proyecto o contiene errores -> salir de dalclick o dar opcion de volver a abrior o crear
     -- 
     require( "iuplua" )
-    local regnum_dir, status, load_dir_error, a
+    local regnum_dir, status, folder, load_dir_error, a
 
     -- Creates a file dialog and sets its type, title, filter and filter info
-    local od = iup.filedlg{ dialogtype = "DIR", 
+    local fd = iup.filedlg{ dialogtype = "DIR", 
                             title = "Seleccionar carpeta de proyecto", 
-                            directory = self.dalclick.root_project_path
+                            directory = self.dalclick.root_project_path,
+                            -- parentdialog = iup.GetDialog(self)
                             }
-
+  
     -- Shows file dialog in the center of the screen
-    od:popup (iup.ANYWHERE, iup.ANYWHERE)
-
+    fd:popup(iup.ANYWHERE, iup.ANYWHERE)
+    
     -- Gets file dialog status
-    status = od.status
-
+    status = fd.status
+    folder = fd.value
+    
+    fd:destroy()    
+    -- iup.Destroy(od)
+    
     -- Check status
     load_dir_error = true
     if status == "0" then 
-      if type(od.value) ~= 'string' then
+      if type(folder) ~= 'string' then
           -- nota: solo con Alarm se pudo corregir el problema de que no se podia cerrar filedlg
-          iup.Alarm("Cargando proyecto", "Error: Hubo un problema al intentar cargar '"..tostring(od.value).."'" ,"Continuar")
+          iup.Alarm("Cargando proyecto", "Error: Hubo un problema al intentar cargar '"..tostring(folder).."'" ,"Continuar")
       else
-          if od.value == self.settings.regnum then
+          if folder == self.settings.regnum then
               iup.Alarm("Cargando proyecto", "El proyecto seleccionado es el proyecto abierto actualmente" ,"Continuar")
-          else
-              a = iup.Alarm("Cargando proyecto", "Carpeta seleccionada:\n"..od.value ,"OK", "Cancelar")
+          else              
+              a = iup.Alarm("Cargando proyecto", "Carpeta seleccionada:\n"..folder ,"OK", "Cancelar")
               if a == 1 then 
                   load_dir_error = false
-                  regnum_dir = od.value
+                  regnum_dir = folder
               end
           end
       end
@@ -150,6 +136,7 @@ function project:open(defaults)
     else
           iup.Alarm("Cargando proyecto", "Se produjo un error" ,"Continuar")
     end
+
 
     if load_dir_error then
         print(" [Abrir proyecto] Error: no se pudo seleccionar una carpeta de proyecto válida.")
@@ -164,7 +151,7 @@ function project:open(defaults)
         end
         local load_status, project_status = self:load(regnum_dir.."/.dc_settings")
         if load_status == true then
-            print(" [Abrir proyecto] Proyecto cargado con éxito desde '"..regnum_dir.."'." )
+            print(" Proyecto cargado con éxito desde '"..regnum_dir.."'." )
             -- guardar referencia al proyecto cargado como "running project"
             if self:update_running_project(regnum_dir.."/.dc_settings") then
                 return true, project_status -- success!!
@@ -253,18 +240,17 @@ function project:create( regnum, title )
         if not dcutls.localfs:create_file(settings_path, content) then
             return false
         end
+        -- init project state
+        self:init_state()
+        if not self:save_state() then
+            return false
+        end
         -- create running_project 
-        if self:update_running_project(settings_path) then
-            return true -- success!!
-        else
+        if not self:update_running_project(settings_path) then
             print(" [Crear proyecto] Error: no se pudo actualizar la configuración interna de DALclick" )
             return false
         end
-            
-        -- if not dcutls.localfs:create_file(self.dalclick.dc_config_path.."/running_project",settings_path) then
-        --    return false
-        -- end
-        return true
+        return true -- all success!!
     else
         print("create_project_tree: no se ha recibido un número de registro válido!\n")
         return false
@@ -369,22 +355,13 @@ function project:load(settings_path)
                         self.state.saved_files = nil
                     end
                 end
+                
                 -- save state!!!!
                 self:save_state()
             else
-                self.state = {} -- asegurarse que no queda cargado un estado de un proyecto anterior
-                print(" ATENCION: no se ha podido cargar un estado del contador.")
-                print(" El contador se reiniciará desde 0 cuando se inicialicen")
-                print(" las cámaras, por favor verifique que no existan capturas")
-                print(" previas, ya que serán sobreescritas.")
-                print()
-                print(" las capturas para este proyecto se guardan en:\n")
-                print("  "..self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.raw_name)
-                print()
-                print(" Si existen capturas y no desea sobreescribirlas, puede ")
-                print(" actualizar el estado del contador editando manualmente el")
-                print(" siguiente archivo (luego de inicializar las camaras):\n")
-                print("  "..self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_state")
+                print(" ATENCION: no se ha podido cargar un estado de contador anterior.")
+                self:init_state()
+                self:save_state()
             end
 
             print(" ===================================================")
@@ -451,35 +428,35 @@ function project:fix_paths(paths, pattern, rootpath)
    pattern = pattern:gsub("%)", '%%)')
         
    for idname,path in pairs(paths) do
-        local rootpath_to_check = path:match("^(.+)/"..pattern.."/.+$")
-        if rootpath_to_check ~= rootpath then
-            print("!")
-            print(" "..tostring(rootpath_to_check).." <-> "..tostring(rootpath))
-            there_are_fixed_paths = true
-            -- print(" ATENCION: las rutas cargadas de la configuración del proyecto no coinciden\n con su ubicación actual")
-            print("    ----> '"..path.."'")
-            local relpath = path:match("^.+("..pattern..".+)$")
-            if tostring(relpath) == "" or relpath == nil then
-                print(" DEBUG: Se produjo un error inesperado al intentar reparar las rutas")
-                print( relpath, pattern, rootpath, rootpath_to_check, path )
-                return false
-            end
-            fixed[idname] = rootpath.."/"..relpath
-        else
-            printf(".")        
-        end
-    end
-    print()
-    if there_are_fixed_paths then
-        return fixed
-    else
-        return nil
-    end
+       local rootpath_to_check = path:match("^(.+)/"..pattern.."/.+$")
+       if rootpath_to_check ~= rootpath then
+           print("!")
+           print(" "..tostring(rootpath_to_check).." <-> "..tostring(rootpath))
+           there_are_fixed_paths = true
+           -- print(" ATENCION: las rutas cargadas de la configuración del proyecto no coinciden\n con su ubicación actual")
+           print("    ----> '"..path.."'")
+           local relpath = path:match("^.+("..pattern..".+)$")
+           if tostring(relpath) == "" or relpath == nil then
+               print(" DEBUG: Se produjo un error inesperado al intentar reparar las rutas")
+               print( relpath, pattern, rootpath, rootpath_to_check, path )
+               return false
+           end
+           fixed[idname] = rootpath.."/"..relpath
+       else
+           printf(".")        
+       end
+   end
+   -- print()
+   if there_are_fixed_paths then
+       return fixed
+   else
+       return nil
+   end
 end
     
 function project:check_project_paths() 
 
-    print(" chequeando integridad del proyecto")
+    printf(" Chequeando integridad del proyecto\n ")
     local paths_modified = false
     fixed = self:fix_paths(
                 self.settings.path_proc, 
@@ -492,7 +469,8 @@ function project:check_project_paths()
         self.settings.path_proc = fixed
         paths_modified = true
     end
-
+    
+    printf("\n ")
     fixed = self:fix_paths(
                 self.settings.path_raw,
                 self.settings.regnum.."/"..self.dalclick.raw_name, 
@@ -505,6 +483,7 @@ function project:check_project_paths()
         paths_modified = true
     end
 
+    printf("\n ")
     fixed = self:fix_paths(
                 self.settings.path_test,
                 self.settings.regnum.."/"..self.dalclick.test_name, 
@@ -516,7 +495,8 @@ function project:check_project_paths()
         self.settings.path_test = fixed
         paths_modified = true
     end    
-   
+
+    print()   
     if paths_modified == true then
         return true, 'modified'
     else
@@ -580,29 +560,37 @@ function project:counter_prev()
 end
 
 function project:reparar()
+    local log = ''
+    local msg
     local status, counter_min, counter_max = self:get_counter_max_min()
     local no_errors = true
     if type(counter_min) ~= 'table' or type(counter_max) ~= 'table' then
-        print(" Aparentemente este proyecto aun no tiene capturas")
-        print(" o no se pueden leer las imagenes.")
+        msg = " Aparentemente este proyecto aun no tiene capturas\n o no se pueden leer las imagenes."
+        print(msg)
+        log = log.."\n"..msg
         sys.sleep(2000)
-        return false
+        return false, false, log
     end
     if self.state.rotate.odd == nil or self.state.rotate.even == nil then
-        print(" No esta definido en el proyecto como rotar las imagenes ( state.rotate[] )")
+        msg= " No esta definido en el proyecto como rotar las imagenes ( state.rotate[] )"
+        print(msg)
+        log = log.."\n"..msg
         sys.sleep(2000)
-        return false
+        return false, false, log
     end
     if status == true then
         if self:set_counter(counter_min.odd) then
             -- TODO p.state.rotate[idname]
-            print(" iniciando reparacion desde"..tostring(self.state.counter.even).."/"..tostring(self.state.counter.odd))
+            msg = " iniciando reparacion desde"..tostring(self.state.counter.even).."/"..tostring(self.state.counter.odd)
+            print(msg)
+            log = log.."\n"..msg
+
             -- check preview folder
             for idname,count in pairs(self.state.counter) do
                 local preview_folder = self.settings.path_proc[idname].."/"..self.dalclick.thumbfolder_name
                 if not dcutls.localfs:file_exists( preview_folder ) then
                     if not dcutls.localfs:create_folder( preview_folder ) then
-                        return false
+                        return false, false, log
                     end
                 end
             end
@@ -611,10 +599,14 @@ function project:reparar()
             
             while true do
             for idname,count in pairs(self.state.counter) do
-                print(" -- "..tostring(count))
+                msg = " -- "..tostring(count)
+                print(msg)
+                log = log.."\n"..msg
                 if type(count) ~= 'number' then 
-                    print(" Error: count")
-                    return false 
+                    msg = " Error: count"
+                    print(msg)
+                    log = log.."\n"..msg
+                    return false, false, log
                 end
                 
                 filename_we = string.format("%04d", count)..".jpg"
@@ -624,7 +616,9 @@ function project:reparar()
                 
                 if dcutls.localfs:file_exists( raw_path ) then
                     if not dcutls.localfs:file_exists( pre_path ) then
-                        print(" creando imagen preprocesada para... "..tostring(raw_path))
+                        msg = " creando imagen preprocesada para... "..tostring(raw_path)
+                        print(msg)
+                        log = log.."\n"..msg
                         command = 
                             "econvert -i "..raw_path
                           .." --rotate "..self.state.rotate[idname]
@@ -633,41 +627,57 @@ function project:reparar()
                           .." -o "..preview_path
                           .." > /dev/null 2>&1"
                         if not os.execute(command) then
-                            print("ERROR")
-                            print("    falló: '"..command.."'")
+                            msg = "ERROR\n    falló: '"..command.."'"
+                            print(msg)
+                            log = log.."\n"..msg
                             no_errors = false
                         else
                             if dcutls.localfs:file_exists( pre_path ) then
-                                print(" OK pre_path creado con exito "..tostring(pre_path)) 
+                                msg = " OK pre_path creado con exito "..tostring(pre_path)
+                                print(msg)
+                                log = log.."\n"..msg
                             else
-                                print(" ERROR pre_path "..tostring(pre_path)) 
+                                msg = " ERROR pre_path "..tostring(pre_path)
+                                print(msg)
+                                log = log.."\n"..msg
                                 no_errors = false
                             end
                             if dcutls.localfs:file_exists( preview_path ) then
-                                print(" OK preview_path creado con exito "..tostring(preview_path)) 
+                                msg = " OK preview_path creado con exito "..tostring(preview_path)
+                                print(msg)
+                                log = log.."\n"..msg
                             else
-                                print(" ERROR preview_path "..tostring(preview_path))
+                                msg = " ERROR preview_path "..tostring(preview_path)
+                                print(msg)
+                                log = log.."\n"..msg
                                 no_errors = false
                             end
                         end
                     elseif not dcutls.localfs:file_exists( preview_path ) then
                         command = "econvert -i "..pre_path.." --thumbnail ".."0.125".." -o "..preview_path.." > /dev/null 2>&1"
                         if not os.execute(command) then
-                            print("ERROR")
-                            print("    falló: '"..command.."'")
+                            msg = "ERROR\n    falló: '"..command.."'"
+                            print(msg)
+                            log = log.."\n"..msg
                             no_errors = false
                         else
                             if dcutls.localfs:file_exists( preview_path ) then
-                                print(" OK preview_path creado con exito "..tostring(preview_path)) 
+                                msg = " OK preview_path creado con exito "..tostring(preview_path)
+                                print(msg)
+                                log = log.."\n"..msg
                             else
-                                print(" ERROR preview_path "..tostring(preview_path)) 
+                                msg = " ERROR preview_path "..tostring(preview_path)
+                                print(msg)
+                                log = log.."\n"..msg 
                                 no_errors = false
                             end
                         end
                     end
                 else
-                    print(" DEBUG no existia raw_path: "..tostring(raw_path))
-                    no_errors = false
+                    msg = " DEBUG no existia raw_path: "..tostring(raw_path)
+                    print(msg)
+                    log = log.."\n"..msg
+                    no_errors = 'warning'
                 end
 
             end -- for
@@ -675,31 +685,35 @@ function project:reparar()
                 break
             end
             end -- while
-            print()
-            print(" Reparacion finalizada")
+            msg = "\n Reparacion finalizada"
+            print(msg)
+            log = log.."\n"..msg
         end
-        return true, no_errors
+        return true, no_errors, log
     else
-        print(" No se pudo obtener el listado de imagenes raw")
-        return false
+        msg = " No se pudo obtener el listado de imagenes raw"
+        print(msg)
+        log = log.."\n"..msg
+        return false, false, log
     end
 end
 
 function project:set_counter(pos)
     if pos == nil then return false end
     pos = tonumber(pos)
+    local msg
     if (pos % 2 == 0) then
         -- even
         self.state.counter[self.dalclick.even_name] = pos
         self.state.counter[self.dalclick.odd_name]  = pos + 1
-        print(" contador actualizado -> even: "..tostring(pos).." / odd: "..tostring(pos + 1))
+        msg = "contador actualizado -> even: "..tostring(pos).." / odd: "..tostring(pos + 1)
     else
         -- odd
         self.state.counter[self.dalclick.even_name] = pos - 1
         self.state.counter[self.dalclick.odd_name]  = pos
-        print(" contador actualizado -> even: "..tostring(pos - 1).." / odd: "..tostring(pos))
+        msg = "contador actualizado -> even: "..tostring(pos - 1).." / odd: "..tostring(pos)
     end
-    return true
+    return true, msg
 end
 
 function project:get_counter_max_min()
@@ -745,6 +759,25 @@ function project:get_counter_max_min()
         return true, counter_min, counter_max
     end
 
+end
+
+function project:init_state()
+
+    self.state = {} -- asegurarse que no queda cargado un estado de un proyecto anterior
+   
+    self.state.counter = {}
+    self.state.counter.even = 0
+    print(" iniciado contador par (even) en:"..tostring(self.state.counter.even))
+    self.state.counter.odd = 1
+    print(" iniciado contador impar (odd) en:"..tostring(self.state.counter.odd))
+    
+    self.state.rotate = {}
+    self.state.rotate.odd = self.dalclick.rotate_odd
+    print(" asignada rotación por defecto para cámara de páginas impares: "..self.state.rotate.odd)
+    self.state.rotate.even = self.dalclick.rotate_even
+    print(" asignada rotación por defecto para cámara de páginas pares: "..self.state.rotate.even)
+    
+    return true
 end
 
 function project:save_state()
@@ -899,6 +932,36 @@ function project:guest_counter_and_make_preview(action, max, local_counter)
     end
     
     return true, previews, filenames, local_counter
+end
+
+function project:send_post_proc_actions()
+
+    local dc_pp = self.dalclick.dalclick_pwdir.."/".."dc_pp"
+    if dcutls.localfs:file_exists( dc_pp ) then		
+
+        local project_path = self.dalclick.root_project_path.."/"..self.settings.regnum 
+
+        local dcpp_command = 
+            dc_pp
+            .." 'project="..project_path.."'"
+            .." 'even="..   project_path.."/"..self.dalclick.proc_name.."/"..self.dalclick.even_name.."'"
+            .." 'odd="..    project_path.."/"..self.dalclick.proc_name.."/"..self.dalclick.odd_name.."'"
+            .." 'all="..    project_path.."/"..self.dalclick.proc_name.."/"..self.dalclick.all_name.."'"
+            .." 'done="..   project_path.."/"..self.dalclick.doc_name .."'"
+            .." 'output_name=".. self.dalclick.doc_filename.."'"
+            .." 'title="..self.settings.title.."'"
+
+         -- print( ppcommand )
+         local exit_status = os.execute(dcpp_command)
+
+         print()
+         print(" script exit status: "..tostring(exit_status))
+         return true
+     else
+        print(" ERROR: La ruta al script de post-procesamiento no esta correctamente configurada:")
+        print(dc_pp)
+        return false
+     end
 end
 
 function project:show_capts(previews, filenames, counter_max, mode)
@@ -1133,7 +1196,7 @@ function project:show_capts(previews, filenames, counter_max, mode)
 
 
     local function destroy_dialog() 
-        print("cerrando  ...")
+        -- print(" cerrando  ...")
         right.image:Destroy()
         right.cnv.canvas:Kill()
         left.image:Destroy()
