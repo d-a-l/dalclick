@@ -2020,8 +2020,6 @@ function dc:main(
     if not mc:connect_all() then
         print(" DALclick se ha iniciado correctamente, ahora encienda las cámaras.\n")
         print()
-        print(" <enter> para seguir.")
-        print()
         
         if running_project then
             local ppath, pname, pext = string.match(running_project, "(.-)([^\\/]-%.?([^%.\\/]*))$")
@@ -2030,11 +2028,17 @@ function dc:main(
             print()
             print("   '"..tostring(ppath).."'")
             print()
-            print(" [n] iniciar con un nuevo proyecto")
-            print()
         end
 
-        print(" [Ctrl+C] interrumpir la ejecución del programa use )")
+        print(" [enter] seguir")
+        print()
+        
+        if running_project then
+            print(" [n] no restaurar, iniciar con un nuevo proyecto")
+            print()
+        end
+        
+        print(" [Ctrl+C] interrumpir la ejecución del programa")
         print()
         
         printf(">> ") 
