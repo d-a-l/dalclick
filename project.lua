@@ -203,11 +203,12 @@ function project:get_project_newname()
     
 end
 
-
-function project:create( regnum, title )
-
-    self.settings.regnum = regnum
-    self.settings.title = title
+function project:create( options )
+    local options = options or {}
+    if type(options) ~= 'table' then return false end
+    
+    self.settings.regnum = options.regnum
+    self.settings.title = options.title
     
     print(" Se está creando un nuevo proyecto:\n")
     print(" === "..self.settings.regnum.." ===")
@@ -241,7 +242,8 @@ function project:create( regnum, title )
             return false
         end
         -- init project state
-        self:init_state()
+        local init_state_options = { zoom = options.zoom }
+        self:init_state( init_state_options )
         if not self:save_state() then
             return false
         end
@@ -254,37 +256,6 @@ function project:create( regnum, title )
     else
         print("create_project_tree: no se ha recibido un número de registro válido!\n")
         return false
-    end
-end
-
-function project:save_current_and_create_new_project(defaults)
-    -- guarda el proyecto en curso y crea uno nuevo
-    if not self:write() then
-        print(" error: no se pudo guardar el proyecto actual.")
-        return false
-    end
-    
-    local regnum, title = self:get_project_newname()
-    if regnum == nil then
-        return nil
-    end
-    
-    print(); print(" Creando proyecto nuevo..."); print()
-    
-    if not self:init(defaults) then
-        print("No se pudo inicializar un proyecto")
-        return false
-    end
-    if self:create(regnum, title) then
-        -- if not self:update_running_project() then
-        --    print(" error: no se pudo actualizar la configuración interna de DALclick")
-        --    return false
-        -- end
-        return true
-    else      
-        print(" Error: No se pudo crear un nuevo proyecto.")
-        return false
-
     end
 end
 
@@ -761,7 +732,9 @@ function project:get_counter_max_min()
 
 end
 
-function project:init_state()
+function project:init_state( options )
+    local options = options or {}
+    if type(options) ~= 'table' then return false end    
 
     self.state = {} -- asegurarse que no queda cargado un estado de un proyecto anterior
    
@@ -776,6 +749,11 @@ function project:init_state()
     print(" asignada rotación por defecto para cámara de páginas impares: "..self.state.rotate.odd)
     self.state.rotate.even = self.dalclick.rotate_even
     print(" asignada rotación por defecto para cámara de páginas pares: "..self.state.rotate.even)
+    
+    if type(options.zoom) == 'number' then
+        self.state.zoom_pos = options.zoom
+        print(" asignado valor de zoom previo: "..tostring(options.zoom))
+    end
     
     return true
 end

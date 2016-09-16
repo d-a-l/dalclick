@@ -83,6 +83,10 @@ local defaults={
     -- regnum = '',
 }
 
+local config={
+    zoom_persistent = true -- persistent zoom parameter on new projects
+}
+
 defaults.dc_config_path = nil -- main(DIYCLICK_HOME)
 
 local dc={}      -- dalclick main functions
@@ -613,7 +617,7 @@ function mc:shutdown_all()
     end
 end
 
-function mc:init_cams_all(zoom)
+function mc:init_cams_all()
    
     print("\n Verificando conexión cámaras:")
     local status = self:check_cam_connection()
@@ -773,12 +777,7 @@ function mc:init_cams_all(zoom)
     
     -- set cams
     --
-    print()
-    if type(zoom) == 'number' then
-        p.state.zoom_pos = zoom
-        print(" debug: zoom actualizado a "..tostring(zoom))
-    end
-    
+    print()   
     if type(p.state.zoom_pos) ~= "number" then
         p.state.zoom_pos = nil
     end
@@ -1100,7 +1099,7 @@ function mc:capt_all(mode)
     end
 end
 
-function mc:capt_all_test_and_preview() -- zzzz
+function mc:capt_all_test_and_preview()
 
     if p:load_state() then
 
@@ -1446,7 +1445,9 @@ function dc:kill_daemons()
     os.execute("killall qm_daemon.sh 2>&1") -- TODO: qm_daemon se deberia apagar creando un archivo 'quit' en job folder
 end
 
-function dc:start_options(mode)
+function dc:start_options(mode, options)
+
+    local options = options or {}
     -- mode -> 'restore_running_project' ó 'new_project' (por ahora igual a '')
     -- iniciando la estructura para un proyecto
     if not p:init(defaults) then
@@ -1513,7 +1514,11 @@ function dc:start_options(mode)
                     if not p:init(defaults) then
                         return false
                     end
-                    if p:create( regnum, title ) then
+                    local create_options = { regnum = regnum, title = title }
+                    if config.zoom_persistent then
+                        create_options.zoom = options.zoom
+                    end
+                    if p:create( create_options ) then
                         local cam_status = self:init_cams_or_retry()
                         if cam_status == 'exit' then
                             return 'exit' -- opcion explicita de salir de dalclick desde init_cams_or_retry()
@@ -1600,7 +1605,7 @@ function dc:dalclick_loop(mode)
     end
 end
 
-function dc:init_cams_or_retry(zoom)
+function dc:init_cams_or_retry()
 
     local status
     local menu = [[
@@ -1625,7 +1630,7 @@ function dc:init_cams_or_retry(zoom)
 ==============================================================================]]
 
     while true do
-        status = mc:init_cams_all(zoom) -- true: ok, seguir - false: error, reintentar - nil: se eligio salir
+        status = mc:init_cams_all() -- true: ok, seguir - false: error, reintentar - nil: se eligio salir
         if status == true then
             break
         elseif status == 'exit' then
@@ -2466,25 +2471,37 @@ function dc:main(
                 end
             elseif key == "n" then
                 local previous_zoom = p.state.zoom_pos
-                -- print("debug: zoom ----> "..tostring(previous_zoom).." - "..type(previous_zoom))
-                local status = p:save_current_and_create_new_project(defaults)
-                if status == nil then
-                    -- continue
-                elseif status == false then
-                    exit = true
-                    break
-                else
-                    print(" Reiniciando cámaras... ")
-                    local cam_status = self:init_cams_or_retry(previous_zoom)
-                    -- cam_status == 'no_init_select' or cam_status == true --> continue
-                    if cam_status == 'exit' or cam_status == false then
-                        exit = true
-                        break
+                local regnum, title = p:get_project_newname()
+                if regnum ~= nil then                
+                    printf(" Guardando proyecto anterior... ")
+                    if not p:write() then
+                        print(" ERROR\n    no se pudo guardar el proyecto actual.")
+                        exit = true; break
+                    else
+                        print("OK")
                     end
-                    if defaults.mode_enable_qm_daemon then
-                        self:init_daemons()
+                    
+                    if not p:init(defaults) then
+                        print(" ERROR: no se puedo iniciar el proyecto")
+                        exit = true; break
                     end
-                end
+                    
+                    local create_options = { regnum = regnum, title = title }
+                    if config.zoom_persistent then
+                        create_options.zoom = previous_zoom
+                    end
+                    if p:create( create_options ) then
+                        print(" Reiniciando cámaras... ")
+                        local cam_status = self:init_cams_or_retry()
+                        if cam_status == 'exit' or cam_status == false then
+                            exit = true
+                            break
+                        end
+                        if defaults.mode_enable_qm_daemon then
+                            self:init_daemons()
+                        end
+                    end
+                 end
             elseif key == "o" then
                 local status
                 print(); status, project_status = p:open(defaults); print()
@@ -2574,13 +2591,15 @@ function dc:main(
                     break
                 end
             elseif key == "x" then
+                local new_project_options = { zoom = p.state.zoom_pos }
                 if p:send_post_proc_actions() then
                     print("\n Proyecto "..p.settings.regnum.. ": '"..p.settings.title.."' enviado.")
                     if p:delete_running_project() then
                         print(" Cerrando proyecto..OK")
                     end
                     sys.sleep(2000)
-                    if not self:start_options('new_project') then
+                    
+                    if not self:start_options('new_project', new_project_options) then
                         exit = true
                         break
                     end
