@@ -16,6 +16,10 @@ PWDIR="$(pwd -P)"
 # --- defaults values
 
 OUTPUT_NAME="output.pdf"
+INTERACTIVE='Yes'
+QUIET_OPTION_1=1 # post-procesado completo siempre
+QUIET_OPTION_2=1 # Blanco y negro (1bit)
+QUIET_OPTION_3=1 # si existe sobreescribir PDF
 
 # --- process param
 
@@ -48,6 +52,10 @@ while [ $# -ne 0 ]
             ;;
         title=*)
             PROJECT_TITLE="${arg#*=}"
+            ;;
+        quiet=*)
+            INTERACTIVE="No"
+            QUIET_OPTIONS="${arg#*=}"
             ;;
     esac
     shift
@@ -95,7 +103,6 @@ EXT="jpg,JPG,tif,TIF,jpeg,JPEG,TIFF,tiff"
 
 PROFILE_OPTIONS=''
 
-
 # --- check prior execution
 
 if [ -d "$DONEPATH/.processing" ]
@@ -121,50 +128,55 @@ fi
 
 # --- select options
 
-echo ""
-echo " Opciones de post-procesamiento"
-
-if [ -f "$DONEPATH/$OUTPUT_NAME" ]
+if [ "$INTERACTIVE" == "Yes" ]
   then
-   echo ""
-   echo " # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # "
-   echo " # ATENCION: Este proyecto ya contiene un documento PDF probablemente  #"
-   echo " # producido durante un post-procesamiento anterior.                   #"
-   echo " # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # "
-   echo ""
-   echo " (sólo 'enter' para salir sin hacer nada)"
-   echo ""
-   echo "  1) Repetir el post-procesado completo."
-   echo "  2) Repetir el post-procesado pero sin realizar OCR"
-   echo "    (reconocimiento de caracteres)."
+    echo ""
+    echo " Opciones de post-procesamiento"
+
+    if [ -f "$DONEPATH/$OUTPUT_NAME" ]
+      then
+       echo ""
+       echo " # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # "
+       echo " # ATENCION: Este proyecto ya contiene un documento PDF probablemente  #"
+       echo " # producido durante un post-procesamiento anterior.                   #"
+       echo " # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # "
+       echo ""
+       echo " (sólo 'enter' para salir sin hacer nada)"
+       echo ""
+       echo "  1) Repetir el post-procesado completo."
+       echo "  2) Repetir el post-procesado pero sin realizar OCR"
+       echo "    (reconocimiento de caracteres)."
+    else
+       echo " ('enter' para salir sin hacer nada)"
+       echo ""
+       echo "  1) Realizar post-procesado completo"
+       echo "  2) Realizar post-procesado sin OCR (reconocimiento de caracteres)"
+    fi
+
+    if [ "$PREV_SC" == "Yes" ]
+     then
+       echo "  3) Re-procesar SOLO el OCR (reconocimiento de caracteres), usando"
+       echo "     el resto del material disponible para generar el PDF."
+    fi
+
+    if [ "$PREV_SC" == "Yes" ] && [ "$PREV_OCR" == "Yes" ]
+     then
+       echo "  4) Solo generar el PDF sin realizar nuevamente el post-procesado."
+    fi
+
+    if [ -f "$DONEPATH/$OUTPUT_NAME" ]
+     then
+       echo "  e) Eliminar archivos generados en el post-procesado previo y salir"
+    fi
+
+    echo ""   
+
+    echo -n ">> "
+    read option
+    echo ""
 else
-   echo " ('enter' para salir sin hacer nada)"
-   echo ""
-   echo "  1) Realizar post-procesado completo"
-   echo "  2) Realizar post-procesado sin OCR (reconocimiento de caracteres)"
+    option=$QUIET_OPTION_1
 fi
-
-if [ "$PREV_SC" == "Yes" ]
- then
-   echo "  3) Re-procesar SOLO el OCR (reconocimiento de caracteres), usando"
-   echo "     el resto del material disponible para generar el PDF."
-fi
-
-if [ "$PREV_SC" == "Yes" ] && [ "$PREV_OCR" == "Yes" ]
- then
-   echo "  4) Solo generar el PDF sin realizar nuevamente el post-procesado."
-fi
-
-if [ -f "$DONEPATH/$OUTPUT_NAME" ]
- then
-   echo "  e) Eliminar archivos generados en el post-procesado previo y salir"
-fi
-
-echo ""   
-
-echo -n ">> "
-read option
-echo ""
 
 case "$option" in
   "")
@@ -206,18 +218,22 @@ case "$option" in
      ;;
 esac
 
-echo " Seleccione perfil de procesamiento:"
-echo " ('enter' para salir sin hacer nada)"
-echo ""
-echo "  1) Blanco y negro (1bit)"
-echo "  2) Autodetectar imagenes en color o blanco y negro"
-echo "  3) Color o escala de grises"
-echo ""
+if [ "$INTERACTIVE" == "Yes" ]
+  then
+    echo " Seleccione perfil de procesamiento:"
+    echo " ('enter' para salir sin hacer nada)"
+    echo ""
+    echo "  1) Blanco y negro (1bit)"
+    echo "  2) Autodetectar imagenes en color o blanco y negro"
+    echo "  3) Color o escala de grises"
+    echo ""
 
-echo -n ">> "
-read pr_option
-echo ""
-
+    echo -n ">> "
+    read pr_option
+    echo ""
+else
+    pr_option=$QUIET_OPTION_2
+fi
 
 case "$pr_option" in
     "")
@@ -249,17 +265,22 @@ if [ "$CREATE_SYMLINKS_IN_ALL_DIR" != "No" ]
     then
       if [ "$CREATE_SYMLINKS_IN_ALL_DIR" == "Yes" ]
        then
-         echo ""
-         echo " ATENCION: '$PROJECT_NAME' contiene archivos de un post-procesamiento"
-         echo " inconcluso realizado con anterioridad."
-         echo ""
-         echo " ¿Cómo desea continuar?:"
-         echo " ('enter' para salir sin hacer nada.)"
-         echo ""
-         echo "  1) Para generar el PDF sobreescribiendo lo anterior."
-         echo ""
-         
-         read  -p ">> " option
+         if [ "$INTERACTIVE" == "Yes" ]
+           then
+             echo ""
+             echo " ATENCION: '$PROJECT_NAME' contiene archivos de un post-procesamiento"
+             echo " inconcluso realizado con anterioridad."
+             echo ""
+             echo " ¿Cómo desea continuar?:"
+             echo " ('enter' para salir sin hacer nada.)"
+             echo ""
+             echo "  1) Para generar el PDF sobreescribiendo lo anterior."
+             echo ""
+             
+             read  -p ">> " option
+         else
+            option=$QUIET_OPTION_3
+         fi
          case "$option" in
             "")
                 exit 0
