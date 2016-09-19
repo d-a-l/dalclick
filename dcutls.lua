@@ -67,7 +67,7 @@ function dcutls.localfs:read_file_as_table(path)
         return false
     end
     local f = io.open(path, "r")
-    if f~=nil then 
+    if f ~= nil then 
         for line in f:lines() do
             table.insert(content, line);
         end

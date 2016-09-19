@@ -220,9 +220,11 @@ end
 
 function project:load(settings_path) -- zzzzz
     local base_path, settings_name, ext = string.match(settings_path, "(.-)([^\\/]-%.?([^%.\\/]*))$")
-    base_path = string.match(base_path, "(.*)/$") -- remove trailing slash if any
+    if base_path ~= nil and base_path:sub(-1) == "/" then base_path = base_path:sub(1, -2) end -- remove trailing slash if any
+    -- base_path = string.match(base_path, "(.*)/$") -- remove trailing slash if any
     local root_path, regnum_name, ext = string.match(base_path, "(.-)([^\\/]-%.?([^%.\\/]*))$")
-    root_path = string.match(root_path, "(.*)/$") -- remove trailing slash if any
+    if root_path ~= nil and root_path:sub(-1) == "/" then root_path = root_path:sub(1, -2) end -- remove trailing slash if any
+    -- root_path = string.match(root_path, "(.*)/$") -- remove trailing slash if any
     
     -- if settings_name ~= ".dc_settings" then
     --     return false
@@ -480,14 +482,14 @@ function project:reparar()
         msg = " Aparentemente este proyecto aun no tiene capturas\n o no se pueden leer las imagenes."
         print(msg)
         log = log.."\n"..msg
-        sys.sleep(2000)
-        return false, false, log
+        -- sys.sleep(2000)
+        return nil, false, log
     end
     if self.state.rotate.odd == nil or self.state.rotate.even == nil then
         msg= " No esta definido en el proyecto como rotar las imagenes ( state.rotate[] )"
         print(msg)
         log = log.."\n"..msg
-        sys.sleep(2000)
+        -- sys.sleep(2000)
         return false, false, log
     end
     if status == true then
@@ -849,8 +851,9 @@ function project:guest_counter_and_make_preview(action, max, local_counter)
     return true, previews, filenames, local_counter
 end
 
-function project:send_post_proc_actions()
-
+function project:send_post_proc_actions(opts)
+    if type(opts) ~= 'table' then opts = {} end    
+    
     local dc_pp = self.dalclick.dalclick_pwdir.."/".."dc_pp"
     if dcutls.localfs:file_exists( dc_pp ) then		
 
@@ -869,15 +872,20 @@ function project:send_post_proc_actions()
             .." 'output_name=".. self.dalclick.doc_filename.."'"
             .." 'title="..self.settings.title.."'"
 
-         -- print( ppcommand )
-         local exit_status = os.execute(dcpp_command)
+        if opts.batch_processing then
+            dcpp_command = dcpp_command
+                .." quiet"
+        end
 
-         print()
-         print(" script exit status: "..tostring(exit_status))
-         return true
-     else
+        -- print( ppcommand )
+        local exit_status = os.execute(dcpp_command)
+
+        print()
+        print(" script exit status: "..tostring(exit_status))
+        return true
+    else
         return false, "ERROR: La ruta al script de post-procesamiento no esta correctamente configurada:\n '"..tostring(dc_pp).."'"
-     end
+    end
 end
 
 function project:show_capts(previews, filenames, counter_max, mode)

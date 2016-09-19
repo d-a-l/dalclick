@@ -115,8 +115,9 @@ defaults.dc_config_path = nil -- main(DIYCLICK_HOME)
 local dc={}      -- dalclick main functions
 local cam={}     -- single cam functions
 local mc={}      --  multicam functions
+local batch={}   --  batch projects processing
 
-local projects_list = {}
+local selectable_projects = {}
 
 local loopmsg = ""
 
@@ -1411,7 +1412,301 @@ function mc:preprocess_raw()
     end
 end
 
+-- # # # # # # # # # # # # # # # # # # # # # BATCH # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
+local function count_files(folder)
+    if dcutls.localfs:file_exists( folder ) then
+        local count = 0
+        for f in lfs.dir( folder ) do
+            if lfs.attributes( folder.."/"..f, "mode") ~= "directory" then
+                count = count + 1
+            end
+        end
+        return count
+    end
+    return false
+end
+    
+function batch:show_projects( projects )
+
+    local paths = defaults.paths
+    for index, project in pairs(projects) do    
+        local content = dcutls.localfs:read_file(project.settings_path)
+        if content then
+            local settings = util.unserialize(content)
+            local stat_raw = 'raw: '
+            if type(paths.raw) == 'table' then
+                if paths.raw.even then
+                    local c = count_files( project.path.."/"..paths.raw.even )
+                    if c then
+                        stat_raw = stat_raw..tostring(c)
+                    end
+                end
+                if paths.raw.odd then
+                    local c = count_files( project.path.."/"..paths.raw.odd )
+                    if c then
+                        stat_raw = stat_raw.."/"..tostring(c).." "
+                    end
+                end
+            end        
+            local margin = 16 - string.len(string.sub(stat_raw, 0, 16))             
+            stat_raw = stat_raw..string.rep("-", margin)
+            
+            local stat_pre = "pre: "
+            if type(paths.proc) == 'table' then
+                if paths.proc.even then
+                    local c = count_files( project.path.."/"..paths.proc.even )
+                    if c then
+                        stat_pre = stat_pre..tostring(c)
+                    end
+                end
+                if paths.proc.odd then
+                    local c = count_files( project.path.."/"..paths.proc.odd )
+                    if c then
+                        stat_pre = stat_pre.."/"..tostring(c).." "
+                    end
+                end
+            end
+            local margin = 16 - string.len(string.sub(stat_pre, 0, 16))             
+            stat_pre = stat_pre..string.rep("-", margin)
+            
+            local stat_done = 'done: '
+            if dcutls.localfs:file_exists( project.path.."/"..defaults.doc_name.."/"..defaults.doc_filename ) then
+                stat_done = stat_done.."PDF"
+            else
+                stat_done = stat_done.."---"
+            end
+            
+            local stat_line = ' '..stat_raw..' '..stat_pre..' '..stat_done
+            
+            -- 
+            local mindex = 4 - string.len(index)
+            local findex = string.rep(" ", mindex)..tostring(index)
+            print(findex.." ["..tostring(project.id).."] '"..tostring(settings.title).."'")
+            print("     ---"..stat_line)
+            -- print()
+        end
+    end    
+end
+
+function batch:list_projects(projects)
+    if type(projects) ~= 'table' then return false end
+    print()
+    for index,pdata in pairs(projects) do 
+        print( tostring(index).." ["..pdata.id.."] " .. pdata.path )
+    end
+    print()
+end
+
+function batch:load_projects_list_from_path(opts)
+    if type(opts) ~= 'table' then opts = {} end
+    
+    if type(opts.path) ~= 'string' then return false end
+    if dcutls.localfs:file_exists( opts.path ) then		
+        if lfs.attributes(opts.path,"mode") ~= "directory" then
+            print(" Error: la ruta '"..tostring(opts.path).."' no es un directorio")
+            return false
+        end
+    else
+        print(" Error: la ruta '"..tostring(opts.path).."' no existe")
+        return false
+    end
+    
+    print(" Buscando proyectos en '"..tostring(opts.path).."'")
+    local pl = {}
+    for f in lfs.dir(opts.path) do
+        if lfs.attributes(opts.path.."/"..f,"mode") == "directory" then
+            if dcutls.localfs:file_exists( opts.path.."/"..f..'/.dc_settings' ) then
+                -- it's dalclick project
+                local insert_project = true              
+                if dcutls.localfs:file_exists( opts.path.."/"..f..'/'..defaults.doc_name.."/"..defaults.doc_filename ) then
+                    -- it's proc
+           	        if opts.hide_proc == true then
+               	        insert_project = false
+           	        end
+           	    else
+                    -- it's noproc
+                    if opts.hide_noproc == true then
+           	            insert_project = false
+           	        end           	    
+                end
+                if insert_project then
+	                table.insert( pl, 
+	                    { id = f,
+	                      path = opts.path.."/"..f,
+	                      settings_path = opts.path.."/"..f..'/.dc_settings'
+	                    }
+	                )
+                end
+            end
+        end
+    end
+    
+    if next(pl) then
+       return true, pl
+    else
+       return nil, pl
+    end
+end
+
+function batch:load_projects_list_from_file(opts)
+    if type(opts) ~= 'table' then opts = {} end
+    
+    if type(opts.file) ~= 'string' then return false end
+    if dcutls.localfs:file_exists( opts.file ) then
+        if lfs.attributes(opts.file,"mode") ~= "file" then
+            print(" Error: la ruta '"..tostring(opts.file).."' no es un archivo")
+            return false
+        end
+    else
+        print(" Error: la ruta '"..tostring(opts.file).."' no existe")
+        return false
+    end
+    
+    local content = dcutls.localfs:read_file_as_table(opts.file)
+    
+    local pl = {}
+    if type(content) == 'table' then
+        for id, line in pairs(content) do
+           if line ~= nil and line:sub(-1) == "/" then line = line:sub(1, -2) end -- remove trailing slash if any
+           line = string.gsub(line, 'file://', '')
+           line = string.gsub(line, "\r", '')
+           if dcutls.localfs:file_exists( line ) and lfs.attributes(line,"mode") == "directory" then
+               print(line)
+               if dcutls.localfs:file_exists( line..'/.dc_settings' ) then
+                   local filepath, filename, fileext = string.match(line, "(.-)([^\\/]-%.?([^%.\\/]*))$")
+                   if filename ~= "" then
+     	               table.insert( pl, 
+                          { id = filename,
+                            path = line, 
+                            settings_path = line..'/.dc_settings'
+                          })
+                   end
+	           end
+           end
+        end
+    end
+
+    if next(pl) then
+       return true, pl
+    else
+       return nil, pl
+    end
+end
+
+function batch:postprocess(projects)
+    if type(projects) ~= 'table' then return false end
+    
+    local c_ok = 0
+    local c_fail = 0
+    local c_failload = 0
+    for index,pdata in pairs(projects) do
+        
+        if not p:init(defaults) then
+            print(" ERROR: no se pueden inicializar proyectos!")
+            break
+        end
+        print("\n\n - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ")
+        print(" abriendo '"..tostring(pdata.settings_path).."'")
+        local load_status, project_status = p:load(pdata.settings_path)
+        if load_status then
+            print(" Procesando: '"..tostring(pdata.settings_path).."'")
+            print(" Proyecto abierto con exito. Estado: "..tostring(project_status)) 
+            local status, msgs = p:send_post_proc_actions({ batch_processing = true }) 
+            if status then
+                print(" Proyecto enviado con éxito a la cola de postprocesamiento")
+                c_ok = c_ok + 1
+            else
+                print(" -- "..tostring(msgs).." --")
+                c_fail = c_fail + 1
+            end
+        else
+            print(" Ha ocurrido un error mientras se intentaba cargar el proyecto")
+            c_failload = c_failload + 1
+        end
+    end
+    return "Resumen:\n"
+            .."  "..tostring(c_ok).." proyectos enviados\n"
+            .."  "..tostring(c_fail).." proyectos no enviados\n"
+            .."  "..tostring(c_failload).." proyectos que no pudieron abrirse\n"
+end
+
+function batch:repair_projects(projects)
+
+    local function rplog(string, path, show)
+        if show then print(string) end
+        if dcutls.localfs:file_exists(path) then
+            local file = io.open(path, "a")
+            io.output(file); io.write(string.."\n"); io.close(file)
+        end
+    end
+       
+    -- -- --
+    if type(projects) ~= 'table' then return false end
+    local fail = {}
+    local success = {}
+    for _,pdata in pairs(projects) do
+        
+        if not p:init(defaults) then
+            print(" ERROR: no se pueden inicializar proyectos!")
+            return false
+        end
+        
+        -- create log file in project folder
+        local log
+        local continue = true
+        if dcutls.localfs:file_exists(pdata.path) then
+            log = pdata.path.."/.reparar-proyectos.log"
+            if not dcutls.localfs:file_exists(log) then
+                if dcutls.localfs:create_file(log, '') then
+                    print(" Archivo de registro creado con exito en: "..tostring(log))
+                else
+                    print(" ATENCION: no se pudo crear un archivo de registro en: "..tostring(log))
+                    continue = false
+                end
+            else
+                print(" Ya existe un registro en '"..tostring(log).."'. Se continua ingresando información a continuación." )
+            end                 
+            rplog(" --------------- "..os.date().." --------------- ", log, false)
+        else
+            print(" ATENCION no se pudo crear un archivo de registro, no existe: "..tostring(pdata.path))
+            continue = false
+        end
+
+        if continue then
+            -- load and repair project
+            local load_status, project_status = p:load(pdata.settings_path)
+            if load_status then
+                rplog(" Procesando: '"..tostring(pdata.settings_path).."'", log, true)
+                rplog(" Proyecto abierto con exito. Estado: "..tostring(project_status), log, true)
+                local status, no_errors, received_log = p:reparar() 
+                if status == true then
+                    if no_errors == true then
+                        table.insert(success, pdata.path)
+                        rplog(" Reparacion del proyecto exitosa.", log, true)
+                    elseif no_errors == 'warning' then
+                        table.insert(success, pdata.path.." - Atención: con observaciones.")
+                        rplog(" Reparacion del proyecto exitosa, pero con observaciones.", log, true)
+                    else
+       		            table.insert(fail, pdata.path.." - Error: Hubo errores mientras se reparaba el proyecto.")
+                        rplog(" Hubo errores al intentar reparar el proyecto.", log, true)
+                    end
+                elseif status == false then
+                    table.insert(fail, pdata.path.." - Error: No se pudo reparar el proyecto.")
+                    rplog(" No se pudo reparar el proyecto.", log, true)
+                elseif status == nil then
+                    table.insert(fail, pdata.path.." - SIN CAPTURAS")
+                    rplog(" No se pudo reparar el proyecto.", log, true)
+                end
+                rplog(received_log, log, false)
+            else
+                rplog(" Ha ocurrido un error mientras se intentaba cargar el proyecto", log, true)
+                table.insert(fail, pdata.path.." - Error: No se pudo cargar el proyecto")
+            end
+        end
+    end
+    return true, success, fail
+end
 
 
 -- # # # # # # # # # # # # # # # # # # # # # MAIN # # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -1428,6 +1723,12 @@ local function check_overwrite(idname)
     else
         return false
     end
+end
+
+local function tablelength(T)
+  local count = 0
+  for _ in pairs(T) do count = count + 1 end
+  return count
 end
 
 local function get_project_newname()
@@ -1459,6 +1760,55 @@ local function get_project_newname()
     until false
 
     return scanf_regnum, scanf_title
+end
+
+local function select_file(dir)
+    require( "iuplua" )
+    local regnum_dir, status, file, list, a
+
+    -- Creates a file dialog and sets its type, title, filter and filter info
+    local fd = iup.filedlg{ dialogtype = "FILE", 
+                            title = "Seleccionar archivo", 
+                            directory = dir,
+                            -- parentdialog = iup.GetDialog(self)
+                            }
+  
+    -- Shows file dialog in the center of the screen
+    fd:popup(iup.ANYWHERE, iup.ANYWHERE)
+    
+    -- Gets file dialog status
+    status = fd.status
+    file = fd.value
+    
+    fd:destroy()    
+    -- iup.Destroy(od)
+    
+    -- Check status
+    local success = false
+    if status == "0" then 
+      if type(file) ~= 'string' then
+          -- nota: solo con Alarm se pudo corregir el problema de que no se podia cerrar filedlg
+          iup.Alarm("Seleccionando lista", "Error: Hubo un problema al intentar seleccionar '"..tostring(file).."'" ,"Continuar")
+      else
+          a = iup.Alarm("Seleccionando lista", "Archivo seleccionado:\n"..file ,"OK", "Cancelar")
+          if a == 1 then 
+              success = true
+              list = file
+          end
+      end
+    elseif status == "-1" then 
+          iup.Alarm("Seleccionando lista", "Operación cancelada" , "Continuar")
+    else
+          iup.Alarm("Seleccionando lista", "Se produjo un error" ,"Continuar")
+    end
+
+
+    if not success then
+        print(" [Abrir proyecto] Error: no se pudo seleccionar una carpeta de proyecto válida.")
+        return nil
+    end
+    
+    return true, list
 end
 
 -- main funtions
@@ -1543,21 +1893,29 @@ function dc:start_options(mode, options)
 
  == Nueva sesión de DALclick ==================================================
 
-  Opciones:
-  
+  Carpeta de proyectos: ']]..defaults.root_project_path..[['
+ 
   [n] Crear un nuevo proyecto
   [o] Abrir un proyecto existente
-  [l] Listar proyectos
-  
-  'enter' para salir 
+
+  [list]  Listar todos los proyectos 
+  [xlist] Listar proyectos aún no post-procesados
+  [plist] Listar proyectos ya post-procesados
+ 
+  [post]  Post-procesar los proyectos pendientes
+  [lpost] Post-procesar proyectos desde un archivo
+
+  [reparar]   Reparar todos los proyectos
+
+  <enter> para salir
 
  ==============================================================================]]
     
     if not running_project_loaded then    
         repeat
             print(start_menu)
-            if next(projects_list) then
-                print("\n Puede abrir un proyecto ingresando el número de índice de la lista.")
+            if next(selectable_projects) then
+                print("\n Puede abrir un proyecto ingresando el número de índice de la lista\n mostrada en la operación previa.")
             end
             printf(">> ")
             local key = io.stdin:read'*l'
@@ -1583,11 +1941,11 @@ function dc:start_options(mode, options)
                         break
                     end
                  end
+                 selectable_projects = {}
                  -- back to start options
             elseif key == "o" then
                 print(); print(" Seleccionó: Abrir Proyecto...")
-                local open_options = { root_path = defaults.root_project_path }
-                local open_status, project_status = p:open(defaults, open_options)
+                local open_status, project_status = p:open(defaults, { root_path = defaults.root_project_path })
                 if open_status then
                     if project_status == 'modified' then
                         printf(" El formato del proyecto era obsoleto. Guardando proyecto actualizado...")
@@ -1598,24 +1956,180 @@ function dc:start_options(mode, options)
                     end
                     -- back to start options
                 end
+                 selectable_projects = {}
                 -- back to start options
-            elseif key == "l" then
-                print()
-                self:listar_proyectos()
-                print()
+            elseif key == "list" then
+                print(" Seleccionó listar todos los proyectos...")
+                local status, projects = 
+                    batch:load_projects_list_from_path({ 
+                        path = defaults.root_project_path,
+                        -- hide_proc = true 
+                    })            
+                if status == nil then
+                    print(" La carpeta no contiene proyectos")
+                elseif status == false then
+                    print(" Se produjeron errores al intentar obtener una lista de proyectos")
+                else
+                    selectable_projects = projects
+                    print()
+                    batch:show_projects( projects )
+                    print()
+                        print(" - Fin de la lista -")
+                    print(" <enter> para continuar")
+                    printf(">> ")
+                    local key = io.stdin:read'*l'
+                end            
+            elseif key == "xlist" then
+                print(" Seleccionó listar todos los proyectos sin post-procesar...")
+                local status, projects = 
+                    batch:load_projects_list_from_path({ 
+                        path = defaults.root_project_path,
+                        hide_proc = true 
+                    })            
+                if status == nil then
+                    print(" La carpeta no contiene proyectos")
+                elseif status == false then
+                    print(" Se produjeron errores al intentar obtener una lista de proyectos")
+                else
+                    selectable_projects = projects
+                    print()
+                    batch:show_projects( projects )
+                    print()
+                    print(" - Fin de la lista -")
+                    print(" <enter> para continuar")
+                    printf(">> ")
+                    local key = io.stdin:read'*l'
+                end
+            elseif key == "plist" then
+                print(" Seleccionó listar todos los proyectos que ya fueron post-procesados...")
+                local status, projects = 
+                    batch:load_projects_list_from_path({ 
+                        path = defaults.root_project_path,
+                        hide_noproc = true 
+                    })            
+                if status == nil then
+                    print(" La carpeta no contiene proyectos")
+                elseif status == false then
+                    print(" Se produjeron errores al intentar obtener una lista de proyectos")
+                else
+                    selectable_projects = projects
+                    print()
+                    batch:show_projects( projects )
+                    print()
+                    print(" - Fin de la lista -")
+                    print(" <enter> para continuar")
+                    printf(">> ")
+                    local key = io.stdin:read'*l'
+                end
+            elseif key == "post" then
+                print(" Seleccionó post-procesar todos los proyectos pendientes...")
+                local status, projects = 
+                    batch:load_projects_list_from_path({ 
+                        path = defaults.root_project_path,
+                        hide_proc = true 
+                    })
+                if status == nil then
+                    print(" La carpeta no contiene proyectos")
+                elseif status == false then
+                    print(" Se produjeron errores al intentar obtener una lista de proyectos")
+                else
+                    print()
+                    batch:list_projects( projects )
+                    print(" ¿Desea enviar a la cola de post-procesamiento los proyectos listados? [s/n]")
+                    printf(">> ")
+                    local pkey = io.stdin:read'*l'
+                    if pkey == "S" or pkey == "s" then
+                        print(" Procesando lista de proyectos obtenida...")
+                        local result = batch:postprocess( projects )
+                        print("\n"..tostring(result).."\n")
+                        print(" <enter> para continuar")
+                        printf(">> ")
+                        local key = io.stdin:read'*l'
+                    end
+                end
+                selectable_projects = {}
+            elseif key == "lpost" then
+                print(" Seleccionó post-procesar desde un archivo...")
+                local select_file_status, selected_file = select_file(defaults.root_project_path)
+                if select_file_status == true then
+                    print(" Archivo seleccionado: '"..selected_file.."'")
+                    local status, projects = 
+                        batch:load_projects_list_from_file({ 
+                            file = selected_file
+                        })
+                    if status == nil then
+                        print(" El archivo no contiene proyectos")
+                    elseif status == false then
+                        print(" Se produjeron errores al intentar obtener una lista de proyectos")
+                    else
+                        print()
+                        batch:list_projects( projects )
+                        print(" ¿Desea enviar a la cola de post-procesamiento los proyectos listados? [s/n]")
+                        printf(">> ")
+                        local pkey = io.stdin:read'*l'
+                        if pkey == "S" or pkey == "s" then
+                            print(" Procesando lista de proyectos obtenida...")
+                            local result = batch:postprocess( projects )
+                            print("\n"..tostring(result).."\n")
+                            print(" <enter> para continuar")
+                            printf(">> ")
+                            local key = io.stdin:read'*l'
+                        end
+                    end
+                end
+                selectable_projects = {}
+            elseif key == "reparar" then
+                print(" Seleccionó reparar todos los proyectos...")
+                local status, projects = 
+                    batch:load_projects_list_from_path({ 
+                        path = defaults.root_project_path
+                    })
+                if status == nil then
+                    print(" La carpeta no contiene proyectos")
+                elseif status == false then
+                    print(" Se produjeron errores al intentar obtener una lista de proyectos")
+                else
+                    print()
+                    batch:list_projects( projects )
+                    print(" ¿Desea reparar proyectos listados? [s/n]")
+                    printf(">> ")
+                    local pkey = io.stdin:read'*l'
+                    if pkey == "S" or pkey == "s" then
+                        print(" Procesando lista de proyectos obtenida...")
+                        local repair_status, success, fail = batch:repair_projects( projects )
+                        if repair_status then
+                            print(); 
+                            print(" Proyectos reparados existosamente:")
+                            print(" ----------------------------------")
+                            print()
+                            for _,b in pairs( success ) do print( " OK "..tostring(b) ) end
+                            print()
+                            print(" Proyectos que no pudieron ser reparados o generaron mensajes de error:")
+                            print(" ----------------------------------------------------------------------")
+                            print()
+                            for _,b in pairs( fail ) do print( " ?? "..tostring(b) ) end
+                            print()
+                            print(" - Fin de la listas -")
+                            print(" <enter> para continuar")
+                            printf(">> ")
+                            local key = io.stdin:read'*l'
+                        end
+                    end
+                end
+                selectable_projects = {}
             else
-                if next(projects_list) then
-                    if projects_list[tonumber(key)] ~= nil then
+                if next(selectable_projects) then
+                    if selectable_projects[tonumber(key)] ~= nil then
                         print()
                         print(" ¿Seguro que desea abrir el ítem "
                               ..tostring(key)
-                              .." '"..tostring(projects_list[tonumber(key)].id).."'"
+                              .." '"..tostring(selectable_projects[tonumber(key)].id).."'"
                               .."? [S/n]")
                         print()
                         printf(">> ")
                         local confirm = io.stdin:read'*l'
                         if confirm == "S" or confirm == "s" then
-                            local settings_path = projects_list[tonumber(key)].settings_path
+                            local settings_path = selectable_projects[tonumber(key)].settings_path
                             local load_status, project_status = p:load(settings_path)
                             if load_status == true then
                                 
@@ -1649,6 +2163,96 @@ function dc:start_options(mode, options)
     end
 
     return true
+end
+
+function dc:advanced_options(vars)
+
+    if type(vars) ~= 'table' then return false end
+    local loopmsg = ""
+    local menu = [[
+
+ OPCIONES AVANZADAS:
+
+ [enter]   volver                                    
+
+ [reparar] reparar proyecto
+ [post]    postprocesar proyecto (sin cerrarlo)
+ 
+ [ifocus]  mostrar información de foco
+ [iexpo]   mostrar infromación de exposición
+ 
+ [chdk]    recargar script chdk
+ 
+]]
+    print()
+    while true do
+        print()
+        print()
+        print()
+        print(vars.top_bar)
+        print(menu)
+        if loopmsg ~= "" then 
+            print(">>"..loopmsg)
+            loopmsg = ""
+        end
+        printf(">> ")
+        local key = io.stdin:read'*l'
+        
+        if key == "" then
+            return true
+        elseif key == "reparar" then
+            local status, no_errors, log = p:reparar() 
+            if status then
+                if no_errors == true then
+                    loopmsg = " Reparacion del proyecto exitosa."
+                elseif no_errors == 'warning' then
+                    loopmsg = " Reparacion del proyecto exitosa, pero con observaciones."
+                elseif no_errors == false then
+                    loopmsg = " Hubo errores al intentar reparar el proyecto."
+                else
+                    loopmsg = " Hubo errores al intentar reparar el proyecto."
+                end
+            else
+                    loopmsg = " No se pudo reparar el proyecto."
+            end
+            sys.sleep(1000)
+        elseif key == "ifocus" then
+            if vars.status_cameras then
+                mc:get_cam_info('focus')
+                print()
+                print(" Presione <enter> para continuar...")
+                local key = io.stdin:read'*l'
+            else
+                loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
+            end
+        elseif key == "iexpo" then
+            if vars.status_cameras then
+                mc:get_cam_info('expo')
+                print()
+                print(" Presione <enter> para continuar...")
+                local key = io.stdin:read'*l'
+            else
+                loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
+            end
+        elseif key == "post" then
+            if p:send_post_proc_actions() then
+                loopmsg = " Proyecto '"..p.session.regnum.. "' ('"..p.settings.title.."') enviado."
+            else
+                loopmsg = " Hubo errores y el proyecto no pudo ser enviado."
+                sys.sleep(2000)
+            end
+        elseif key == "chdk" then
+            if vars.status_cameras then
+                print(" recargando chdk scripts...")
+                if not self:load_cam_scripts() then
+                    print(' ERROR falló load_cam_scripts()')
+                    return false;
+                end
+            else
+                loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
+            end
+        end
+    end -- while loop
 end
 
 function dc:dalclick_loop(mode)
@@ -1793,279 +2397,6 @@ end
     return true
 end
 
-function dc:load_projects_list_from_path(path)
-    if type(path) ~= 'string' then return false end
-    if dcutls.localfs:file_exists( path ) then		
-        if lfs.attributes(path,"mode") ~= "directory" then
-            print(" Error: la ruta '"..tostring(path).."' no es un directorio")
-            return false
-        end
-    else
-        print(" Error: la ruta '"..tostring(path).."' no existe")
-        return false
-    end
-    
-    print(" Buscando proyectos en '"..tostring(path).."'")
-    local pl = {}
-    for f in lfs.dir(path) do
-        if lfs.attributes(path.."/"..f,"mode") == "directory" then
-            if dcutls.localfs:file_exists( path.."/"..f..'/.dc_settings' ) then		
-	            table.insert( pl, 
-	                { id = f,
-	                  path = path.."/"..f,
-	                  settings_path = path.."/"..f..'/.dc_settings'
-	                }
-	            )
-            end
-        end
-    end
-    
-    if next(pl) then
-       return true, pl
-    else
-       return nil, pl
-    end
-end
-
-function dc:load_projects_list_from_file(file)
-    if type(file) ~= 'string' then return false end
-    if dcutls.localfs:file_exists( file ) then		
-        if lfs.attributes(file,"mode") ~= "file" then
-            print(" Error: la ruta '"..tostring(file).."' no es un archivo")
-            return false
-        end
-    else
-        print(" Error: la ruta '"..tostring(path).."' no existe")
-        return false
-    end
-    
-    local content = dcutls.localfs:read_file_as_table(path)
-    
-    local pl = {}
-    if type(content) == 'table' then
-        for id, line in pairs(content) do
-           if dcutls.localfs:file_exists( line ) and lfs.attributes(line,"mode") == "directory" then
-               line = string.match(line , "(.*)/$") -- remove trailing slash if any
-               if dcutls.localfs:file_exists( line..'/.dc_settings' ) then
-                   local filepath, filename, fileext = string.match(line, "(.-)([^\\/]-%.?([^%.\\/]*))$")
-                   if filename ~= "" then
-     	               table.insert( pl, 
-                          { id = filename,
-                            path = line, 
-                            settings_path = line..'/.dc_settings'
-                          })
-                   end
-	           end
-           end
-        end
-    end
-
-    if next(pl) then
-       return true, pl
-    else
-       return nil, pl
-    end
-end
-
-
-function dc:listar_proyectos()
-    
-   local function count_files(folder)
-        if dcutls.localfs:file_exists( folder ) then
-            local count = 0
-            for f in lfs.dir( folder ) do
-                if lfs.attributes( folder.."/"..f, "mode") ~= "directory" then
-                    count = count + 1
-                end
-            end
-            return count
-        end
-        return false
-    end
-    
-    -- -- --
-    
-    projects_list = {}    
-    
-    print(" Buscando proyectos en '"..tostring(defaults.root_project_path).."'")
-    local status
-    status, projects_list = self:load_projects_list_from_path( defaults.root_project_path )
-    if status == nil then
-        print(" la carpeta no contiene proyectos")
-        return true
-    elseif status == false then
-        return false
-    end
-
-    print()
-    
-    for index, project in pairs(projects_list) do    
-        local content = dcutls.localfs:read_file(project.settings_path)
-        if content then
-            local settings = util.unserialize(content)
-            local paths = defaults.paths
-            local stat_line = "raw: "
-            if type(paths.raw) == 'table' then
-                if paths.raw.even then
-                    local c = count_files( project.path.."/"..paths.raw.even )
-                    if c then
-                        stat_line = stat_line..tostring(c)
-                    end
-                end
-                if paths.raw.odd then
-                    local c = count_files( project.path.."/"..paths.raw.odd )
-                    if c then
-                        stat_line = stat_line.."/"..tostring(c)
-                    end
-                end
-            end
-            local stat_line = stat_line.." | processed: "
-            if type(paths.proc) == 'table' then
-                if paths.proc.even then
-                    local c = count_files( project.path.."/"..paths.proc.even )
-                    if c then
-                        stat_line = stat_line..tostring(c)
-                    end
-                end
-                if paths.proc.odd then
-                    local c = count_files( project.path.."/"..paths.proc.odd )
-                    if c then
-                        stat_line = stat_line.."/"..tostring(c)
-                    end
-                end
-            end
-            if dcutls.localfs:file_exists( project.path.."/"..defaults.doc_name.."/"..defaults.doc_filename ) then
-                stat_line = "## PDF ## | "..stat_line
-            end
-            -- 
-            print(tostring(index).." ["..tostring(project.id).."] '"..tostring(settings.title).."'")
-            print("  "..stat_line)
-            print()
-        end
-    end
-    print()
-    print("Fin de la lista.")
-    sys.sleep(500)
-    
-    return true
-end
-
-function dc:reparar_proyectos()
-
-    local function printlog(string, path)
-        print(string)
-        if dcutls.localfs:file_exists(path) then
-            local file = io.open(path, "a")
-            io.output(file)
-            io.write(string.."\n")
-            io.close(file)
-        end
-    end
-    
-    local function appendlog(string, path)
-        if dcutls.localfs:file_exists(path) then
-            local file = io.open(path, "a")
-            io.output(file)
-            io.write("\n\n"..string.."\n")
-            io.close(file)
-        end
-    end
-    
-    -- -- --
-    
-    local projects_paths = {}
-    print(" Buscando proyectos en '"..tostring(defaults.root_project_path).."'")
-
-    local status, projects_paths = self:load_projects_list_from_path( defaults.root_project_path )
-    if status == nil then
-        print(" la carpeta no contiene proyectos")
-        return true
-    elseif status == false then
-        return false
-    end
-    
-    print()
-    
-    for a,b in pairs(projects_paths) do
-        print(a, b.path)
-    end
-    
-    print()
-    print(" ¿Desea reparar los proyectos listados? [s/n]")
-    printf(">> ")
-    local key = io.stdin:read'*l'
-
-    if key == "S" or key == "s" then
-        print(" Procesando lista de proyectos obtenida")
-        print()
-        local fail = {}
-        local success = {}
-        for index,pdata in pairs(projects_paths) do
-            
-            if not p:init(defaults) then
-                print(" ERROR: no se pueden inicializar proyectos!")
-                break
-            end
-            
-            local log
-            if dcutls.localfs:file_exists(pdata.path) then
-                log = pdata.path..".reparar-proyectos.log"
-                if not dcutls.localfs:file_exists(log) then
-                    if dcutls.localfs:create_file(log, '') then
-                        print(" Archivo de registro creado con exito en: "..tostring(log))
-                    else
-                        print(" ATENCION: no se pudo crear un archivo de registro en: "..tostring(log))
-                    end
-                else
-                    print(" Ya existe un registro en '"..tostring(log).."'. Se continua ingresando información a continuación." )
-                end                 
-                appendlog(" --------------- "..os.date().." --------------- ", log)
-            else
-                print(" ATENCION no se pudo crear un archivo de registro, no existe: "..tostring(pdata.path))
-            end
-                
-            local load_status, project_status = p:load(pdata.settings_path)
-            if load_status then
-                printlog(" Procesando: '"..tostring(pdata.settings_path).."'", log)
-                printlog(" Proyecto abierto con exito. Estado: "..tostring(project_status), log)
-                local status, no_errors, log = p:reparar() 
-                if status then
-                    if no_errors == true then
-                        table.insert(success, pdata.path)
-                        printlog(" Reparacion del proyecto exitosa.", log)
-                    elseif no_errors == 'warning' then
-                        table.insert(success, pdata.path.." \n   Atención: con observaciones.")
-                        printlog(" Reparacion del proyecto exitosa, pero con observaciones.", log)
-                    else
-       		            table.insert(fail, pdata.path.." \n   Error: Hubo errores mientras se reparaba el proyecto.")
-                        printlog(" Hubo errores al intentar reparar el proyecto.", log)
-                    end
-                else
-                    table.insert(fail, pdata.path.."\n   Error: No se pudo reparar el proyecto.")
-                    printlog(" No se pudo reparar el proyecto.", log)
-                end
-                appendlog(log, log)
-            else
-                printlog(" Ha ocurrido un error mientras se intentaba cargar el proyecto", log)
-                table.insert(fail, pdata.path.."\n   Error: No se pudo cargar el proyecto")
-            end
-        end
-        
-        print()
-        print(" Proyectos reparados existosamente:")
-        for a,b in pairs(success) do
-            print(" - "..tostring(b))
-        end
-        
-        print()
-        print(" Proyectos que no pudieron ser reparados o generaron mensajes de error:")
-        for a,b in pairs(fail) do
-            print(" - "..tostring(b))
-        end
-    end
-    return true
-end
-
 function dc:check_running_project()
     local running_project_fileinfo = defaults.dc_config_path.."/running_project"
     local running_project_path
@@ -2134,14 +2465,6 @@ function dc:main(
     end
     
     self:dalclick_loop(false)
-
-    if DALCLICK_MODE == "reparar-proyectos" then
-        -- para activar esta opcion usar: ./dalclick reparar-proyectos
-        self:reparar_proyectos()
-        print("")
-        self:dalclick_loop(false) 
-        return false
-    end
 
     local exit = false
     print()
@@ -2279,7 +2602,8 @@ function dc:main(
         init_st = self:init_cams_or_retry()
     end
 
-    local menu = [[ [enter] capturar                                    [q] salir
+    local menu = [[
+ [enter] capturar                                    [q] salir  [qq] inicio
 
  [t] test de captura        [n] nuevo proyecto       [z] sincronizar zoom 
                             [o] abrir proyecto           desde la camara de
@@ -2287,10 +2611,10 @@ function dc:main(
  [e] explorador                                     [zz] ingresar valor de
                             [c] cerrar proyecto          zoom manualmente
  [i] iniciar cámaras        [x] cerrar proyecto y
- [b] bip en cámara de           postprocesar         [f] enfocar
-     referencia                                      [m] modo seg/norm/rápido
-     
- - - - - - - - - - - - - -  - - - - - - - - - - - - - - - - - - - - - - - - -
+ [b] bip en cámara de ref.      postprocesar         [f] enfocar
+                                                     [m] modo seg/norm/rápido
+ [a] opciones avanzadas   
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
  [r] < retroceder una       [p] ir a página...       [u] avanzar una >
                                                     [uu] avanzar al final >>>
 ]]
@@ -2309,7 +2633,7 @@ function dc:main(
             self:init_daemons()
         end
                
-        local margin, status_cameras
+        local margin, status_cameras, top_bar
         local status, counter_min, counter_max
         local e_overwt, o_overwt
         while true do
@@ -2371,7 +2695,8 @@ function dc:main(
             end
             print()
             margin = math.floor( ( 76 - string.len(string.sub(p.settings.title, 0, 50)) ) / 2 )
-            print( string.rep("=", margin).." "..string.sub(p.settings.title, 0, 50).." "..string.rep("=", margin))
+            top_bar = string.rep("=", margin).." "..string.sub(p.settings.title, 0, 50).." "..string.rep("=", margin)
+            print( top_bar )
             print()
             print(menu)
             print(
@@ -2402,22 +2727,6 @@ function dc:main(
                 else
                     loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
                 end
-            elseif key == "reparar" then
-                local status, no_errors, log = p:reparar() 
-                if status then
-                    if no_errors == true then
-                        loopmsg = " Reparacion del proyecto exitosa."
-                    elseif no_errors == 'warning' then
-                        loopmsg = " Reparacion del proyecto exitosa, pero con observaciones."
-                    elseif no_errors == false then
-                        loopmsg = " Hubo errores al intentar reparar el proyecto."
-                    else
-                        loopmsg = " Hubo errores al intentar reparar el proyecto."
-                    end
-                else
-                        loopmsg = " No se pudo reparar el proyecto."
-                end
-                sys.sleep(3000)
             elseif key == "t" then
                 if status_cameras then
                     print("captura de test a test.jpg...")
@@ -2431,15 +2740,6 @@ function dc:main(
                 else
                     loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
                 end
-            elseif key == "tt" then
-                local status, err = mc:testthis()
-                if status then
-                    sys.sleep(500)
-                else
-                    print("ERROR!")
-                    print(err)
-                end
-                local key = io.stdin:read'*l'
             elseif key == "m" then
                 if p.settings.mode == 'secure' then
                     p.settings.mode = 'normal'
@@ -2465,16 +2765,6 @@ function dc:main(
                 else
                     loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
                 end
-            elseif key == "ff" then
-                mc:get_cam_info('focus')
-                print()
-                print(" Presione <enter> para continuar...")
-                local key = io.stdin:read'*l'
-            elseif key == "ee" then
-                mc:get_cam_info('expo')
-                print()
-                print(" Presione <enter> para continuar...")
-                local key = io.stdin:read'*l'
             elseif key == "r" then
                 printf(" retrocediendo un lugar para volver a realizar la captura...")
                 -- p.state.counter[defaults.odd_name] = p.state.counter[defaults.odd_name] - 2
@@ -2509,17 +2799,6 @@ function dc:main(
                     local status, msg = p:set_counter(pos)
                     p:save_state()
                     loopmsg = " "..tostring(msg)
-                end                
-            elseif key == "chdk" then
-                if status_cameras then
-                    print(" recargando chdk scripts...")
-                    if not self:load_cam_scripts() then
-                        print(' ERROR falló load_cam_scripts()')
-                        exit = true
-                        break
-                    end
-                else
-                    loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
                 end
             elseif key == "rr" then
                 mc:switch_mode_all('rec')
@@ -2736,6 +3015,17 @@ function dc:main(
                     exit = true
                     break
                 end
+            elseif key == "a" then
+                local advanced_options_vars = { top_bar = top_bar, status_cameras = status_cameras}
+                if not self:advanced_options( advanced_options_vars ) then
+                    exit = true
+                    break
+                end
+            elseif key == "qq" then
+                if not self:start_options('new_project') then
+                    exit = true
+                    break
+                end
             elseif key == "x" then
                 local new_project_options = { zoom = p.state.zoom_pos }
                 status, msg = p:send_post_proc_actions()
@@ -2752,11 +3042,6 @@ function dc:main(
                     end
                 end
                 if msg ~= "" then loopmsg = " "..tostring(msg) end
-            elseif key == "xx" then
-                if p:send_post_proc_actions() then
-                    print("\n Proyecto "..p.session.regnum.. ": '"..p.settings.title.."' enviado.")
-                    sys.sleep(2000)
-                end
             elseif key == "i" then
                 print(" Reiniciando cámaras... ")
                 local cam_status = self:init_cams_or_retry()

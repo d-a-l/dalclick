@@ -53,9 +53,9 @@ while [ $# -ne 0 ]
         title=*)
             PROJECT_TITLE="${arg#*=}"
             ;;
-        quiet=*)
+        quiet)
             INTERACTIVE="No"
-            QUIET_OPTIONS="${arg#*=}"
+            #QUIET_OPTIONS="${arg#*=}"
             ;;
     esac
     shift
