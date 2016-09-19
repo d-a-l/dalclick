@@ -3,8 +3,13 @@ local project = {}
 project = {
     -- project state
     state = {},
+    -- project session (valores se sesion que no se guardan como variables)
+    session = {},
+    -- project session (valores se sesion que no se guardan como variables)
+    paths = {},
     -- project settings vars
     settings = {},
+    settings_default = {},
     -- dalclick globals vars
     dalclick = {}, 
 }
@@ -12,27 +17,20 @@ project = {
 function project:init(globalconf)
     self.dalclick = globalconf
     --
-    self.settings.regnum = nil
-    self.settings.path_raw = {
-        even = nil,
-        odd = nil,
-        all = nil,
-    }
-    self.settings.path_proc = {
-        even = nil,
-        odd = nil,
-        all = nil,
-    }
-    self.settings.path_test = {
-        even = nil,
-        odd = nil,
-        all = nil,
-    }
+    self.session.regnum = nil
+    self.session.base_path = nil -- /abs/path/to/regnum
+    self.session.root_path = nil -- /abs/path/to
+    --
+    self.paths = globalconf.paths
+    --
+    self.settings_default.ref_cam = "even"
+    self.settings_default.rotate = true
+    self.settings_default.mode = 'secure'
+
     self.settings.title = nil
-    self.settings.out_img_format = 'dng'
-    self.settings.ref_cam = "even"
-    self.settings.rotate = true
-    self.settings.mode = 'secure'
+    self.settings.ref_cam = self.settings_default.ref_cam
+    self.settings.rotate = self.settings_default.rotate
+    self.settings.mode = self.settings_default.mode
     --
     self.state.counter = nil
     self.state.zoom_pos = nil
@@ -77,16 +75,19 @@ function project:write()
     local state = util.serialize(self.state)
     local settings = util.serialize(self.settings)
 
-    if dcutls.localfs:create_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_state",state) and dcutls.localfs:create_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_settings",settings) then
-        -- print(" '"..self.settings.regnum.."' guardado")
+    if dcutls.localfs:create_file(self.session.base_path.."/.dc_state", state) and dcutls.localfs:create_file(self.session.base_path.."/.dc_settings", settings) then
+        -- print(" '"..self.session.regnum.."' guardado")
         return true    
     else
-        -- print("no se pudo guardar la configuracion del proyecto actual en:  "..self.dalclick.root_project_path.."/"..self.settings.regnum.."/")
+        -- print("no se pudo guardar la configuracion del proyecto actual en:  "..self.session.base_path.."/")
         return false
     end
 end
 
-function project:open(defaults)
+function project:open(defaults, options)
+    local options = options or {}
+    if type(options) ~= 'table' then return false end
+    
     -- return true, 'opened':   proyecto abierto exitosamente
     -- return true, 'canceled': se cancelo la operacion o la seleccion no es valida -> continua el proyecto anterior
     -- return true, 'modified': proyecto abierto exitosamente pero con modificaciones -> guardar proyecto inmediatamente
@@ -100,7 +101,7 @@ function project:open(defaults)
     -- Creates a file dialog and sets its type, title, filter and filter info
     local fd = iup.filedlg{ dialogtype = "DIR", 
                             title = "Seleccionar carpeta de proyecto", 
-                            directory = self.dalclick.root_project_path,
+                            directory = options.root_path,
                             -- parentdialog = iup.GetDialog(self)
                             }
   
@@ -121,7 +122,7 @@ function project:open(defaults)
           -- nota: solo con Alarm se pudo corregir el problema de que no se podia cerrar filedlg
           iup.Alarm("Cargando proyecto", "Error: Hubo un problema al intentar cargar '"..tostring(folder).."'" ,"Continuar")
       else
-          if folder == self.settings.regnum then
+          if folder == self.session.regnum then
               iup.Alarm("Cargando proyecto", "El proyecto seleccionado es el proyecto abierto actualmente" ,"Continuar")
           else              
               a = iup.Alarm("Cargando proyecto", "Carpeta seleccionada:\n"..folder ,"OK", "Cancelar")
@@ -170,71 +171,29 @@ function project:open(defaults)
     end
 end
 
-
-function project:get_project_newname()
-
-    guisys.init()
-
-    local scanf_regnum, scanf_title
-    local regnum = "" -- default
-    local title = "" -- default
-    local format = "Iniciar Proyecto\nNúmero de registro: %100.30%s\nTítulo:%300.30%s\n"
-    repeat
-        scanf_regnum, scanf_title = iup.Scanf(format, regnum, title)
-        if scanf_regnum == nil then 
-            return nil, nil
-        end
-        if scanf_regnum == "" then 
-            iup.Message("Iniciar Proyecto", "El campo 'Número de registro' es obligatorio para iniciar un proyecto")
-        else
-            if string.match(scanf_regnum, "^[%w-_]+$") then
-                if dcutls.localfs:file_exists( self.dalclick.root_project_path.."/"..scanf_regnum ) then
-                    iup.Message("Iniciar Proyecto", "El 'Número de registro' corresponde a un proyecto existente")
-                else
-                    break -- success!!
-                end
-            else
-                iup.Message("Iniciar Proyecto", "El campo 'Número de registro' solo permite caracteres alfanuméricos y guiones, no admite espacios, acentos u otros signos")
-            end
-        end
-    until false
-
-    return scanf_regnum, scanf_title
-    
-end
-
 function project:create( options )
     local options = options or {}
     if type(options) ~= 'table' then return false end
     
-    self.settings.regnum = options.regnum
+    self.session.regnum = options.regnum
+    self.session.root_path = options.root_path
+    self.session.base_path = self.session.root_path.."/"..self.session.regnum
+    
     self.settings.title = options.title
     
     print(" Se está creando un nuevo proyecto:\n")
-    print(" === "..self.settings.regnum.." ===")
+    print(" === "..self.session.regnum.." ===")
     if self.settings.title ~= "" then print(" título: '"..self.settings.title.."'") end
     print()
 
-    if self.settings.regnum then
-        local settings_path = self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_settings"
-
-        self.settings.path_raw.odd  = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.raw_name.."/"..self.dalclick.odd_name
-        self.settings.path_raw.even = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.raw_name.."/"..self.dalclick.even_name
-        self.settings.path_raw.all  = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.raw_name.."/"..self.dalclick.all_name
-
-        self.settings.path_proc.odd  = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.proc_name.."/"..self.dalclick.odd_name
-        self.settings.path_proc.even = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.proc_name.."/"..self.dalclick.even_name
-        self.settings.path_proc.all  = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.proc_name.."/"..self.dalclick.all_name
-
-        self.settings.path_test.odd  = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.test_name.."/"..self.dalclick.odd_name
-        self.settings.path_test.even = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.test_name.."/"..self.dalclick.even_name
-        self.settings.path_test.all  = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.test_name.."/"..self.dalclick.all_name
+    if self.session.regnum then
+        local settings_path = self.session.base_path.."/.dc_settings"
 
         -- serialize table to save
         local content = util.serialize(self.settings)
         
         -- create dir tree
-        if not self.mkdir_tree(self.dalclick, self.settings) then
+        if not self.mkdir_tree(self.dalclick, self.session, self.paths) then
             return false
         end
         -- create settings file
@@ -259,34 +218,68 @@ function project:create( options )
     end
 end
 
-function project:print_self_p()
-    print("self.settings: "..tostring(self.settings))
-    print("self.settings: "..util.serialize(self.settings))
-end
-
-function project:load(settings_path)
+function project:load(settings_path) -- zzzzz
+    local base_path, settings_name, ext = string.match(settings_path, "(.-)([^\\/]-%.?([^%.\\/]*))$")
+    base_path = string.match(base_path, "(.*)/$") -- remove trailing slash if any
+    local root_path, regnum_name, ext = string.match(base_path, "(.-)([^\\/]-%.?([^%.\\/]*))$")
+    root_path = string.match(root_path, "(.*)/$") -- remove trailing slash if any
+    
+    -- if settings_name ~= ".dc_settings" then
+    --     return false
+    -- end
     -- es necesario hacer un init(defaults) antes de cargar un proyecto con :load
     -- devuelve project_status (o sea, 'modified' si se hicieron cambios o 'opened' si todo ok)
     if dcutls.localfs:file_exists(settings_path) then
         local content = dcutls.localfs:read_file(settings_path)
         if content then
-        
+            local project_status = 'opened'
+            self.session.regnum    = regnum_name  -- regnum
+            self.session.base_path = base_path    -- /ruta/a/regnum
+            self.session.root_path = root_path    -- /ruta/a
+            
             self.settings = util.unserialize(content)
             print("\n Datos del proyecto cargado:\n")
             print(" ===================================================")
-            print(" = ID:     "..self.settings.regnum)
-            if self.settings.title ~= "" then print(" = Título: '"..self.settings.title.."'") end
-            print()
-            if settings_path ~= self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_settings" then
-                print()
-                print(" Atencion! el archivo de configuracion del proyecto podría estar corrupto")
-                print("  "..settings_path)
-                print("  "..self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_settings")
-                print()
-                return false
+            print(" = ID:     "..self.session.regnum)
+            if self.settings.title and self.settings.title ~= "" then 
+                print(" = Título: '"..self.settings.title.."'") 
             end
-            -- para compatibiliadad con proyectos anteriores, checkear carpeta 'test'
-            self:check_project_test_paths()
+            if self.settings.mode and self.settings.mode ~= "" then 
+                print(" = Modo: '"..self.settings.mode.."'") 
+            else
+                self.settings.mode = self.settings_default.mode
+                print(" * Modo: '"..self.settings.mode.."'") 
+            end
+            if self.settings.ref_cam and self.settings.ref_cam ~= "" then 
+                print(" = Cámara de referencia: '"..self.settings.ref_cam.."'") 
+            else
+                self.settings.ref_cam = self.settings_default.ref_cam
+                print(" * Cámara de referencia: '"..self.settings.ref_cam.."'") 
+            end
+            if self.settings.rotate ~= nil then 
+                print(" = Rotar: '"..tostring(self.settings.rotate).."'") 
+            else
+                self.settings.rotate = self.settings_default.rotate
+                print(" * Rotar: '"..tostring(self.settings.rotate).."'") 
+            end
+
+            if type(self.settings.path_raw) == 'table' then
+                -- por ahora desactivado por que si no pierde compatibilidad con versiones previas
+                -- self.settings.path_raw  = nil
+                -- self.settings.path_proc = nil
+                -- self.settings.path_test = nil
+                project_status = 'modified'
+            end
+
+            print()
+            -- if settings_path ~= self.dalclick.root_project_path.."/"..self.session.regnum.."/.dc_settings" then
+            --     print()
+            --     print(" Atencion! el archivo de configuracion del proyecto podría estar corrupto")
+            --     print("  "..settings_path)
+            --     print("  "..self.dalclick.root_project_path.."/"..self.session.regnum.."/.dc_settings")
+            --     print()
+            --     return false
+            -- end
             --
             local status = self:load_state()
             if status then
@@ -317,12 +310,13 @@ function project:load(settings_path)
                 
                  -- check state paths
                 if type(self.state.saved_files) == 'table' and type(self.state.saved_files.even) == 'table' then
-                    local check = string.match(
-                        self.state.saved_files.even.basepath,
-                        "^(.+)/"..self.settings.regnum.."/"..self.dalclick.raw_name.."/.+$"
-                        )
-                    if check == nil then
-                        print(" ATENCION: las rutas cargadas de la configuración del proyecto no coinciden\n con su ubicación actual")
+                    if not dcutls.localfs:file_exists(self.state.saved_files.even.path) or 
+                       not dcutls.localfs:file_exists(self.state.saved_files.odd.path) then
+                        print()
+                        print(" ATENCION: alguna de las rutas temporales apuntan a archivos que no existen")
+                        print(" -> es probable que haya renombrado manualmente la carpeta o")
+                        print("    cambiado su ubicacion en el sistema")
+                        print()
                         self.state.saved_files = nil
                     end
                 end
@@ -338,13 +332,13 @@ function project:load(settings_path)
             print(" ===================================================")
             print()
             
-            -- para compatibiliadad con proyectos anteriores, checkear rutas de 'settings'
-            local check_project_paths_status, project_status = self:check_project_paths()
+            -- verificar integridad de directorios
+            local check_project_paths_status, check_status = self:check_project_paths()
             --
             if check_project_paths_status then
-                return true, project_status                              
+                return true, project_status
             else
-                print(" ERROR: las rutas indicadas en la configuracion del proyecto no son validas")
+                print(" ERROR: la estructura de directorios del proyecto no es válida y no se pudo reparar")
                 return false
             end
         else
@@ -356,146 +350,71 @@ function project:load(settings_path)
     end
 end
 
-
-function project:check_project_test_paths() 
-
-    local test_folder_path = self.dalclick.root_project_path
-        .."/"..self.settings.regnum
-        .."/"..self.dalclick.test_name
-                       
-    if self.settings.path_test == nil or self.settings.path_test.even == nil then
-        self.settings.path_test = {}
-        self.settings.path_test.even = test_folder_path.."/"..self.dalclick.even_name
-        self.settings.path_test.odd  = test_folder_path.."/"..self.dalclick.odd_name
-        self.settings.path_test.all  = test_folder_path.."/"..self.dalclick.all_name
-    end
-
-    if not dcutls.localfs:file_exists( test_folder_path ) then
-        if not dcutls.localfs:create_folder( test_folder_path ) then
-            return false
-        end
-    end
-
-    for idname, path in pairs(self.settings.path_test) do
-        if not dcutls.localfs:file_exists( path ) then
-            if not dcutls.localfs:create_folder( path ) then
-                return false
+function project:check_project_paths()
+    print(" Chequeando integridad del proyecto ")
+    local msg
+    local log = ""
+    local repared = false
+    
+    local paths_to_check = {}
+    table.insert( paths_to_check, self.paths.raw_dir  )
+    table.insert( paths_to_check, self.paths.proc_dir )
+    table.insert( paths_to_check, self.paths.test_dir  )
+    table.insert( paths_to_check, self.paths.doc_dir  )
+    table.insert( paths_to_check, self.paths.raw.even )
+    table.insert( paths_to_check, self.paths.raw.odd )
+    table.insert( paths_to_check, self.paths.raw.all )
+    table.insert( paths_to_check, self.paths.proc.even )
+    table.insert( paths_to_check, self.paths.proc.odd )
+    table.insert( paths_to_check, self.paths.proc.all )
+    table.insert( paths_to_check, self.paths.test.even )
+    table.insert( paths_to_check, self.paths.test.odd )
+    table.insert( paths_to_check, self.paths.test.all )
+    
+    for index, path in pairs( paths_to_check ) do
+        if not dcutls.localfs:file_exists( self.session.base_path.."/"..path ) then
+            msg = " ATENCION: no existe '"..tostring(self.session.base_path.."/"..path).."'"
+            print(msg); log = log..msg.."\n"
+            printf(" reparando...")
+            if dcutls.localfs:create_folder_quiet( self.session.base_path.."/"..path ) == false then
+                msg = " - ERROR No se pudo crear el directorio!"; log = log..msg.."\n"
+                return false,  "can't repared", log
             end
+            msg = " - Reparado"; log = log..msg.."\n"
+            print("OK")
+            repared = true
         end
     end
-end
-
-function project:fix_paths(paths, pattern, rootpath)
-   local fixed = {}
-   local there_are_fixed_paths = false
-   pattern = pattern:gsub("%-", '%%-')
-    -- por las dudas
-   pattern = pattern:gsub("%+", '%%+')
-   pattern = pattern:gsub("%*", '%%*')
-   pattern = pattern:gsub("%.", '%%.')
-   pattern = pattern:gsub("%[", '%%[')
-   pattern = pattern:gsub("%]", '%%]')
-   pattern = pattern:gsub("%(", '%%(')
-   pattern = pattern:gsub("%)", '%%)')
-        
-   for idname,path in pairs(paths) do
-       local rootpath_to_check = path:match("^(.+)/"..pattern.."/.+$")
-       if rootpath_to_check ~= rootpath then
-           print("!")
-           print(" "..tostring(rootpath_to_check).." <-> "..tostring(rootpath))
-           there_are_fixed_paths = true
-           -- print(" ATENCION: las rutas cargadas de la configuración del proyecto no coinciden\n con su ubicación actual")
-           print("    ----> '"..path.."'")
-           local relpath = path:match("^.+("..pattern..".+)$")
-           if tostring(relpath) == "" or relpath == nil then
-               print(" DEBUG: Se produjo un error inesperado al intentar reparar las rutas")
-               print( relpath, pattern, rootpath, rootpath_to_check, path )
-               return false
-           end
-           fixed[idname] = rootpath.."/"..relpath
-       else
-           printf(".")        
-       end
-   end
-   -- print()
-   if there_are_fixed_paths then
-       return fixed
-   else
-       return nil
-   end
-end
-    
-function project:check_project_paths() 
-
-    printf(" Chequeando integridad del proyecto\n ")
-    local paths_modified = false
-    fixed = self:fix_paths(
-                self.settings.path_proc, 
-                self.settings.regnum.."/"..self.dalclick.proc_name, 
-                self.dalclick.root_project_path)
-    if fixed == false then return false end
-    if fixed then
-        print(" NOTA: Es probable que se hayan cambiado la ruta base donde guardan los proyectos.")
-        print()
-        self.settings.path_proc = fixed
-        paths_modified = true
-    end
-    
-    printf("\n ")
-    fixed = self:fix_paths(
-                self.settings.path_raw,
-                self.settings.regnum.."/"..self.dalclick.raw_name, 
-                self.dalclick.root_project_path)
-    if fixed == false then return false end
-    if fixed then
-        print(" NOTA: Es probable que se hayan cambiado la ruta base donde guardan los proyectos.")
-        print()
-        self.settings.path_raw = fixed
-        paths_modified = true
-    end
-
-    printf("\n ")
-    fixed = self:fix_paths(
-                self.settings.path_test,
-                self.settings.regnum.."/"..self.dalclick.test_name, 
-                self.dalclick.root_project_path)
-    if fixed == false then return false end
-    if fixed then
-        print(" NOTA: Es probable que se hayan cambiado la ruta base donde guardan los proyectos.")
-        print()
-        self.settings.path_test = fixed
-        paths_modified = true
-    end    
-
-    print()   
-    if paths_modified == true then
-        return true, 'modified'
+   
+    if repared == true then
+        return true, 'repared', log -- 'modified'
     else
-        return true, 'opened'
+        return true --, 'opened'
     end
+    
 end
 
-function project.mkdir_tree(g,s)
+function project.mkdir_tree(dalclick,session,paths)
 
-    if not dcutls.localfs:file_exists(g.root_project_path.."/"..s.regnum) then
+    if not dcutls.localfs:file_exists(session.base_path) then
         print(" Creando árbol de directorios del proyecto...\n")
-        dcutls.localfs:create_folder( g.root_project_path.."/"..s.regnum)
-        dcutls.localfs:create_folder( g.root_project_path.."/"..s.regnum.."/"..g.raw_name)
-        dcutls.localfs:create_folder( g.root_project_path.."/"..s.regnum.."/"..g.proc_name)
-        dcutls.localfs:create_folder( g.root_project_path.."/"..s.regnum.."/"..g.doc_name)
-        dcutls.localfs:create_folder( g.root_project_path.."/"..s.regnum.."/"..g.test_name)
-        dcutls.localfs:create_folder( s.path_raw.odd )
-        dcutls.localfs:create_folder( s.path_raw.even )
-        dcutls.localfs:create_folder( s.path_raw.all )
-        dcutls.localfs:create_folder( s.path_proc.odd )
-        dcutls.localfs:create_folder( s.path_proc.even )
-        dcutls.localfs:create_folder( s.path_proc.all )
-        dcutls.localfs:create_folder( s.path_test.odd )
-        dcutls.localfs:create_folder( s.path_test.even )
-        dcutls.localfs:create_folder( s.path_test.all )
+        dcutls.localfs:create_folder( session.base_path )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.raw_dir  )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.proc_dir )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.test_dir )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.doc_dir  )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.odd  )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.even )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.all  )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.proc.odd  )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.proc.even )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.proc.all  )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.test.odd  )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.test.even )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.test.all  )
         return true
     else
-        print("warn: '"..g.root_project_path.."/"..s.regnum.."' ya existe\n")
+        print("warn: '"..session.base_path.."' ya existe\n")
         return false
     end
 end
@@ -533,6 +452,28 @@ end
 function project:reparar()
     local log = ''
     local msg
+       
+    printf("verificando integridad del arbol de directorios del proyecto...")
+    local check_project_paths_status, check_status, check_project_log = self:check_project_paths()
+    --
+    if check_project_paths_status then
+        if check_status == 'repared' then
+            print("OK")
+            msg = " Se repararon directorios."
+            print(msg)
+            msg = msg.."\n\n"..tostring(check_project_log).."\n"
+            log = log.."\n"..msg
+        else
+            print("OK")
+        end
+    else
+        print("ERROR")
+        msg ="  la estructura de directorios tenia errores pero no se pudieron reparar"
+        print(msg)
+        msg = msg.."\n\n"..tostring(check_project_log).."\n"
+        log = log.."\n"..msg
+    end
+    
     local status, counter_min, counter_max = self:get_counter_max_min()
     local no_errors = true
     if type(counter_min) ~= 'table' or type(counter_max) ~= 'table' then
@@ -552,13 +493,13 @@ function project:reparar()
     if status == true then
         if self:set_counter(counter_min.odd) then
             -- TODO p.state.rotate[idname]
-            msg = " iniciando reparacion desde"..tostring(self.state.counter.even).."/"..tostring(self.state.counter.odd)
+            msg = " iniciando reparacion desde contador en '"..tostring(self.state.counter.even).."/"..tostring(self.state.counter.odd).."'"
             print(msg)
             log = log.."\n"..msg
 
             -- check preview folder
             for idname,count in pairs(self.state.counter) do
-                local preview_folder = self.settings.path_proc[idname].."/"..self.dalclick.thumbfolder_name
+                local preview_folder = self.session.base_path.."/"..self.paths.proc[idname].."/"..self.dalclick.thumbfolder_name
                 if not dcutls.localfs:file_exists( preview_folder ) then
                     if not dcutls.localfs:create_folder( preview_folder ) then
                         return false, false, log
@@ -570,7 +511,7 @@ function project:reparar()
             
             while true do
             for idname,count in pairs(self.state.counter) do
-                msg = " -- "..tostring(count)
+                msg = " - captura "..tostring(count).." - ("..idname..")"
                 print(msg)
                 log = log.."\n"..msg
                 if type(count) ~= 'number' then 
@@ -581,9 +522,9 @@ function project:reparar()
                 end
                 
                 filename_we = string.format("%04d", count)..".jpg"
-                raw_path = self.settings.path_raw[idname].."/"..filename_we
-                pre_path = self.settings.path_proc[idname].."/"..filename_we
-                preview_path = self.settings.path_proc[idname].."/"..self.dalclick.thumbfolder_name.."/"..filename_we
+                raw_path = self.session.base_path.."/"..self.paths.raw[idname].."/"..filename_we
+                pre_path = self.session.base_path.."/"..self.paths.proc[idname].."/"..filename_we
+                preview_path = self.session.base_path.."/"..self.paths.proc[idname].."/"..self.dalclick.thumbfolder_name.."/"..filename_we
                 
                 if dcutls.localfs:file_exists( raw_path ) then
                     if not dcutls.localfs:file_exists( pre_path ) then
@@ -690,26 +631,24 @@ end
 function project:get_counter_max_min()
 
     local min, max, counter_min, counter_max
-    for idname, n in pairs(self.state.counter) do
-        if idname == self.dalclick.odd_name or idname == self.dalclick.even_name then
-            for f in lfs.dir(self.settings.path_raw[idname]) do
-                if lfs.attributes(self.settings.path_raw[idname].."/"..f,"mode") == "file" then
-                    if f:match("^(%d+)%.jpg$") or f:match("^(%d+)%.JPG$" ) then
-                        if min ~= nil then
-                            if f < min.f then min = { f = f, idname = idname } end
-                        else
-                            min = { f = f, idname = idname }
-                        end
-                        if max ~= nil then
-                            if f > max.f then max = { f = f, idname = idname} end
-                        else
-                            max = { f = f, idname = idname}
-                        end
+    local folders = { self.dalclick.odd_name, self.dalclick.even_name }
+    
+    for n, idname in pairs(folders) do
+        for f in lfs.dir(self.session.base_path.."/"..self.paths.raw[idname]) do
+            if lfs.attributes( self.session.base_path.."/"..self.paths.raw[idname].."/"..f, "mode") == "file" then
+                if f:match("^(%d+)%.jpg$") or f:match("^(%d+)%.JPG$" ) then
+                    if min ~= nil then
+                        if f < min.f then min = { f = f, idname = idname } end
+                    else
+                        min = { f = f, idname = idname }
+                    end
+                    if max ~= nil then
+                        if f > max.f then max = { f = f, idname = idname} end
+                    else
+                        max = { f = f, idname = idname}
                     end
                 end
             end
-        else
-            return false, nil, nil
         end
     end
     if min == nil or max == nil then
@@ -760,8 +699,7 @@ end
 
 function project:save_state()
     local content = util.serialize(self.state)
-    --if dcutls.localfs:create_file(self.dalclick.dc_config_path.."/.dc_state",content) then
-    if dcutls.localfs:create_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_state",content) then
+    if dcutls.localfs:create_file(self.session.base_path.."/.dc_state", content) then
         return true
     else
         return false
@@ -769,7 +707,7 @@ function project:save_state()
 end
 
 function project:load_state()
-    local content = dcutls.localfs:read_file(self.dalclick.root_project_path.."/"..self.settings.regnum.."/.dc_state")
+    local content = dcutls.localfs:read_file(self.session.base_path.."/.dc_state")
     if content then
         self.state = util.unserialize(content)
         return true
@@ -779,9 +717,8 @@ function project:load_state()
 end
 
 function project:get_thumb_path(idname, filename)
-        -- local proc_path = self.dalclick.root_project_path.."/"..self.settings.regnum.."/"..self.dalclick.proc_name.."/"..idname.."/"
-    -- self.settings.path_proc[idname]
-    local preview_folder = self.settings.path_proc[idname].."/"..self.dalclick.thumbfolder_name
+
+    local preview_folder = self.session.base_path.."/"..self.paths.proc[idname].."/"..self.dalclick.thumbfolder_name
     if not dcutls.localfs:file_exists( preview_folder ) then
         if dcutls.localfs:create_folder( preview_folder ) then
         else
@@ -790,7 +727,7 @@ function project:get_thumb_path(idname, filename)
     end
 
     local thumb_path = preview_folder.."/"..filename
-    local big_path = self.settings.path_proc[idname].."/"..filename
+    local big_path = self.session.base_path.."/"..self.paths.proc[idname].."/"..filename
 
     if dcutls.localfs:file_exists( big_path ) then
         if dcutls.localfs:file_exists( thumb_path ) then
@@ -917,15 +854,18 @@ function project:send_post_proc_actions()
     local dc_pp = self.dalclick.dalclick_pwdir.."/".."dc_pp"
     if dcutls.localfs:file_exists( dc_pp ) then		
 
-        local project_path = self.dalclick.root_project_path.."/"..self.settings.regnum 
+        local status, min, max = self:get_counter_max_min()
+        if max == nil then
+            return false, "Aún no hay capturas para procesar en el proyecto"
+        end
 
         local dcpp_command = 
             dc_pp
-            .." 'project="..project_path.."'"
-            .." 'even="..   project_path.."/"..self.dalclick.proc_name.."/"..self.dalclick.even_name.."'"
-            .." 'odd="..    project_path.."/"..self.dalclick.proc_name.."/"..self.dalclick.odd_name.."'"
-            .." 'all="..    project_path.."/"..self.dalclick.proc_name.."/"..self.dalclick.all_name.."'"
-            .." 'done="..   project_path.."/"..self.dalclick.doc_name .."'"
+            .." 'project="..self.session.base_path.."'"
+            .." 'even="..   self.session.base_path.."/"..self.paths.proc.even.."'"
+            .." 'odd="..    self.session.base_path.."/"..self.paths.proc.odd.."'"
+            .." 'all="..    self.session.base_path.."/"..self.paths.proc.all.."'"
+            .." 'done="..   self.session.base_path.."/"..self.paths.doc_dir .."'"
             .." 'output_name=".. self.dalclick.doc_filename.."'"
             .." 'title="..self.settings.title.."'"
 
@@ -936,9 +876,7 @@ function project:send_post_proc_actions()
          print(" script exit status: "..tostring(exit_status))
          return true
      else
-        print(" ERROR: La ruta al script de post-procesamiento no esta correctamente configurada:")
-        print(dc_pp)
-        return false
+        return false, "ERROR: La ruta al script de post-procesamiento no esta correctamente configurada:\n '"..tostring(dc_pp).."'"
      end
 end
 

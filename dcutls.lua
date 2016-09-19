@@ -60,6 +60,24 @@ function dcutls.localfs:read_file(path)
     end
 end
 
+function dcutls.localfs:read_file_as_table(path)
+
+    local content = {}
+    if path == "" then 
+        return false
+    end
+    local f = io.open(path, "r")
+    if f~=nil then 
+        for line in f:lines() do
+            table.insert(content, line);
+        end
+        f:close()
+        return content
+    else 
+        return false 
+    end
+end
+
 function dcutls.localfs:create_folder(path)
 
     if path == "" then 
@@ -76,6 +94,22 @@ function dcutls.localfs:create_folder(path)
     else
         print("  advertencia: '"..path.."' ya existe")
         return true
+    end
+end
+
+function dcutls.localfs:create_folder_quiet(path)
+
+    if path == "" then 
+        return false
+    end
+    if not self:file_exists(path) then
+        if lfs.mkdir(path) then
+            return true
+        else
+            return false
+        end
+    else
+        return nil
     end
 end
 

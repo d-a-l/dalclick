@@ -83,6 +83,29 @@ local defaults={
     -- regnum = '',
 }
 
+defaults.paths = {}
+
+defaults.paths.raw_dir = defaults.raw_name
+defaults.paths.raw = {
+    even = defaults.raw_name.."/"..defaults.even_name,
+    odd =  defaults.raw_name.."/"..defaults.odd_name,
+    all =  defaults.raw_name.."/"..defaults.all_name,
+}
+defaults.paths.proc_dir = defaults.proc_name
+defaults.paths.proc = {
+    even = defaults.proc_name.."/"..defaults.even_name,
+    odd =  defaults.proc_name.."/"..defaults.odd_name,
+    all =  defaults.proc_name.."/"..defaults.all_name,
+}
+defaults.paths.test_dir = defaults.test_name
+defaults.paths.test = {
+    even = defaults.test_name.."/"..defaults.even_name,
+    odd =  defaults.test_name.."/"..defaults.odd_name,
+    all =  defaults.test_name.."/"..defaults.all_name,
+}
+defaults.paths.doc_dir = defaults.doc_name
+
+
 local config={
     zoom_persistent = true -- persistent zoom parameter on new projects
 }
@@ -900,12 +923,12 @@ function mc:rotate_all()
         -- path = local_path..file_name
         -- basepath = local_path
         -- basename = file_name
-        command = "econvert -i "..saved_file.path.." --rotate "..p.state.rotate[idname].." -o "..p.settings.path_proc[idname].."/"..saved_file.basename.." > /dev/null 2>&1"
+        command = "econvert -i "..saved_file.path.." --rotate "..p.state.rotate[idname].." -o "..p.session.base_path.."/"..p.paths.proc[idname].."/"..saved_file.basename.." > /dev/null 2>&1"
         
         if defaults.mode_enable_qm_daemon then
             print(" ["..idname.."] enviando comando (rotar) a la cola de acciones") 
-            if not os.execute(p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"') then
-               print(" error: falló: "..p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"')
+            if not os.execute(p.dalclick.qm_sendcmd_path..' '..p.session.base_path.."/"..p.paths.raw[idname]..' "'..command..'"') then
+               print(" error: falló: "..p.dalclick.qm_sendcmd_path..' '..p.session.base_path.."/"..p.paths.raw[idname]..' "'..command..'"')
                rotate_fail = true
             end
         else
@@ -930,7 +953,7 @@ function mc:rotate_and_resize_all()
     local command, path
     local rotate_fail = false
     for idname,saved_file in pairs(p.state.saved_files) do
-        local thumbpath = p.settings.path_proc[idname].."/"..p.dalclick.thumbfolder_name
+        local thumbpath = p.session.base_path.."/"..p.paths.proc[idname].."/"..p.dalclick.thumbfolder_name
         if not dcutls.localfs:file_exists( thumbpath ) then
             if not dcutls.localfs:create_folder( thumbpath ) then
                 print(" ERROR: no se pudo crear '"..thumbpath.."'")
@@ -940,14 +963,14 @@ function mc:rotate_and_resize_all()
         command = 
             "econvert -i "..saved_file.path
           .." --rotate "..p.state.rotate[idname]
-          .." -o "..p.settings.path_proc[idname].."/"..saved_file.basename
+          .." -o "..p.session.base_path.."/"..p.paths.proc[idname].."/"..saved_file.basename
           .." --thumbnail ".."0.125"
           .." -o "..thumbpath.."/"..saved_file.basename
           .." > /dev/null 2>&1"
         if defaults.mode_enable_qm_daemon then
             print(" ["..idname.."] enviando de comando de procesamiento a la cola de acciones ("..saved_file.basename..").") 
-            if not os.execute(p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"') then
-                print(" error: falló: "..p.dalclick.qm_sendcmd_path..' '..p.settings.path_raw[idname]..' "'..command..'"')
+            if not os.execute(p.dalclick.qm_sendcmd_path..' '..p.session.base_path.."/"..p.paths.raw[idname]..' "'..command..'"') then
+                print(" error: falló: "..p.dalclick.qm_sendcmd_path..' '..p.session.base_path.."/"..p.paths.raw[idname]..' "'..command..'"')
                 rotate_fail = true
             end
         else
@@ -1117,13 +1140,13 @@ function mc:capt_all_test_and_preview()
             for idname, saved_file in pairs(saved_files) do
                 command_paths[idname] = {
                     src_path  =
-                        p.settings.path_test[idname]
+                        p.session.base_path.."/"..p.paths.test[idname]
                         .."/"..saved_file.basename_without_ext..".jpg",
                     high_path =  
-                        p.settings.path_test[idname]
+                        p.session.base_path.."/"..p.paths.test[idname]
                         .."/"..saved_file.basename_without_ext..defaults.test_high_name..".jpg",
                     low_path  =
-                        p.settings.path_test[idname]
+                        p.session.base_path.."/"..p.paths.test[idname]
                         .."/"..saved_file.basename_without_ext..defaults.test_low_name..".jpg"
                 }
                                
@@ -1287,15 +1310,9 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
         file_name = file_name_we..".".."jpg"
         
         if mode == 'test' then -- yyyy
-            local_path = p.dalclick.root_project_path..
-                        "/"..p.settings.regnum.. 
-                        "/"..p.dalclick.test_name..
-                        "/"..lcon.idname.."/"
+            local_path = p.session.base_path.."/"..paths.test[lcon.idname].."/"
         else
-            local_path = p.dalclick.root_project_path..
-                        "/"..p.settings.regnum..
-                        "/"..p.dalclick.raw_name..
-                        "/"..lcon.idname.."/"            
+            local_path = p.session.base_path.."/"..paths.raw[lcon.idname].."/"
         end
         --
         if not dcutls.localfs:file_exists( local_path..defaults.tempfolder_name ) then
@@ -1406,11 +1423,42 @@ local function check_overwrite(idname)
     file_name_we = string.format("%04d", p.state.counter[idname])
     file_name = file_name_we..".".."jpg"
     
-    if dcutls.localfs:file_exists( p.settings.path_raw[idname].."/"..file_name ) then
+    if dcutls.localfs:file_exists( p.session.base_path.."/"..p.paths.raw[idname].."/"..file_name ) then
         return true
     else
         return false
     end
+end
+
+local function get_project_newname()
+
+    guisys.init()
+
+    local scanf_regnum, scanf_title
+    local regnum = "" -- default
+    local title = "" -- default
+    local format = "Iniciar Proyecto\nNúmero de registro: %100.30%s\nTítulo:%300.30%s\n"
+    repeat
+        scanf_regnum, scanf_title = iup.Scanf(format, regnum, title)
+        if scanf_regnum == nil then 
+            return nil, nil
+        end
+        if scanf_regnum == "" then 
+            iup.Message("Iniciar Proyecto", "El campo 'Número de registro' es obligatorio para iniciar un proyecto")
+        else
+            if string.match(scanf_regnum, "^[%w-_]+$") then
+                if dcutls.localfs:file_exists( defaults.root_project_path.."/"..scanf_regnum ) then
+                    iup.Message("Iniciar Proyecto", "El 'Número de registro' corresponde a un proyecto existente")
+                else
+                    break -- success!!
+                end
+            else
+                iup.Message("Iniciar Proyecto", "El campo 'Número de registro' solo permite caracteres alfanuméricos y guiones, no admite espacios, acentos u otros signos")
+            end
+        end
+    until false
+
+    return scanf_regnum, scanf_title
 end
 
 -- main funtions
@@ -1428,12 +1476,12 @@ function dc:init_daemons()
     print(" iniciando procesos en segundo plano...")
     os.execute("killall qm_daemon.sh 2>&1") -- TODO: q & d!!!! hay un bug y qm_daemon se inicia aunque haya otro daemos funcioando!
     
-    if not dcutls.localfs:file_exists(p.settings.path_raw.odd) or not dcutls.localfs:file_exists(p.settings.path_raw.even) then
-        print(" error: init_daemons: no existen path_raw... \n  "..p.settings.path_raw.odd.."\n  "..p.settings.path_raw.odd)
+    if not dcutls.localfs:file_exists(p.session.base_path.."/"..p.paths.raw.odd) or not dcutls.localfs:file_exists(p.session.base_path.."/"..p.paths.raw.even) then
+        print(" error: init_daemons: no existen path_raw... \n  "..p.session.base_path.."/"..p.paths.raw.odd.."\n  "..p.session.base_path.."/"..p.paths.raw.even)
         return false
     end
-    os.execute(p.dalclick.qm_daemon_path.." "..p.settings.path_raw.odd.." &")
-    os.execute(p.dalclick.qm_daemon_path.." "..p.settings.path_raw.even.." &")
+    os.execute(p.dalclick.qm_daemon_path.." "..p.session.base_path.."/"..p.paths.raw.odd.." &")
+    os.execute(p.dalclick.qm_daemon_path.." "..p.session.base_path.."/"..p.paths.raw.even.." &")
     return true
 
     -- para enviar un comando al queue
@@ -1448,7 +1496,8 @@ end
 function dc:start_options(mode, options)
 
     local options = options or {}
-    -- mode -> 'restore_running_project' ó 'new_project' (por ahora igual a '')
+    if type(options) ~= 'table' then return false end
+    -- mode -> 'restore_project' ó 'new_project' (por ahora igual a '')
     -- iniciando la estructura para un proyecto
     if not p:init(defaults) then
         return false
@@ -1457,8 +1506,13 @@ function dc:start_options(mode, options)
     -- iniciando proyecto (carga proyecto anterior o crea nuevo)
     local running_project_loaded = false
 
-    if mode == "restore_running_project" then   
-        local settings_path = self:check_running_project() 
+    if mode == "restore_project" then
+        local settings_path
+        if options.settings_path then
+            settings_path = options.settings_path
+        else
+            settings_path = self:check_running_project() 
+        end
         if settings_path then
             print("")
             print(" Restaurando proyecto...")
@@ -1466,6 +1520,9 @@ function dc:start_options(mode, options)
             if load_status then
                 if project_status == 'opened' then
                     running_project_loaded = true
+                    if p:update_running_project(settings_path) then
+                        -- success!!
+                    end
                 else
                     print(" ATENCION: Está intentado cargar al inicio un proyecto en formato obsoleto.")
                     print(" Por favor cárguelo seleccionando la opción [o] a continuación.")
@@ -1509,12 +1566,12 @@ function dc:start_options(mode, options)
                 return false
             elseif key == "n" then
                 print(); print(" Seleccionó: Crear Nuevo Proyecto...")
-                local regnum, title = p:get_project_newname()
+                local regnum, title = get_project_newname()
                 if regnum ~= nil then
                     if not p:init(defaults) then
                         return false
                     end
-                    local create_options = { regnum = regnum, title = title }
+                    local create_options = { regnum = regnum, title = title, root_path = defaults.root_project_path }
                     if config.zoom_persistent then
                         create_options.zoom = options.zoom
                     end
@@ -1529,7 +1586,8 @@ function dc:start_options(mode, options)
                  -- back to start options
             elseif key == "o" then
                 print(); print(" Seleccionó: Abrir Proyecto...")
-                local open_status, project_status = p:open(defaults)
+                local open_options = { root_path = defaults.root_project_path }
+                local open_status, project_status = p:open(defaults, open_options)
                 if open_status then
                     if project_status == 'modified' then
                         printf(" El formato del proyecto era obsoleto. Guardando proyecto actualizado...")
@@ -1735,24 +1793,84 @@ end
     return true
 end
 
-function dc:listar_proyectos()
-    projects_list = {}
+function dc:load_projects_list_from_path(path)
+    if type(path) ~= 'string' then return false end
+    if dcutls.localfs:file_exists( path ) then		
+        if lfs.attributes(path,"mode") ~= "directory" then
+            print(" Error: la ruta '"..tostring(path).."' no es un directorio")
+            return false
+        end
+    else
+        print(" Error: la ruta '"..tostring(path).."' no existe")
+        return false
+    end
     
-    print(" Buscando proyectos en '"..tostring(defaults.root_project_path).."'")
-    for f in lfs.dir(defaults.root_project_path) do
-        if lfs.attributes(defaults.root_project_path.."/"..f,"mode") == "directory" then
-            if dcutls.localfs:file_exists( defaults.root_project_path.."/"..f..'/.dc_settings' ) then		
-	            table.insert( projects_list, 
-	            { id = f,
-	              path = defaults.root_project_path.."/"..f, 
-	              settings_path = defaults.root_project_path.."/"..f..'/.dc_settings'
-	            })
+    print(" Buscando proyectos en '"..tostring(path).."'")
+    local pl = {}
+    for f in lfs.dir(path) do
+        if lfs.attributes(path.."/"..f,"mode") == "directory" then
+            if dcutls.localfs:file_exists( path.."/"..f..'/.dc_settings' ) then		
+	            table.insert( pl, 
+	                { id = f,
+	                  path = path.."/"..f,
+	                  settings_path = path.."/"..f..'/.dc_settings'
+	                }
+	            )
             end
         end
     end
-    print()
+    
+    if next(pl) then
+       return true, pl
+    else
+       return nil, pl
+    end
+end
 
-    local function count_files(folder)
+function dc:load_projects_list_from_file(file)
+    if type(file) ~= 'string' then return false end
+    if dcutls.localfs:file_exists( file ) then		
+        if lfs.attributes(file,"mode") ~= "file" then
+            print(" Error: la ruta '"..tostring(file).."' no es un archivo")
+            return false
+        end
+    else
+        print(" Error: la ruta '"..tostring(path).."' no existe")
+        return false
+    end
+    
+    local content = dcutls.localfs:read_file_as_table(path)
+    
+    local pl = {}
+    if type(content) == 'table' then
+        for id, line in pairs(content) do
+           if dcutls.localfs:file_exists( line ) and lfs.attributes(line,"mode") == "directory" then
+               line = string.match(line , "(.*)/$") -- remove trailing slash if any
+               if dcutls.localfs:file_exists( line..'/.dc_settings' ) then
+                   local filepath, filename, fileext = string.match(line, "(.-)([^\\/]-%.?([^%.\\/]*))$")
+                   if filename ~= "" then
+     	               table.insert( pl, 
+                          { id = filename,
+                            path = line, 
+                            settings_path = line..'/.dc_settings'
+                          })
+                   end
+	           end
+           end
+        end
+    end
+
+    if next(pl) then
+       return true, pl
+    else
+       return nil, pl
+    end
+end
+
+
+function dc:listar_proyectos()
+    
+   local function count_files(folder)
         if dcutls.localfs:file_exists( folder ) then
             local count = 0
             for f in lfs.dir( folder ) do
@@ -1765,35 +1883,52 @@ function dc:listar_proyectos()
         return false
     end
     
+    -- -- --
+    
+    projects_list = {}    
+    
+    print(" Buscando proyectos en '"..tostring(defaults.root_project_path).."'")
+    local status
+    status, projects_list = self:load_projects_list_from_path( defaults.root_project_path )
+    if status == nil then
+        print(" la carpeta no contiene proyectos")
+        return true
+    elseif status == false then
+        return false
+    end
+
+    print()
+    
     for index, project in pairs(projects_list) do    
         local content = dcutls.localfs:read_file(project.settings_path)
         if content then
             local settings = util.unserialize(content)
+            local paths = defaults.paths
             local stat_line = "raw: "
-            if type(settings.path_raw) == 'table' then
-                if settings.path_raw.even then
-                    local c = count_files( settings.path_raw.even )
+            if type(paths.raw) == 'table' then
+                if paths.raw.even then
+                    local c = count_files( project.path.."/"..paths.raw.even )
                     if c then
                         stat_line = stat_line..tostring(c)
                     end
                 end
-                if settings.path_raw.odd then
-                    local c = count_files( settings.path_raw.odd )
+                if paths.raw.odd then
+                    local c = count_files( project.path.."/"..paths.raw.odd )
                     if c then
                         stat_line = stat_line.."/"..tostring(c)
                     end
                 end
             end
             local stat_line = stat_line.." | processed: "
-            if type(settings.path_proc) == 'table' then
-                if settings.path_proc.even then
-                    local c = count_files( settings.path_proc.even )
+            if type(paths.proc) == 'table' then
+                if paths.proc.even then
+                    local c = count_files( project.path.."/"..paths.proc.even )
                     if c then
                         stat_line = stat_line..tostring(c)
                     end
                 end
-                if settings.path_proc.odd then
-                    local c = count_files( settings.path_proc.odd )
+                if paths.proc.odd then
+                    local c = count_files( project.path.."/"..paths.proc.odd )
                     if c then
                         stat_line = stat_line.."/"..tostring(c)
                     end
@@ -1828,7 +1963,7 @@ function dc:reparar_proyectos()
     end
     
     local function appendlog(string, path)
-            if dcutls.localfs:file_exists(path) then
+        if dcutls.localfs:file_exists(path) then
             local file = io.open(path, "a")
             io.output(file)
             io.write("\n\n"..string.."\n")
@@ -1836,21 +1971,23 @@ function dc:reparar_proyectos()
         end
     end
     
-
-
-    -- test settings_path = "/str/biblio/bib_test/cnba/enesimomio/.dc_settings"
+    -- -- --
+    
     local projects_paths = {}
     print(" Buscando proyectos en '"..tostring(defaults.root_project_path).."'")
-    for f in lfs.dir(defaults.root_project_path) do
-        if lfs.attributes(defaults.root_project_path.."/"..f,"mode") == "directory" then
-            if dcutls.localfs:file_exists( defaults.root_project_path.."/"..f..'/.dc_settings' ) then		
-	            table.insert(projects_paths, defaults.root_project_path.."/"..f..'/.dc_settings')
-            end
-        end
+
+    local status, projects_paths = self:load_projects_list_from_path( defaults.root_project_path )
+    if status == nil then
+        print(" la carpeta no contiene proyectos")
+        return true
+    elseif status == false then
+        return false
     end
+    
     print()
+    
     for a,b in pairs(projects_paths) do
-        print(a, b)
+        print(a, b.path)
     end
     
     print()
@@ -1863,54 +2000,54 @@ function dc:reparar_proyectos()
         print()
         local fail = {}
         local success = {}
-        for index,path in pairs(projects_paths) do
+        for index,pdata in pairs(projects_paths) do
+            
             if not p:init(defaults) then
                 print(" ERROR: no se pueden inicializar proyectos!")
                 break
             end
             
-            local logpath
-            local ppath, pname, pext = string.match(path, "(.-)([^\\/]-%.?([^%.\\/]*))$")
-            if dcutls.localfs:file_exists(ppath) then
-                logpath = ppath..".reparar-proyectos.log"
-                if not dcutls.localfs:file_exists(logpath) then
-                    if dcutls.localfs:create_file(logpath, '') then
-                        print(" Archivo de registro creado con exito en: "..tostring(logpath))
+            local log
+            if dcutls.localfs:file_exists(pdata.path) then
+                log = pdata.path..".reparar-proyectos.log"
+                if not dcutls.localfs:file_exists(log) then
+                    if dcutls.localfs:create_file(log, '') then
+                        print(" Archivo de registro creado con exito en: "..tostring(log))
                     else
-                        print(" ATENCION: no se pudo crear un archivo de registro en: "..tostring(logpath))
+                        print(" ATENCION: no se pudo crear un archivo de registro en: "..tostring(log))
                     end
                 else
-                    print(" Ya existe un registro en '"..tostring(logpath).."'. Se continua ingresando información a continuación." )
+                    print(" Ya existe un registro en '"..tostring(log).."'. Se continua ingresando información a continuación." )
                 end                 
-                appendlog(" --------------- "..os.date().." --------------- ", logpath)
+                appendlog(" --------------- "..os.date().." --------------- ", log)
             else
-                print(" ATENCION no se pudo crear un archivo de registro, no existe: "..tostring(ppath))
+                print(" ATENCION no se pudo crear un archivo de registro, no existe: "..tostring(pdata.path))
             end
                 
-            local load_status, project_status = p:load(path)
+            local load_status, project_status = p:load(pdata.settings_path)
             if load_status then
-                printlog(" Procesando: '"..tostring(path).."'", logpath)
-                printlog(" Proyecto abierto con exito. Estado: "..tostring(project_status), logpath)
+                printlog(" Procesando: '"..tostring(pdata.settings_path).."'", log)
+                printlog(" Proyecto abierto con exito. Estado: "..tostring(project_status), log)
                 local status, no_errors, log = p:reparar() 
                 if status then
                     if no_errors == true then
-                        table.insert(success, path)
-                        printlog(" Reparacion del proyecto exitosa.", logpath)
+                        table.insert(success, pdata.path)
+                        printlog(" Reparacion del proyecto exitosa.", log)
                     elseif no_errors == 'warning' then
-                        table.insert(success, path.." \n   Atención: con observaciones.")
-                        printlog(" Reparacion del proyecto exitosa, pero con observaciones.", logpath)
+                        table.insert(success, pdata.path.." \n   Atención: con observaciones.")
+                        printlog(" Reparacion del proyecto exitosa, pero con observaciones.", log)
                     else
-       		            table.insert(fail, path.." \n   Error: Hubo errores mientras se reparaba el proyecto.")
-                        printlog(" Hubo errores al intentar reparar el proyecto.", logpath)
+       		            table.insert(fail, pdata.path.." \n   Error: Hubo errores mientras se reparaba el proyecto.")
+                        printlog(" Hubo errores al intentar reparar el proyecto.", log)
                     end
                 else
-                    table.insert(fail, path.."\n   Error: No se pudo reparar el proyecto.")
-                    printlog(" No se pudo reparar el proyecto.", logpath)
+                    table.insert(fail, pdata.path.."\n   Error: No se pudo reparar el proyecto.")
+                    printlog(" No se pudo reparar el proyecto.", log)
                 end
-                appendlog(log, logpath)
+                appendlog(log, log)
             else
-                printlog(" Ha ocurrido un error mientras se intentaba cargar el proyecto", logpath)
-                table.insert(fail, path.."\n   Error: No se pudo cargar el proyecto")
+                printlog(" Ha ocurrido un error mientras se intentaba cargar el proyecto", log)
+                table.insert(fail, pdata.path.."\n   Error: No se pudo cargar el proyecto")
             end
         end
         
@@ -2120,7 +2257,7 @@ function dc:main(
     
     -- opciones al inicio
     if defaults.autorestore_project_on_init then
-        if not self:start_options('restore_running_project') then
+        if not self:start_options('restore_project') then
             self:dalclick_loop(false)
             return false
         end
@@ -2212,7 +2349,7 @@ function dc:main(
             end
             print()
             print()
-            print(" Proyecto: ["..p.settings.regnum.."]" )
+            print(" Proyecto: ["..p.session.regnum.."]" )
             if counter_min and counter_max then
                 printf(" Capturas realizadas: "
                     ..string.format("%04d", counter_min.even)
@@ -2471,7 +2608,7 @@ function dc:main(
                 end
             elseif key == "n" then
                 local previous_zoom = p.state.zoom_pos
-                local regnum, title = p:get_project_newname()
+                local regnum, title = get_project_newname()
                 if regnum ~= nil then                
                     printf(" Guardando proyecto anterior... ")
                     if not p:write() then
@@ -2486,7 +2623,7 @@ function dc:main(
                         exit = true; break
                     end
                     
-                    local create_options = { regnum = regnum, title = title }
+                    local create_options = { regnum = regnum, title = title, root_path = defaults.root_project_path }
                     if config.zoom_persistent then
                         create_options.zoom = previous_zoom
                     end
@@ -2503,8 +2640,10 @@ function dc:main(
                     end
                  end
             elseif key == "o" then
+                local previous_settings_path = self:check_running_project()
                 local status
-                print(); status, project_status = p:open(defaults); print()
+                local open_options = { root_path = defaults.root_project_path }
+                print(); status, project_status = p:open(defaults,open_options); print()
                 sys.sleep(2000) -- pausa para dejar ver los mensajes
                 if status then
                     if project_status == 'canceled' then
@@ -2534,11 +2673,18 @@ function dc:main(
                             self:init_daemons()
                         end                    
                     end
-                else
-                    print(" saliendo...")
-                    sys.sleep(3000)
-                    exit = true
-                    break
+                else                  
+                    if p:delete_running_project() then
+                        print(" proyecto fallido cerrado")
+                        print()
+                    end
+                    sys.sleep(500)
+                    print(" Se restaurará el proyecto previo")
+                    local options = { settings_path = previous_settings_path }
+                    if not self:start_options('restore_project', options) then
+                        exit = true
+                        break
+                    end
                 end
             elseif key == "w" then
                 if p:write() then
@@ -2592,8 +2738,9 @@ function dc:main(
                 end
             elseif key == "x" then
                 local new_project_options = { zoom = p.state.zoom_pos }
-                if p:send_post_proc_actions() then
-                    print("\n Proyecto "..p.settings.regnum.. ": '"..p.settings.title.."' enviado.")
+                status, msg = p:send_post_proc_actions()
+                if status then
+                    print("\n Proyecto "..p.session.regnum.. ": '"..p.settings.title.."' enviado.")
                     if p:delete_running_project() then
                         print(" Cerrando proyecto..OK")
                     end
@@ -2604,9 +2751,10 @@ function dc:main(
                         break
                     end
                 end
+                if msg ~= "" then loopmsg = " "..tostring(msg) end
             elseif key == "xx" then
                 if p:send_post_proc_actions() then
-                    print("\n Proyecto "..p.settings.regnum.. ": '"..p.settings.title.."' enviado.")
+                    print("\n Proyecto "..p.session.regnum.. ": '"..p.settings.title.."' enviado.")
                     sys.sleep(2000)
                 end
             elseif key == "i" then
