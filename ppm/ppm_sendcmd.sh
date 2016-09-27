@@ -38,6 +38,11 @@ fi
 [[ -d $DALCLICK_PROJECTS ]] || { echo "ERROR: la carpeta de proyectos '$DALCLICK_PROJECTS' no existe, revise la configuracion de directorios."; exit 0; }
 
 QUEUEPATH=$DALCLICK_PROJECTS"/.queue"
+if [[ ! -d $QUEUEPATH ]] 
+ then
+   mkdir $QUEUEPATH && echo "Se creó '$QUEUEPATH'" || { echo "No se pudo crear '$QUEUEPATH'"; exit 1;}
+fi
+
 echo
 echo "${QMBNAME} Enviando trabajo a: '$QUEUEPATH'"
 

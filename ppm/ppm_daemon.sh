@@ -33,6 +33,10 @@ fi
 [[ -d $DALCLICK_PROJECTS ]] || { echo " ERROR: la carpeta de proyectos '$DALCLICK_PROJECTS' no existe, revise la configuracion de directorios."; exit 0; }
 
 QUEUEPATH=$DALCLICK_PROJECTS"/.queue"
+if [[ ! -d $QUEUEPATH ]] 
+ then
+   mkdir $QUEUEPATH && echo "Se creó '$QUEUEPATH'" || { echo "No se pudo crear '$QUEUEPATH'"; exit 1;}
+fi
 
 QMBNAME='Gestor> '
 ERROR_LOG=/var/tmp/qm_daemon_$$.log
@@ -117,12 +121,18 @@ if [ ! -z "$EXISTING_JOBS" ]
          then
             i=$((i + 1))
             JOBNAME=$(basename $line)
-            PROJPATH=$(cat "$line" | cut -d "#" -f 2)
-            PROJNAME=$(cat "$line" | cut -d "#" -f 2 | xargs basename )
+            PROJPATH=$(cat "$line" | cut -d "#" -f 2 | cut -d " " -f 1)
+            PROJNAME=$(cat "$line" | cut -d "#" -f 2 | cut -d " " -f 1 | xargs basename )
+            IMGSINFO=$(cat "$line" | cut -d "#" -f 2 | cut -d " " -f 2)
             EVENIMG=$(ls "$PROJPATH/pre/even" | grep .jpg | wc -w)
             FINISHED=$(ls "$PROJPATH/done" | grep .pdf | wc -w)
             ODDIMG=$(ls "$PROJPATH/pre/odd" | grep .jpg | wc -w)
-            IMGS=$(( EVENIMG + ODDIMG ))
+            if [[ "$IMGSINFO" != "" ]] 
+              then
+               IMGS=$IMGSINFO
+            else
+               IMGS=$(( EVENIMG + ODDIMG ))
+            fi
             if (( FINISHED > 0 ))
              then
                 FWARN="## YA FUE POSTPROCESADO ##"

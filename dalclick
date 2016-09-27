@@ -6,7 +6,7 @@ cd "$DALCLICK_SCRIPTS_DIR"
 PWDIR="$(pwd -P)"
 DALCLICK_SCRIPTS_DIRNAME="${PWDIR##*/}"
 MODE="$1"
-
+UTILS=""
 
 if [[ -f "CONFIG" ]]
  then
@@ -23,6 +23,12 @@ else
   read tecla
   exit 0
 fi
+
+[[ -f /usr/bin/thunar ]] && THUNAR="Yes"
+[[ -f /usr/bin/evince ]] && EVINCE="Yes"
+
+SCANTAILOR_PATH="/opt/src/scantailor-enhanced/scantailor"
+[[ -f "$SCANTAILOR_PATH" ]] || SCANTAILOR_PATH=""
 
 cd /opt/src/chdkptp
 
@@ -60,7 +66,7 @@ fi
 while
 true # Loop forever
 do
-    ./chdkptp -e"exec dc=require('dalclick')" -e"exec return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$DALCLICK_MODE', '$POST_PROC_SCRIPT')" 2> $DALCLICK_HOME/lua_errors
+    ./chdkptp -e"exec dc=require('dalclick')" -e"exec return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$DALCLICK_MODE', '$THUNAR', '$EVINCE', '$SCANTAILOR_PATH')" 2> $DALCLICK_HOME/lua_errors
     cat "$DALCLICK_HOME/lua_errors"
     LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )
     if [[ $LUA_ERRORS != "" ]]

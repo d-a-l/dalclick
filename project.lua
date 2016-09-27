@@ -20,6 +20,10 @@ function project:init(globalconf)
     self.session.regnum = nil
     self.session.base_path = nil -- /abs/path/to/regnum
     self.session.root_path = nil -- /abs/path/to
+    self.session.preview_counter = {}
+    self.session.counter_max = {}
+    self.session.counter_min = {}
+    self.session.include_list = {}
     --
     self.paths = globalconf.paths
     --
@@ -32,8 +36,9 @@ function project:init(globalconf)
     self.settings.rotate = self.settings_default.rotate
     self.settings.mode = self.settings_default.mode
     --
-    self.state.counter = nil
+    self.state.counter = {}
     self.state.zoom_pos = nil
+    self.session.last_pdf_generated = nil
     self.state.saved_files = nil -- last capture paths
     -- self.state.focus = nil -- ojo puede no ser igual para las dos cams
     -- self.state.resolution = nil
@@ -218,7 +223,73 @@ function project:create( options )
     end
 end
 
-function project:load(settings_path) -- zzzzz
+function project:check_settings(opts)
+    local opts = type(opts) == 'table' and opts or {}
+    
+    local log = ""
+    local status = true
+    
+    if type(self.settings) ~= 'table' then 
+        self.settings = {}
+        log = " * settings estaba sin definir\n"
+        status = false
+    end   
+    
+    if self.settings.mode and self.settings.mode ~= "" then 
+        --
+    else
+        self.settings.mode = self.settings_default.mode
+        log = log .. " * Modo sin definir\n" 
+        status = false
+    end
+    if self.settings.ref_cam and self.settings.ref_cam ~= "" then 
+        --
+    else
+        self.settings.ref_cam = self.settings_default.ref_cam
+        log = log .. " * Cámara de referencia sin definir\n"
+        status = false
+    end
+    if self.settings.rotate ~= nil then 
+        --
+    else
+        self.settings.rotate = self.settings_default.rotate
+        log = log .. " * Rotar sin definir\n"
+        status = false
+    end
+    if opts.upgrade then
+        if type(self.settings.path_raw) == 'table' then
+            -- por ahora desactivado por que si no pierde compatibilidad con versiones previas
+            self.settings.path_raw  = nil
+            self.settings.path_proc = nil
+            self.settings.path_test = nil
+            -- project_status = 'upgraded'
+            log = log .. " ** UPGRADE paths\n"
+            status = false
+        end
+    end
+    return status, log
+end
+
+function project:check_state()
+    local status = true
+    if type(self.state) ~= 'table' then
+        status = false
+    else
+        if type(self.state.counter) ~= 'table' then
+            status = false
+        else
+            if type(self.state.counter.even) ~= 'number' or 
+            type(self.state.counter.odd) ~= 'number' then
+                status = false
+            end
+        end
+    end
+    return status
+end
+
+function project:load(settings_path, opts)
+    local opts = type(opts) == 'table' and opts or {}
+    
     local base_path, settings_name, ext = string.match(settings_path, "(.-)([^\\/]-%.?([^%.\\/]*))$")
     if base_path ~= nil and base_path:sub(-1) == "/" then base_path = base_path:sub(1, -2) end -- remove trailing slash if any
     -- base_path = string.match(base_path, "(.*)/$") -- remove trailing slash if any
@@ -238,61 +309,34 @@ function project:load(settings_path) -- zzzzz
             self.session.regnum    = regnum_name  -- regnum
             self.session.base_path = base_path    -- /ruta/a/regnum
             self.session.root_path = root_path    -- /ruta/a
+            local status = self:get_counter_max_min()
             
             self.settings = util.unserialize(content)
+            local status, log = self:check_settings()
+            if not status then
+                print(" Reparado Settings")
+                print( log )
+            end
+            
             print("\n Datos del proyecto cargado:\n")
             print(" ===================================================")
             print(" = ID:     "..self.session.regnum)
             if self.settings.title and self.settings.title ~= "" then 
                 print(" = Título: '"..self.settings.title.."'") 
             end
-            if self.settings.mode and self.settings.mode ~= "" then 
-                print(" = Modo: '"..self.settings.mode.."'") 
-            else
-                self.settings.mode = self.settings_default.mode
-                print(" * Modo: '"..self.settings.mode.."'") 
-            end
-            if self.settings.ref_cam and self.settings.ref_cam ~= "" then 
-                print(" = Cámara de referencia: '"..self.settings.ref_cam.."'") 
-            else
-                self.settings.ref_cam = self.settings_default.ref_cam
-                print(" * Cámara de referencia: '"..self.settings.ref_cam.."'") 
-            end
-            if self.settings.rotate ~= nil then 
-                print(" = Rotar: '"..tostring(self.settings.rotate).."'") 
-            else
-                self.settings.rotate = self.settings_default.rotate
-                print(" * Rotar: '"..tostring(self.settings.rotate).."'") 
-            end
-
-            if type(self.settings.path_raw) == 'table' then
-                -- por ahora desactivado por que si no pierde compatibilidad con versiones previas
-                -- self.settings.path_raw  = nil
-                -- self.settings.path_proc = nil
-                -- self.settings.path_test = nil
-                project_status = 'modified'
-            end
-
+            print(" = Modo: '"..self.settings.mode.."'") 
+            print(" = Cámara de referencia: '"..self.settings.ref_cam.."'")     
+            print(" = Rotar: '"..tostring(self.settings.rotate).."'") 
             print()
-            -- if settings_path ~= self.dalclick.root_project_path.."/"..self.session.regnum.."/.dc_settings" then
-            --     print()
-            --     print(" Atencion! el archivo de configuracion del proyecto podría estar corrupto")
-            --     print("  "..settings_path)
-            --     print("  "..self.dalclick.root_project_path.."/"..self.session.regnum.."/.dc_settings")
-            --     print()
-            --     return false
-            -- end
-            --
-            local status = self:load_state()
-            if status then
-                local idname, count
-                for idname, count in pairs(self.state.counter) do
-                    if idname == 'odd' then
-                        print(" = cámara de páginas impares - próxima captura: "..count)
-                    elseif idname == 'even' then
-                        print(" = cámara de páginas pares - próxima captura: "..count)
-                    end
-                end
+
+            local load_state, check_state
+            load_state = self:load_state()
+            if load_state then
+                check_state = self:check_state()
+            end
+            if load_state and check_state then
+                print(" = cámara de páginas impares - próxima captura: "..self.state.counter.odd )
+                print(" = cámara de páginas pares - próxima captura: "..  self.state.counter.even)
                 
                 if not self.state.rotate then
                     self.state.rotate = {}
@@ -322,7 +366,6 @@ function project:load(settings_path) -- zzzzz
                         self.state.saved_files = nil
                     end
                 end
-                
                 -- save state!!!!
                 self:save_state()
             else
@@ -421,43 +464,102 @@ function project.mkdir_tree(dalclick,session,paths)
     end
 end
 
-function project:counter_next(max)
+function project:forward(counter, max)
+    if type(max) ~= 'number' then max = 9999 end
     local next_counter = {}
-    for idname,count in pairs(self.state.counter) do
-        count = count + 2 -- TODO we need count cameras!!!
-        if type(max) == 'number' and count > max then
-            print(" el contador llegó al valor maximo")
-            return false
-        else
-            next_counter[idname] = count
+    local out_of_range = false
+    for idname,count in pairs(counter) do
+        count = count + 2
+        next_counter[idname] = count
+        if count > max then
+            out_of_range = true
+        elseif count == max then
+            if out_of_range ~= true then out_of_range = nil end
         end
     end
-    self.state.counter = next_counter
-    return true
+    if out_of_range == false then
+        return next_counter, true   
+    elseif out_of_range == true then
+        return counter, false
+    elseif out_of_range == nil then
+        return next_counter, nil
+    end
 end
 
-function project:counter_prev()
+function project:backward(counter, min)
+    if type(min) ~= 'number' then min = 0 end
     local prev_counter = {}
-    for idname,count in pairs(self.state.counter) do
-        count = count - 2 -- TODO we need count cameras!!!
-        if count < 0 then
-            print(" el contador llegó al valor de inicio")
-            return false
-        else
-            prev_counter[idname] = count
+    local out_of_range = false
+    for idname,count in pairs(counter) do
+        count = count - 2
+        prev_counter[idname] = count
+        if count < min then
+            out_of_range = true
+        elseif count == min then
+            if out_of_range ~= true then out_of_range = nil end
         end
     end
-    self.state.counter = prev_counter
-    return true
+    if out_of_range == false then
+        return prev_counter, true   
+    elseif out_of_range == true then
+        return counter, false
+    elseif out_of_range == nil then
+        return prev_counter, nil
+    end
 end
+
+function project:counter_next(max)
+    self.state.counter, counter_updated = self:forward(self.state.counter, max)
+    return counter_updated
+end
+
+function project:counter_prev(min)
+    self.state.counter, counter_updated = self:backward(self.state.counter, min)
+    return counter_updated
+end
+
+function project:preview_counter_next(max)
+    self.session.preview_counter, counter_updated = self:forward(self.session.preview_counter, max)
+    return counter_updated
+end
+
+function project:preview_counter_prev(min)
+    self.session.preview_counter, counter_updated = self:backward(self.session.preview_counter, min)
+    return counter_updated
+end
+
 
 function project:reparar()
     local log = ''
     local msg
-       
+
+    printf("verificando archivos de configuracion...")       
+
+    local status, check_settings_log = self:check_settings()
+    if not status then
+        msg = " Reparado Settings\n"
+        msg = msg.."\n\n"..tostring(check_settings_log).."\n"
+        print( msg )
+        log = log.."\n"..msg
+        printf("REPARADO ")
+    end
+    if not self:check_state() then
+        self:init_state()
+        msg = " state reiniciado"
+        print(msg)
+        log = log.."\n"..msg
+        printf("REPARADO ")
+    end
+    if self:write() then
+        print("OK")
+    else
+        return false
+    end
+        
+    ----
+
     printf("verificando integridad del arbol de directorios del proyecto...")
     local check_project_paths_status, check_status, check_project_log = self:check_project_paths()
-    --
     if check_project_paths_status then
         if check_status == 'repared' then
             print("OK")
@@ -475,16 +577,19 @@ function project:reparar()
         msg = msg.."\n\n"..tostring(check_project_log).."\n"
         log = log.."\n"..msg
     end
+
+    ----
     
-    local status, counter_min, counter_max = self:get_counter_max_min()
+    local status = self:get_counter_max_min()
     local no_errors = true
-    if type(counter_min) ~= 'table' or type(counter_max) ~= 'table' then
+    if status ~= true then
         msg = " Aparentemente este proyecto aun no tiene capturas\n o no se pueden leer las imagenes."
         print(msg)
         log = log.."\n"..msg
         -- sys.sleep(2000)
         return nil, false, log
     end
+    -- TODO redundante desde que hacemos antes un check state? lo dejamos por las dudas
     if self.state.rotate.odd == nil or self.state.rotate.even == nil then
         msg= " No esta definido en el proyecto como rotar las imagenes ( state.rotate[] )"
         print(msg)
@@ -493,7 +598,7 @@ function project:reparar()
         return false, false, log
     end
     if status == true then
-        if self:set_counter(counter_min.odd) then
+        if self:set_counter(self.session.counter_min.odd) then
             -- TODO p.state.rotate[idname]
             msg = " iniciando reparacion desde contador en '"..tostring(self.state.counter.even).."/"..tostring(self.state.counter.odd).."'"
             print(msg)
@@ -595,7 +700,7 @@ function project:reparar()
                 end
 
             end -- for
-            if not project:counter_next(counter_max.odd) then
+            if self:counter_next(self.session.counter_max.odd) == false then
                 break
             end
             end -- while
@@ -632,7 +737,7 @@ end
 
 function project:get_counter_max_min()
 
-    local min, max, counter_min, counter_max
+    local min, max
     local folders = { self.dalclick.odd_name, self.dalclick.even_name }
     
     for n, idname in pairs(folders) do
@@ -654,23 +759,83 @@ function project:get_counter_max_min()
         end
     end
     if min == nil or max == nil then
-        return true, nil, nil
+        return nil
     else
         min.f = tonumber(min.f:match("^(%d+)%..+$"))
         max.f = tonumber(max.f:match("^(%d+)%..+$"))
         if min.idname == self.dalclick.odd_name then
-            counter_min = { [self.dalclick.even_name] = min.f - 1, [self.dalclick.odd_name] = min.f }
+            self.session.counter_min = { [self.dalclick.even_name] = min.f - 1, [self.dalclick.odd_name] = min.f }
         elseif min.idname == self.dalclick.even_name then
-            counter_min = { [self.dalclick.even_name] = min.f, [self.dalclick.odd_name] = min.f + 1 }
+            self.session.counter_min = { [self.dalclick.even_name] = min.f, [self.dalclick.odd_name] = min.f + 1 }
         end
         if max.idname == self.dalclick.odd_name then
-            counter_max = { [self.dalclick.even_name] = max.f - 1, [self.dalclick.odd_name] = max.f }
+            self.session.counter_max = { [self.dalclick.even_name] = max.f - 1, [self.dalclick.odd_name] = max.f }
         elseif max.idname == self.dalclick.even_name then
-            counter_max = { [self.dalclick.even_name] = max.f, [self.dalclick.odd_name] = max.f + 1 }
+            self.session.counter_max = { [self.dalclick.even_name] = max.f, [self.dalclick.odd_name] = max.f + 1 }
         end
-        return true, counter_min, counter_max
+        return true
     end
 
+end
+
+function project:list_and_select(opts)
+    if type(opts) ~= 'table' then opts = {} end
+    if opts.ext == nil then opts.ext = {".*"} end
+    if opts.desc == nil then 
+        opts.desc = {}
+        opts.desc.plural = "archivos"
+        opts.desc.singular = "archivo"
+    end
+    
+    local file_list = {}
+    for f in lfs.dir(self.session.base_path.."/"..self.paths.doc_dir) do
+        if lfs.attributes( self.session.base_path.."/"..self.paths.doc_dir.."/"..f, "mode") == "file" then
+            for _,extension in pairs( opts.ext ) do
+                if f:match("^(.+)%."..extension.."$") then
+                    table.insert( file_list, f )
+                end
+            end
+        end
+    end
+    
+    if next(file_list) then
+        print()
+        print( " "..opts.desc.plural.." encontrados en este proyecto:")
+        print()
+        for index,pdf_file in pairs(file_list) do 
+            print( " "..tostring(index)..") "..pdf_file.."" )
+        end
+        print()
+        print(" Ingrese el número de índice del archivo para abrirlo")
+        print(" o <enter> para no abrir ninguno")
+        printf(">> ")
+        local key = io.stdin:read'*l'
+        if key == "" then
+           return nil, nil, true, "Eligió no abrir ningún "..opts.desc.singular.."."
+        end
+        
+        if file_list[tonumber(key)] ~= nil then
+            return true, file_list[tonumber(key)], nil
+        else
+            return nil, nil, nil, "El numero seleccionado no corresponde a ningun ítem de la lista."
+        end
+    else
+        return nil, nil, false, "No hay archivos del tipo buscado en la carpeta 'done'"
+    end
+end
+
+function project:list_pdfs_and_select()
+    local extensions = {"pdf", "PDF"}
+    local description = { singular = "archivo PDF", plural = "archivos PDF"}
+    local status, file_selected, result, msg = self:list_and_select({ext = extensions, desc = description})
+    return status, file_selected, result, msg
+end
+
+function project:list_scantailors_and_select()
+    local extensions = {"scantailor"}
+    local description = { singular = "archivo de Proyecto Scantailor", plural = "archivos de Proyecto Scantailor"}
+    local status, file_selected, result, msg = self:list_and_select({ext = extensions, desc = description})
+    return status, file_selected, result, msg
 end
 
 function project:init_state( options )
@@ -680,10 +845,17 @@ function project:init_state( options )
     self.state = {} -- asegurarse que no queda cargado un estado de un proyecto anterior
    
     self.state.counter = {}
-    self.state.counter.even = 0
-    print(" iniciado contador par (even) en:"..tostring(self.state.counter.even))
-    self.state.counter.odd = 1
-    print(" iniciado contador impar (odd) en:"..tostring(self.state.counter.odd))
+    if type(self.session.counter_max.even) == 'number' and type(self.session.counter_max.odd) == 'number' then
+        self.state.counter.even = self.session.counter_max.even + 1
+        print(" iniciado contador en nueva posición par (even) en: "..tostring(self.state.counter.even))
+        self.state.counter.odd  = self.session.counter_max.odd  + 1
+        print(" iniciado contador en nueva posición impar (odd) en: "..tostring(self.state.counter.odd))
+    else
+        self.state.counter.even = 0
+        print(" iniciado contador par (even) en:"..tostring(self.state.counter.even))
+        self.state.counter.odd = 1
+        print(" iniciado contador impar (odd) en:"..tostring(self.state.counter.odd))
+    end
     
     self.state.rotate = {}
     self.state.rotate.odd = self.dalclick.rotate_odd
@@ -718,6 +890,104 @@ function project:load_state()
     end
 end
 
+function project:load_state_secure()
+    local state
+    local content = dcutls.localfs:read_file(self.session.base_path.."/.dc_state")
+    if not content then
+        return false
+    else
+        state = util.unserialize(content)
+        if type(state) ~= 'table' then
+            return false
+        else
+            if type(state.rotate) ~= 'table' or type(state.counter) ~= 'table' then
+                return false
+            else
+                if not state.rotate.odd or not state.rotate.even then
+                    return false
+                else
+                    if type(state.counter.odd) ~= 'number' or type(state.counter.even) ~= 'number' then
+                        return false
+                    else
+                        self.state = state
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    
+end
+
+function project:send_post_proc_actions(opts)
+    if type(opts) ~= 'table' then opts = {} end    
+    
+    local dc_pp = self.dalclick.dalclick_pwdir.."/".."dc_pp"
+    if dcutls.localfs:file_exists( dc_pp ) then		
+        local last_pdf_generated
+        local status = self:get_counter_max_min()
+        if status == nil then
+            return false, "Aún no hay capturas para procesar en el proyecto"
+        end
+        
+        local dcpp_command = 
+            dc_pp
+            .." 'project="..self.session.base_path.."'"
+            .." 'even="..   self.session.base_path.."/"..self.paths.proc.even.."'"
+            .." 'odd="..    self.session.base_path.."/"..self.paths.proc.odd.."'"
+            .." 'all="..    self.session.base_path.."/"..self.paths.proc.all.."'"
+            .." 'done="..   self.session.base_path.."/"..self.paths.doc_dir .."'"
+            .." 'title="..self.settings.title.."'"
+            .." 'pdf-layout=TwoPageRight'" -- TwoPageRight(PDF 1.5) Display the pages two at a time, 
+                                           -- with odd-numbered pages on the right
+        if opts.include_list and
+           self.session.include_list.from ~= nil and self.session.include_list.to ~= nil then
+            local strlist = ""; local c = ""
+            for i = self.session.include_list.from, self.session.include_list.to, 1 do
+                strlist = strlist..c..string.format("%04d", i)
+                c = ","
+            end
+            local doc_filename_wsuff = 
+                self.dalclick.doc_filebase
+              .."["
+              ..string.format("%04d", self.session.include_list.from)
+              .."-"
+              ..string.format("%04d", self.session.include_list.to)
+              .."]"
+              .."."..self.dalclick.doc_fileext
+            dcpp_command = dcpp_command.." 'output_name="..doc_filename_wsuff.."'"
+            dcpp_command = dcpp_command.." 'include="..strlist.."'"
+            last_pdf_generated = doc_filename_wsuff
+        else
+            dcpp_command = dcpp_command.." 'output_name=".. self.dalclick.doc_filename.."'"
+            dcpp_command = dcpp_command.." post-actions-enabled"
+            last_pdf_generated = self.dalclick.doc_filename
+        end
+        
+        if opts.batch_processing then
+            dcpp_command = dcpp_command.." quiet"
+        end
+
+        print()
+        print( "DEBUG: dcpp_command: "..tostring(dcpp_command) )
+        print()
+        local exit_status = os.execute(dcpp_command)
+        -- print()
+        -- print(" DEBUG: script exit status: "..tostring(exit_status))
+        -- print(" DEBUG: type(exit status): "..type(exit_status))
+
+        if exit_status == 0 then
+            self.state.last_pdf_generated = last_pdf_generated
+            self:save_state()
+            return true
+        else
+            return false
+        end       
+    else
+        return false, "ERROR: La ruta al script de post-procesamiento no esta correctamente configurada:\n '"..tostring(dc_pp).."'"
+    end
+end
+
 function project:get_thumb_path(idname, filename)
 
     local preview_folder = self.session.base_path.."/"..self.paths.proc[idname].."/"..self.dalclick.thumbfolder_name
@@ -748,178 +1018,61 @@ function project:get_thumb_path(idname, filename)
     end
 end
 
-
-function project:make_preview(mode)
-  
-    local previews = {}
-    local filenames = {}
-    
-    if mode == 'actual' then
-        for idname, pos in pairs( self.state.counter ) do
-            local filename_we = string.format("%04d", pos)..".jpg"
-            previews[idname] = self:get_thumb_path(idname, filename_we)
-            filenames[idname] = filename_we
-        end
-    else -- if mode == 'last' or mode == nil
-        for idname, saved_file in pairs( self.state.saved_files ) do
-            previews[idname] = self:get_thumb_path(idname, saved_file.basename)
-            filenames[idname] = saved_file.basename
-        end
-    end
-    if next(previews) == nil then
-        return false -- empty table 
-    else
-        return true, previews, filenames
-    end
-end
-
-function project:alter_counter_and_make_preview(action, max)
+function project:make_preview(pair_even_odd)
+    local pair_even_odd = pair_even_odd or self.session.preview_counter
 
     local previews = {}
     local filenames = {}
-        
-    if action == "next" then
-        if self:counter_next(max) then
-            self:save_state()
+    for idname, val in pairs( pair_even_odd ) do
+        local filename_we
+        if type(val) == 'table' then -- saved files no es un par even-odd
+            filename_we = val.basename
         else
-            print( " Se llego al final de la lista")
+            filename_we = string.format("%04d", val)..".jpg"
         end
-    elseif action == "prev" then
-        if self:counter_prev() then
-            self:save_state()
-        else
-            print( " Se llego al principio de la lista")
-        end
-    else
-        return false
-    end
-    
-    for idname, pos in pairs( self.state.counter ) do
-        local filename_we = string.format("%04d", pos)..".jpg"
         previews[idname] = self:get_thumb_path(idname, filename_we)
         filenames[idname] = filename_we
     end
-    
+
     return true, previews, filenames
 end
 
-function project:guest_counter_and_make_preview(action, max, local_counter)
+function project:show_capts(mode, previews, filenames )
 
-    local previews = {}
-    local filenames = {}
-
-    local actualize = true
-    local new_counter = {}
-    if action == "next" then
-        for idname,count in pairs(local_counter) do
-            count = count + 2
-            if type(max) == 'number' and count > max then
-                print(" el contador llegó al valor maximo")
-                actualize = false
-                break
-            else
-                new_counter[idname] = count
-            end
-        end
-    elseif action == "prev" then
-        for idname,count in pairs(local_counter) do
-            count = count - 2
-            if count < 0 then
-                print(" el contador llegó al valor de inicio")
-                actualize = false
-                break
-            else
-                new_counter[idname] = count
-            end
-        end
-    elseif action == "idle" then
-        new_counter = local_counter
-    else
-        return false
-    end
-
-    if actualize then
-        local_counter = new_counter    
-    end
-    
-    for idname, count in pairs( local_counter ) do
-        local filename_we = string.format("%04d", count)..".jpg"
-        previews[idname] = self:get_thumb_path(idname, filename_we)
-        filenames[idname] = filename_we
-    end
-    
-    return true, previews, filenames, local_counter
-end
-
-function project:send_post_proc_actions(opts)
-    if type(opts) ~= 'table' then opts = {} end    
-    
-    local dc_pp = self.dalclick.dalclick_pwdir.."/".."dc_pp"
-    if dcutls.localfs:file_exists( dc_pp ) then		
-
-        local status, min, max = self:get_counter_max_min()
-        if max == nil then
-            return false, "Aún no hay capturas para procesar en el proyecto"
-        end
-
-        local dcpp_command = 
-            dc_pp
-            .." 'project="..self.session.base_path.."'"
-            .." 'even="..   self.session.base_path.."/"..self.paths.proc.even.."'"
-            .." 'odd="..    self.session.base_path.."/"..self.paths.proc.odd.."'"
-            .." 'all="..    self.session.base_path.."/"..self.paths.proc.all.."'"
-            .." 'done="..   self.session.base_path.."/"..self.paths.doc_dir .."'"
-            .." 'output_name=".. self.dalclick.doc_filename.."'"
-            .." 'title="..self.settings.title.."'"
-
-        if opts.batch_processing then
-            dcpp_command = dcpp_command
-                .." quiet"
-        end
-
-        -- print( ppcommand )
-        local exit_status = os.execute(dcpp_command)
-
-        print()
-        print(" script exit status: "..tostring(exit_status))
-        return true
-    else
-        return false, "ERROR: La ruta al script de post-procesamiento no esta correctamente configurada:\n '"..tostring(dc_pp).."'"
-    end
-end
-
-function project:show_capts(previews, filenames, counter_max, mode)
-
-    if type(counter_max) ~= 'table' then
-        if mode == "with_guest_counter" then
-            print()
-            print(" Todavía no hay capturas en este proyecto")
-            print()
-            sys.sleep(2000)
+    if mode ~= "explorer" then
+        if type(filenames) ~= 'table' or type(previews) ~= 'table' then
             return false
-        else
-            counter_max = {}
         end
     end
+
+    self.session.preview_counter = self.state.counter
+      
+    local left = {}
+    local right = {}
+    local gbtn = {}
+    local button_prev_init_active = "YES"
+    local button_next_init_active = "YES"
     
-    local max = counter_max.odd
-    local local_counter = self.state.counter
-    
-    if type(filenames) ~= 'table' or type(previews) ~= 'table' then
-        if local_counter.odd > counter_max.odd then
-            local status
-            status, previews, filenames, local_counter = self:guest_counter_and_make_preview('prev', max, local_counter)
-        else
-            local status
-            status, previews, filenames, local_counter = self:guest_counter_and_make_preview('idle', max, local_counter)
+    if mode == "explorer" then
+        if next(self.session.counter_max) == nil then
+            -- no hay capturas
+            return false
         end
-    end
+        -- definir estado inicial
+        if self.session.preview_counter.odd > self.session.counter_max.odd then
+            self.session.preview_counter = self.session.counter_max
+        end
         
-    if type(previews) ~= 'table' then
-        return false
-    end
-    if not previews.odd or not previews.even then
-        return false
+        local status
+        status, previews, filenames = self:make_preview()
+
+        if self.session.preview_counter.odd == self.session.counter_max.odd then
+            button_next_init_active = "NO"
+        end
+        if self.session.preview_counter.even == self.session.counter_min.even then
+            button_prev_init_active = "NO"
+        end
+
     end
 
     require("imlua")
@@ -928,22 +1081,7 @@ function project:show_capts(previews, filenames, counter_max, mode)
     require("iuplua")
     require("iupluacd")
     require("iupluaimglib")
-
-    local left = {}
-    local right = {}
-
-
-    
-    local function shift_images(stat, action, previews, filenames)
-       if stat then
-           left.image = im.FileImageLoad( previews.even ); left.cnv:action()
-           right.image = im.FileImageLoad( previews.odd ); right.cnv:action()
-           left.label.title = filenames.even
-           right.label.title = filenames.odd
-           -- gbtn_go.tip = "Go to "..filenames.even.." | "..filenames.odd
-       end
-    end
-           
+        
     left.image = im.FileImageLoad( previews.even )
     left.cnv = iup.canvas{rastersize = left.image:Width().."x"..left.image:Height(), border = "YES"}
     function left.cnv:map_cb()       -- the CD canvas can only be created when the IUP canvas is mapped
@@ -966,6 +1104,7 @@ function project:show_capts(previews, filenames, counter_max, mode)
       right.image:cdCanvasPutImageRect(self.canvas, 0, 0, 0, 0, 0, 0, 0, 0) -- use default values
     end    
 
+    -- left.cnv:action(); right.cnv:action()
     -------
     
     left.label = iup.label{
@@ -976,47 +1115,44 @@ function project:show_capts(previews, filenames, counter_max, mode)
         title = filenames.odd --, expand = "HORIZONTAL", padding = "10x5"
     }
     
-    -- 'with_counter' mode buttons
-    local btn_previous = iup.button{
-        image = "IUP_ArrowLeft", 
-        flat = "Yes", 
-        action = function() local stat, previews, filenames = self:alter_counter_and_make_preview('prev', max); shift_images(stat, 'prev', previews, filenames) end, 
-        canfocus="No", 
-        tip = "Previous",
-        padding = '5x5'
-    }
-        
-    local btn_next = iup.button{
-        image = "IUP_ArrowRight", 
-        flat = "Yes", 
-        action = function() local stat, previews, filenames = self:alter_counter_and_make_preview('next', max); shift_images(stat, 'next', previews, filenames) end,
-        canfocus="No", 
-        tip = "Next",
-        padding = '5x5'
-    }   
-
     -- with 'guest' counter mode (contador "interno" solo actualiza state.counter al hacer click en return)
 
-    local gbtn_previous = iup.button {
+    gbtn.gbtn_prev = iup.button {
         image = "IUP_ArrowLeft", 
         flat = "Yes", 
-        action = function() local stat, previews, filenames, new_counter = self:guest_counter_and_make_preview('prev', max, local_counter); local_counter = new_counter; shift_images(stat, 'prev', previews, filenames) end,
+        action = 
+            function() 
+                local counter_updated = self:preview_counter_prev( 0 )
+                if counter_updated ~= false then
+                    local status, previews, filenames = self:make_preview()
+                    gbtn:gbtn_action_callback(counter_updated, previews, filenames, 'prev') 
+                end
+            end,
         canfocus="No", 
         tip = "Previous",
-        padding = '5x5'
+        padding = '5x5',
+        active = button_prev_init_active
     }
         
-    local gbtn_next = iup.button{
+    gbtn.gbtn_next = iup.button{
         image = "IUP_ArrowRight", 
         flat = "Yes", 
-        action = function() local stat, previews, filenames, new_counter = self:guest_counter_and_make_preview('next', max, local_counter); local_counter = new_counter; shift_images(stat, 'next', previews, filenames) end,  
+        action = 
+            function() 
+                local counter_updated = self:preview_counter_next( self.session.counter_max.odd )
+                if counter_updated ~= false then
+                    local status, previews, filenames = self:make_preview()
+                    gbtn:gbtn_action_callback(counter_updated, previews, filenames, 'next') 
+                end
+            end,  
         canfocus="No", 
         tip = "Next",
-        padding = '5x5'
+        padding = '5x5',
+        active = button_next_init_active
     }
     
-    local gbtn_go = iup.button{
-        title = "Go",
+    gbtn.gbtn_go = iup.button{
+        title = "Ir",
         flat = "No", 
         padding = "15x2",
         action = function()  end,  
@@ -1024,14 +1160,55 @@ function project:show_capts(previews, filenames, counter_max, mode)
         tip = "",
     }
 
-    local gbtn_cancel = iup.button{
-        title = "Cancel",
+    gbtn.gbtn_cancel = iup.button{
+        title = "Cancelar",
         flat = "No", 
         padding = "15x2",
         canfocus="No", 
-        tip = "Cancel",
+        tip = "Cancelar",
     }
     
+    gbtn.gbtn_from = iup.button {
+        image = "IUP_MediaGotoBegin",
+        flat = "No", 
+        padding = "15x2",
+        canfocus="No",
+        padding = '5x5',
+        tip = "Seleccionar desde aqui",
+    }
+    
+    gbtn.gbtn_to = iup.button {
+        image = "IUP_MediaGoToEnd",
+        flat = "No", 
+        padding = "15x2",
+        canfocus="No", 
+        padding = '5x5',
+        tip = "Seleccionar hasta aquí",
+    }
+    
+    function gbtn:gbtn_action_callback(counter_updated, previews, filenames, action)
+       left.image =  im.FileImageLoad( previews.even ); left.cnv:action()
+       right.image = im.FileImageLoad( previews.odd ); right.cnv:action()
+       left.label.title = filenames.even
+       right.label.title = filenames.odd
+       -- gbtn_go.tip = "Go to "..filenames.even.." | "..filenames.odd
+       
+       if counter_updated == nil then
+          if action == 'next' then
+              gbtn.gbtn_next.active = "NO"
+              gbtn.gbtn_prev.active = "YES"
+          else
+              gbtn.gbtn_prev.active = "NO"
+              gbtn.gbtn_next.active = "YES"
+          end
+       else
+           gbtn.gbtn_next.active = "YES"
+           gbtn.gbtn_prev.active = "YES"
+       end
+    end
+
+    -- print("DEBUG: odd "..tostring(self.session.preview_counter.odd)..".."..tostring(self.session.counter_max.odd))
+    -- print("DEBUG: even "..tostring(self.session.preview_counter.even)..".."..tostring(self.session.counter_max.even))
 
     -------
 
@@ -1063,12 +1240,15 @@ function project:show_capts(previews, filenames, counter_max, mode)
     --
     
     local gcenter_buttons = iup.hbox{
-        gbtn_go,
-        gbtn_cancel,
+        gbtn.gbtn_go,
+        gbtn.gbtn_cancel,
+        iup.label{separator="VERTICAL"},
+        gbtn.gbtn_from,
+        gbtn.gbtn_to,
     }
     
     local bottombar_guest = iup.hbox{
-        gbtn_previous, 
+        gbtn.gbtn_prev, 
         iup.fill {
             expand="HORIZONTAL"
         },
@@ -1076,7 +1256,7 @@ function project:show_capts(previews, filenames, counter_max, mode)
         iup.fill {
             expand="HORIZONTAL"
         },
-        gbtn_next,
+        gbtn.gbtn_next,
         margin = "10x10",
         gap = 2,
     }
@@ -1084,18 +1264,7 @@ function project:show_capts(previews, filenames, counter_max, mode)
     -- -- -- --
     
     local dlg    
-    if mode == "with_counter" then
-        dlg = iup.dialog{
-            iup.vbox{
-                viewers,
-                labelbar,
-                bottombar
-            },
-            title="DALclick",
-            margin="5x5",
-            gap=10
-        }
-    elseif mode == "with_guest_counter" then
+    if mode == "explorer" then
         dlg = iup.dialog{
             iup.vbox{
                 viewers,
@@ -1130,18 +1299,18 @@ function project:show_capts(previews, filenames, counter_max, mode)
     end
     
     local function set_counter()
-        self.state.counter = local_counter
+        self.state.counter = self.session.preview_counter
         self:save_state()
         print(" Se actualizó el contador a: "..tostring(self.state.counter.even).."|"..tostring(self.state.counter.odd))
     end
     
-    function gbtn_go:action() 
+    function gbtn.gbtn_go:action() 
         set_counter()
         destroy_dialog()
         return iup.IGNORE -- because we destroy the dialog
     end
 
-    function gbtn_cancel:action()
+    function gbtn.gbtn_cancel:action()
         destroy_dialog()
         return iup.IGNORE -- because we destroy the dialog
     end
@@ -1150,6 +1319,9 @@ function project:show_capts(previews, filenames, counter_max, mode)
         destroy_dialog()
         return iup.IGNORE -- because we destroy the dialog
     end
+
+    ----
+
 
     dlg:show()
     iup.MainLoop()
