@@ -43,6 +43,38 @@ if [[ ! -d $QUEUEPATH ]]
    mkdir $QUEUEPATH && echo "Se creó '$QUEUEPATH'" || { echo "No se pudo crear '$QUEUEPATH'"; exit 1;}
 fi
 
+COMMAND="$1"
+
+THIS_PROJPATH=$(echo "$COMMAND" | cut -d "#" -f 2 | cut -d " " -f 1 )
+EXISTING_JOBS=$(ls -d "${QUEUEPATH}"/* | grep .job)
+
+if [ ! -z "$EXISTING_JOBS" ]
+ then
+    echo 
+    while read -r line
+    do
+        if [ ! -z "$line" ]
+         then
+            JOBNAME=$(basename $line)
+            PROJPATH=$(cat "$line" | cut -d "#" -f 2 | cut -d " " -f 1)
+            if [ "$PROJPATH" == "$THIS_PROJPATH" ]
+             then
+             INQUEUE="Yes"
+             INQUEUE_JOB="$JOBNAME"
+            fi
+            # echo "$JOBNAME"
+        fi
+    done <<< "$EXISTING_JOBS"
+fi
+
+if [ "$INQUEUE" == "Yes" ]
+ then
+   echo "${QMBNAME} Este proyecto ya está en la cola de procesamiento"
+   echo "${QMBNAME} Job: $INQUEUE_JOB"
+   echo "${QMBNAME} Proyecto: '$THIS_PROJPATH'"
+   exit 1
+fi
+
 echo
 echo "${QMBNAME} Enviando trabajo a: '$QUEUEPATH'"
 
@@ -56,7 +88,6 @@ echo "${QMBNAME} Enviando trabajo a: '$QUEUEPATH'"
 # Generate vars
 
 LOG=${QUEUEPATH}"/sendcmd_log"
-COMMAND="$1"
 jobid=$(date +%y%m%d%H%M%S)-$(printf "%05d" $RANDOM)
 
 echo "----$(date +%y%m%d%H%M%S)----" >> $LOG

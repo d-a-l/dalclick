@@ -17,11 +17,30 @@ PWDIR="$(pwd -P)"
 
 OUTPUT_NAME="output.pdf"
 INTERACTIVE='Yes'
-QUIET_OPTION_1=1 # post-procesado completo siempre
-QUIET_OPTION_2=1 # Blanco y negro (1bit)
-QUIET_OPTION_3=1 # si existe sobreescribir PDF
 POST_ACTIONS_ENABLED='No'
 PDFBEADS_LAYOUT=''
+
+# --- default select options
+
+SEND_QUEUE="Yes"
+
+INIT_QUIET_OPTION=""     # 
+QUIET_OPTION_1_MODE=1    # Generar PDF (sobrescribir anterior)
+QUIET_OPTION_2_PROFILE=1 # Blanco y negro (1bit)
+QUIET_OPTION_3_CONTDET=1 # No detectar contenido
+QUIET_OPTION_4_OCR=1     # Aplicar OCR
+
+ASK_FOR_MODE="Yes"
+ASK_FOR_OCR="Yes"
+ASK_FOR_PROFILE="Yes"
+ASK_FOR_CONTDET="Yes"
+
+PARAM="follow-symbolic-links"
+CREATE_SYMLINKS="Yes"
+
+EXT="jpg,JPG,tif,TIF,jpeg,JPEG,TIFF,tiff"
+PROFILE_OPTIONS=''
+INCLUDE_LIST=''
 
 # --- process param
 
@@ -58,19 +77,99 @@ while [ $# -ne 0 ]
         include=*)
             INCLUDE_LIST="${arg#*=}"
             ;;
+        scantailor_name=*)
+            SCANTAILOR_EXPLICIT_NAME="${arg#*=}"
+            ;;
         post-actions-enabled)
             POST_ACTIONS_ENABLED='Yes'
             ;;
         pdf-layout=*)
             PDFBEADS_LAYOUT="${arg#*=}"
             ;;
+        clear=*)
+            CLEAR_COMMAND="Yes"
+            clear_command_args="${arg#*=}"
+            ;;
+        create-new-scantailor-project)
+            INIT_QUIET_OPTION='create-new-scantailor-project'
+            ASK_FOR_MODE='No'
+            ASK_FOR_OCR='No'
+            ASK_FOR_PROFILE='Yes'
+            ASK_FOR_CONTDET='Yes'
+            QUIET_OPTION_1_MODE='i'
+            SEND_QUEUE='No'
+            ;;
+        pp=*)
+            PP_COMMAND='Yes'
+            pp_command_args="${arg#*=}"
+            ;;
         quiet)
-            INTERACTIVE="No"
+            INTERACTIVE='No'
+            PARAM='pdfbeads-force'
+            INIT_QUIET_OPTION='scantailor-auto-options'
+            QUIET_OPTION_1_MODE="i"
             #QUIET_OPTIONS="${arg#*=}"
             ;;
     esac
     shift
   done  
+
+
+if [ "$PP_COMMAND" == "Yes" ] 
+ then
+   [[ "$CLEAR_COMMAND" == "Yes" ]] && 
+      { CLEAR_COMMAND="No"; echo " anulado parámetro 'clear=', no compatible con 'pdf='"; }
+   [[ "$INIT_QUIET_OPTION" == "create-new-scantailor-project" ]] && 
+      echo " anulado parámetro 'create-new-scantailor-project', no compatible con 'pdf='"
+      
+   INTERACTIVE="Yes"
+   ASK_FOR_MODE="No"
+   ASK_FOR_OCR="No"
+   ASK_FOR_PROFILE="No"
+   ASK_FOR_CONTDET="No"
+   INIT_QUIET_OPTION=''
+   QUIET_OPTION_1_MODE="i"
+   QUIET_OPTION_2_PROFILE="i"
+   QUIET_OPTION_3_CONTDET="i"
+   QUIET_OPTION_4_OCR="i"
+   
+   case "$pp_command_args" in
+
+        +scantailor|-ocr-compile)
+	        INIT_QUIET_OPTION='scantailor-auto-options'
+	        PARAM="no-ocr no-compile-pdf"
+	        ;;
+        +scantailor+ocr|+scantailor+ocr_lazy|-compile) #[ocr-lazy] 
+            INIT_QUIET_OPTION='scantailor-auto-options'
+	        PARAM="no-compile-pdf"
+            [[ "$pp_command_args" == "-scantailor-ocr_lazy" ]] && PARAM="$PARAM no-overwrite-ocr"
+	        ;;
+        +scantailor+ocr+compile|+scantailor+ocr_lazy+compile|+all) #[ocr-lazy]
+	        INIT_QUIET_OPTION='scantailor-auto-options'
+	        PARAM="pdfbeads-force"
+            [[ "$pp_command_args" == "-scantailor-ocr_lazy-compile" ]] && PARAM="$PARAM no-overwrite-ocr"
+	        ;;
+        +scantailor+compile|-ocr)
+	        INIT_QUIET_OPTION='scantailor-auto-options'
+	        PARAM="no-ocr pdfbeads-force"
+	        ;;
+        +ocr+compile|+ocr_lazy+compile|-scantailor) #[ocr-lazy] compile-lazy
+	        PARAM="no-scantailor" 
+            [[ "$pp_command_args" == "-ocr_lazy-compile" ]] && PARAM="$PARAM no-overwrite-ocr"
+	        ;;
+        +ocr|+ocr_lazy|-scantailor-compile) #[ocr-lazy] 
+	        PARAM="no-scantailor no-compile-pdf"
+            [[ "$pp_command_args" == "-ocr_lazy" ]] && PARAM="$PARAM no-overwrite-ocr"
+	        ;;
+        +compile|+compile_lazy|-scantailor-ocr) #[compile-lazy]
+	        PARAM="no-scantailor"
+            [[ "$pp_command_args" == "-compile_lazy" ]] || PARAM="$PARAM pdfbeads-force"
+	        ;;
+        *)
+	        exit 1
+        ;;
+   esac
+fi
 
 # --- check param and paths
 
@@ -83,6 +182,15 @@ check_dirs "$DONEPATH" 'done'
 PROJECT_NAME=$( basename "$PROJECT_PATH" )
 LOGPATH="$DONEPATH/.logs"
 [[ -d "$LOGPATH" ]] || { mkdir "$LOGPATH" || { echo "No se pudo crear '$LOGPATH'"; exit 1; } }
+
+OUTPUT_NAME_WOE="${OUTPUT_NAME%.*}"
+
+if [ "$SCANTAILOR_EXPLICIT_NAME" != "" ]
+ then
+   SCANTAILOR_PROJECT_NAME="$SCANTAILOR_EXPLICIT_NAME"
+else
+   SCANTAILOR_PROJECT_NAME="$OUTPUT_NAME_WOE.scantailor"
+fi
 
 # --- check scripts
 
@@ -101,163 +209,283 @@ POST_ACTIONS_SCRIPT="$PWDIR/dc_pp_post_actions"
 PRE_ACTIONS_SCRIPT="$PWDIR/dc_pp_pre_actions"
 [[ -f "$PRE_ACTIONS_SCRIPT" ]] && echo "..OK(4)" || { echo "dc_pp_pre_actions FILE NOT FOUND"; exit 1;} 
 
-# --- configuration
-
-PREV_SC=""
-PREV_OCR=""
-PREV_PDFB=""
-
-CREATE_SYMLINKS_IN_ALL_DIR="Yes"
-PARAM="follow-symbolic-links"
-
-EXT="jpg,JPG,tif,TIF,jpeg,JPEG,TIFF,tiff"
-
-PROFILE_OPTIONS=''
+# --- check include list
 
 if [ "$INCLUDE_LIST" != "" ]
   then
     echo "Sólo se procesarán los siguientes ítems: '$INCLUDE_LIST'"
-    IFS="," read -ra tmpArr <<< "0004,0005,0006,0007"
+    IFS="," read -ra tmpArr <<< "$INCLUDE_LIST"
     nItems=$(${#tmpArr[@]})
 fi
 
 # --- check prior execution
 
+PREV_SC=""
+PREV_OCR=""
+PREV_PDFB=""
+
+PREV_MSG=""
 if [ -d "$DONEPATH/.processing" ]
   then
     echo ""
     if find "$DONEPATH/.processing" -mindepth 1 -maxdepth 1 -name "*.tif" | grep -q .
       then
         PREV_SC="Yes"
-        echo " - Posibles archivos de un post-procesamiento previo detectados: Scantailor."
+        PREV_MSG+=" - Archivos 'tif' de Scantailor\n"
     fi
     if find "$DONEPATH/.processing" -mindepth 1 -maxdepth 1 -name "*.html" | grep -q .
       then
         PREV_OCR="Yes"
-        echo " - Posibles archivos de un post-procesamiento previo detectados: OCR."
+        PREV_MSG+=" - Archivos 'hocr' de texto OCR\n"
     fi
     if find "$DONEPATH/.processing" -mindepth 1 -maxdepth 1 -name "*.jbig2" | grep -q .
       then
         PREV_PDFB="Yes"
-        echo " - Posibles archivos de un post-procesamiento previo detectados: PDFBeads."
-        # PARAM="follow-symbolic-links reoptimize-pdf"
+        PREV_MSG+=" - Archivos de PDFbeads\n"
     fi
 fi
-
-# --- select options
-
-if [ "$INTERACTIVE" == "Yes" ]
+if [ -f "$DONEPATH/$SCANTAILOR_PROJECT_NAME" ]
   then
-    echo ""
+    PREV_SCPROJ="Yes"
+    PREV_MSG+=" - Proyecto Scantailor\n"
+fi
+if [ -f "$DONEPATH/$OUTPUT_NAME" ]
+  then
+    PREV_PDF="Yes"
+    PREV_MSG+=" - Archivo PDF final\n"
+fi
+
+if [ "$PREV_MSG" != "" ]
+ then
+   echo " [info] Se detectaron archivos de operaciones de post-procesamientos previos:"
+   echo -e "$PREV_MSG"
+fi
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+
+if [ "$CLEAR_COMMAND" == "Yes" ] 
+ then
+   INTERACTIVE="No"
+   SEND_QUEUE="No"
+   QUIET_OPTION_1_MODE="i"
+   QUIET_OPTION_2_PROFILE="i"
+   QUIET_OPTION_3_CONTDET="i"
+   QUIET_OPTION_4_OCR="i"
+   
+   case "$clear_command_args" in
+        all)
+            if [ "$PREV_SC" == "Yes" ] || [ "$PREV_OCR" == "Yes" ] || [ "$PREV_PDF" == "Yes" ] || [ "$PREV_SCPROJ" == "Yes" ]
+             then
+               PARAM="clear"
+               CREATE_SYMLINKS="No"
+               POST_ACTIONS_ENABLED="No"
+            else
+              echo " No hay archivos para borrar "; exit 1
+            fi
+            ;;
+        tmp)
+            if [ "$PREV_SC" == "Yes" ] || [ "$PREV_OCR" == "Yes" ]
+              then
+               PARAM="clear-tmp"
+               CREATE_SYMLINKS="No"
+               POST_ACTIONS_ENABLED="No"
+            else
+              echo " No hay archivos temporales para borrar "; exit 1
+            fi
+            ;;
+        pdf)
+            if [ "$PREV_PDF" == "Yes" ]
+              then
+               PARAM="clear-pdf"
+               CREATE_SYMLINKS="No"
+               POST_ACTIONS_ENABLED="No"
+            else
+               echo " No hay archivos pdf para borrar "; exit 1
+            fi
+            ;;
+        scantailor)
+            if [ "$PREV_SCPROJ" == "Yes" ]
+             then
+               PARAM="clear-scantailor"
+               CREATE_SYMLINKS="No"
+               POST_ACTIONS_ENABLED="No"
+            else
+               echo " No hay archivos scantailor para borrar "; exit 1
+            fi
+            ;;
+        *)
+	        exit 1
+            ;;
+   esac
+fi
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+
+case "$INIT_QUIET_OPTION" in
+  ''|i)
+     ;;
+  create-new-scantailor-project) 
+     if [ "$PREV_SCPROJ" == "Yes" ]
+      then
+         echo " Se sobrescribe proyecto scantailor previo "; 
+     fi
+     CREATE_SYMLINKS="Yes"
+     PARAM="scantailor-process-and-exit scantailor-save-project scantailor-filters=1,1 follow-symbolic-links no-ocr"
+     if [ "$SCANTAILOR_EXPLICIT_NAME" != "" ] # ojo usamos SCANTAILOR_EXPLICIT_NAME porque solo se pasa este valor 
+      then                                    # si fue explicitamente declarado
+       PARAM="$PARAM 'sct=$SCANTAILOR_EXPLICIT_NAME'"
+     fi
+     POST_ACTIONS_ENABLED="No"
+     ;;
+  scantailor-auto-options)
+     if [ "$PREV_SCPROJ" == "Yes" ]
+      then
+        PARAM="$PARAM scantailor-load-project follow-symbolic-links" # scantailor-filters=1,6?
+        ASK_FOR_PROFILE="No"
+        ASK_FOR_CONTDET="No"
+     else
+        PARAM="$PARAM scantailor-save-project follow-symbolic-links" #scantailor-filters=1,6 ? scantailor-process-and-exit?
+        ASK_FOR_PROFILE="Yes"
+        ASK_FOR_CONTDET="Yes"
+     fi
+     PARAM="$PARAM 'sct=$SCANTAILOR_PROJECT_NAME'" # fcen-p tb se fija si existe un proyecto sc implicito, pero mejor explicitarlo
+     ;;
+  *)
+     exit 1
+     ;;
+esac
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+     
+PREV_WARNING_MSG="\n"
+PREV_WARNING_MSG+=" +---------------------------------------------------------------------+ \n"
+PREV_WARNING_MSG+=" | ATENCION: Este proyecto ya contiene un documento PDF producido en   |\n"
+PREV_WARNING_MSG+=" | un post-procesamiento anterior y se sobrescribirá.                  |\n"
+PREV_WARNING_MSG+=" +---------------------------------------------------------------------+ \n"
+PREV_WARNING_MSG+="\n"
+
+if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_MODE" == "Yes" ]
+  then
     echo " Opciones de post-procesamiento"
 
-    if [ -f "$DONEPATH/$OUTPUT_NAME" ]
+    if [ "$PREV_PDF" == "Yes" ]
       then
-       echo ""
-       echo " # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # "
-       echo " # ATENCION: Este proyecto ya contiene un documento PDF probablemente  #"
-       echo " # producido durante un post-procesamiento anterior.                   #"
-       echo " # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # "
-       echo ""
-       echo " (sólo 'enter' para salir sin hacer nada)"
-       echo ""
-       echo "  1) Repetir el post-procesado completo."
-       echo "  2) Repetir el post-procesado pero sin realizar OCR"
-       echo "    (reconocimiento de caracteres)."
+       echo -e "$PREV_WARNING_MSG"
+       echo "  1) Generar PDF (sobrescribir anterior)"
     else
-       echo " ('enter' para salir sin hacer nada)"
-       echo ""
-       echo "  1) Realizar post-procesado completo"
-       echo "  2) Realizar post-procesado sin OCR (reconocimiento de caracteres)"
+       echo "  1) Generar PDF"
     fi
 
     if [ "$PREV_SC" == "Yes" ]
      then
-       echo "  3) Re-procesar SOLO el OCR (reconocimiento de caracteres), usando"
-       echo "     el resto del material disponible para generar el PDF."
+       echo "  2) Generar PDF desde los archivos ya procesados"
+       echo "             Elija esta opción si procesó manualmente el proyecto utilizando"
+       echo "             la interfaz gráfica de scantailor"
     fi
 
     if [ "$PREV_SC" == "Yes" ] && [ "$PREV_OCR" == "Yes" ]
      then
-       echo "  4) Solo generar el PDF sin realizar nuevamente el post-procesado."
+       echo "  3) Actualizar OCR en el PDF"
+       echo "             Elija esta opción si corrigió manualmente el OCR y sólo desea"
+       echo "             incorporar los cambios al PDF"
     fi
 
-    if [ -f "$DONEPATH/$OUTPUT_NAME" ]
+    if [ "$PREV_SCPROJ" == "Yes" ]
      then
-       echo "  e) Eliminar archivos generados en el post-procesado previo y salir"
+       echo "  s) Generar PDF cargando las opciones del proyecto scantailor guardado"
+       echo "             Elija esta opción si editó manualmente el proyecto utilizando"
+       echo "             la interfaz gráfica de scantailor y dejó sin procesar"
     fi
 
     echo ""   
+    echo " <enter> para salir sin hacer nada"
+    echo ""
 
     echo -n ">> "
     read option
     echo ""
 else
-    option=$QUIET_OPTION_1
+    option=$QUIET_OPTION_1_MODE
 fi
 
 case "$option" in
-  "")
-     exit 0
-     ;;
   1)
-     CREATE_SYMLINKS_IN_ALL_DIR="Forced" # solo evita que vuelva a preguntar que hacer mas adelante
-     PARAM="$PARAM pdfbeads-force"
+     CREATE_SYMLINKS="Yes"
+     PARAM="scantailor-save-project follow-symbolic-links pdfbeads-force"
+     if [ "$SCANTAILOR_EXPLICIT_NAME" != "" ]
+      then
+        PARAM="$PARAM 'sct=$SCANTAILOR_EXPLICIT_NAME'"
+     fi
      ;;
   2)
-     CREATE_SYMLINKS_IN_ALL_DIR="Forced"
-     PARAM="$PARAM no-ocr pdfbeads-force"
+     if [ "$PREV_SC" == "Yes" ]
+      then
+        CREATE_SYMLINKS="No"
+        ASK_FOR_PROFILE="No"
+        ASK_FOR_CONTDET="No"
+        PARAM="no-scantailor pdfbeads-force"
+     else
+       echo " opción inválida "; exit 1
+     fi
      ;;
   3)
-     if [ "$PREV_SC" == "Yes" ] 
-     then 
-       PARAM="no-scantailor " # reoptimize-pdf (Re-procesar SOLO el OCR, para que reoptimizar?)
-       CREATE_SYMLINKS_IN_ALL_DIR="No"
-       if [ "$PREV_PDFB" == "Yes" ]; then PARAM="no-scantailor"; fi
+     if [ "$PREV_SC" == "Yes" ] && [ "$PREV_OCR" == "Yes" ]
+      then
+         CREATE_SYMLINKS="No"
+         ASK_FOR_OCR="No"
+         ASK_FOR_PROFILE="No"
+         ASK_FOR_CONTDET="No"
+         PARAM="compile-pdf-only" # pdfbeads usará los archivos comprimidos si ya existen
      else
-       exit 0
+       echo " opción inválida "; exit 1
      fi
      ;;
-  4)
-     if [ "$PREV_OCR" == "Yes" ] 
-     then
-       PARAM="$PARAM compile-pdf-only reoptimize-pdf"
-       CREATE_SYMLINKS_IN_ALL_DIR="No"
-       if [ "$PREV_PDFB" == "Yes" ]; then PARAM="$PARAM compile-pdf-only"; fi
+  s|S)
+     if [ "$PREV_SCPROJ" == "Yes" ]
+      then
+        CREATE_SYMLINKS="Yes"
+        ASK_FOR_PROFILE="No"
+        ASK_FOR_CONTDET="No"
+        PARAM="scantailor-load-project pdfbeads-force follow-symbolic-links"
+        if [ "$SCANTAILOR_EXPLICIT_NAME" != "" ]
+         then
+           PARAM="$PARAM 'sct=$SCANTAILOR_EXPLICIT_NAME'"
+        fi
      else
-       exit 0
+       echo " opción inválida "; exit 1
      fi
      ;;
-  e)
-     PARAM="clear"
-     CREATE_SYMLINKS_IN_ALL_DIR="Empty-only"
+  i)
+     # ignore!
      ;;
   *)
-     exit 0
+     exit 1
      ;;
 esac
 
-if [ "$INTERACTIVE" == "Yes" ]
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+
+if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_PROFILE" == "Yes" ]
   then
-    echo " Seleccione perfil de procesamiento:"
-    echo " ('enter' para salir sin hacer nada)"
+    echo " Perfil de procesamiento:"
     echo ""
     echo "  1) Blanco y negro (1bit)"
     echo "  2) Autodetectar imagenes en color o blanco y negro"
     echo "  3) Color o escala de grises"
+    echo "  4) Color o escala de grises con contraste"
+    
+    echo ""   
+    echo " <enter> para salir sin hacer nada"
     echo ""
-
+    
     echo -n ">> "
     read pr_option
     echo ""
 else
-    pr_option=$QUIET_OPTION_2
+    pr_option=$QUIET_OPTION_2_PROFILE
 fi
 
 case "$pr_option" in
-    "")
-        exit 0
-        ;;
     1)
         PROFILE_OPTIONS=''
         ;;
@@ -267,8 +495,100 @@ case "$pr_option" in
     3)
         PROFILE_OPTIONS=',q2'
         ;;
+    4)
+        PROFILE_OPTIONS=',q3'
+        ;;
+    i)
+        # ignore!
+        ;;
     *)
-        exit 0
+        exit 1
+        ;;
+esac
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+
+if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_CONTDET" == "Yes" ]
+  then
+    echo " Detección de contenido:"
+    echo ""
+    echo "  1) No detectar contenido (sólo borde de página)"
+    echo "  2) Detectar contenido (limpiar márgenes)"
+    
+    echo ""   
+    echo " <enter> para salir sin hacer nada"
+    echo ""
+    
+    echo -n ">> "
+    read cd_option
+    echo ""
+else
+    cd_option=$QUIET_OPTION_3_CONTDET
+fi
+
+
+case "$cd_option" in
+    1)
+        ;;
+    2)
+        PROFILE_OPTIONS="$PROFILE_OPTIONS,d1"
+        ;;
+    i)
+        # ignore!
+        ;;
+    *)
+        exit 1
+        ;;
+esac
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+
+if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_OCR" == "Yes" ]
+  then
+    echo " OCR (Reconocimiento de caracteres)"
+
+    echo ""
+
+    if [ "$PREV_OCR" == "Yes" ]
+     then
+       echo "  1) Volver a aplicar OCR"
+       echo "  2) No aplicar OCR (se utilizará el existente)"
+       echo "  3) Volver a aplicar OCR pero sin sobrescribir lo anterior"
+    else
+       echo "  1) Aplicar OCR"
+       echo "  2) No aplicar OCR"
+    fi
+
+    echo ""   
+    echo " <enter> para salir sin hacer nada"
+    echo ""
+    
+    echo -n ">> "
+    read ocr_option
+    echo ""
+else
+    ocr_option=$QUIET_OPTION_4_OCR
+fi
+
+case "$ocr_option" in
+    1)
+        ;;
+    2)
+        PARAM="$PARAM no-ocr"
+        ;;
+    3)
+        if [ "$PREV_OCR" == "Yes" ]
+         then
+            PARAM="$PARAM no-overwrite-ocr"
+        else
+            echo " opción inválida "; exit 0
+        fi
+        ;;
+    i)
+        # ignore!
+        ;;
+    *)
+        exit 1
         ;;
 esac
 
@@ -277,76 +597,50 @@ esac
 # find "$EVENPATH" -maxdepth 1 -type f -exec mv {} "$ALLPATH" \;
 # find "$ODDPATH" -maxdepth 1 -type f -exec mv {} "$ALLPATH" \;
 
-if [ "$CREATE_SYMLINKS_IN_ALL_DIR" != "No" ]
+if [ "$CREATE_SYMLINKS" == "Yes" ] || [ "$CREATE_SYMLINKS" == "Clear" ]
   then
    # delete symliks if any
-   if find "$ALLPATH" -maxdepth 1 -print -quit | grep -q .
+   if find "$ALLPATH" -mindepth 1 -maxdepth 1 -print -quit | grep -q .
     then
-      if [ "$CREATE_SYMLINKS_IN_ALL_DIR" == "Yes" ]
-       then
-         if [ "$INTERACTIVE" == "Yes" ]
-           then
-             echo ""
-             echo " ATENCION: '$PROJECT_NAME' contiene archivos de un post-procesamiento"
-             echo " inconcluso realizado con anterioridad."
-             echo ""
-             echo " ¿Cómo desea continuar?:"
-             echo " ('enter' para salir sin hacer nada.)"
-             echo ""
-             echo "  1) Para generar el PDF sobreescribiendo lo anterior."
-             echo ""
-             
-             read  -p ">> " option
-         else
-            option=$QUIET_OPTION_3
-         fi
-         case "$option" in
-            "")
-                exit 0
-                ;;
-            1)
-                # continue
-                ;;
-            *)
-                exit 0
-                ;;
-         esac        
-      fi
-
-      if [ "$CREATE_SYMLINKS_IN_ALL_DIR" == "Forced" ] || [ "$CREATE_SYMLINKS_IN_ALL_DIR" == "Empty-only" ] || [ "$CREATE_SYMLINKS_IN_ALL_DIR" == "Yes" ] # es posible que este if sea redundante
-       then
-         echo -n " Limpiando '$ALLPATH'.."
-         find "$ALLPATH" -mindepth 1 -delete && echo "OK" || { echo " ERROR al intentar borrar symlinks de '$ALLPATH'"; exit 1; }
-      fi
+      echo -n " Limpiando '$ALLPATH'.."
+      find "$ALLPATH" -mindepth 1 -delete && echo "OK" || { echo " ERROR al intentar borrar symlinks de '$ALLPATH'"; exit 1; }
    else
-      echo " Directorio '$ALLPATH' vacío ..OK"
+      echo " Directorio '$ALLPATH' vacío"
    fi
-   #echo "debug: "; ls "$ALLPATH"; echo "-"
-   
-   if [ "$CREATE_SYMLINKS_IN_ALL_DIR" == "Yes" ] || [ "$CREATE_SYMLINKS_IN_ALL_DIR" == "Forced" ]
-    then
-
-      # create symlinks form 'odd' and 'even' in 'all'
-      if find "$EVENPATH" -maxdepth 1 -name "test.jpg" | grep -q .
-       then
-        rm "$EVENPATH/test.jpg" && echo " - se eliminó el archivo de prueba 'test.jpg' de '$EVENPATH'" || { echo "Debug: 01"; exit 1; }
-      fi
-      if find "$ODDPATH" -maxdepth 1 -name "test.jpg" | grep -q .  
-       then
-        rm "$ODDPATH/test.jpg" && echo " - se eliminó el archivo de prueba 'test.jpg' de '$ODDPATH'" || { echo "Debug: 02"; exit 1; }
-      fi
-
-      echo " Creando symlinks en '$ALLPATH'.."
-      find "$EVENPATH" -mindepth 1 -maxdepth 1 -type f -exec ln -s {} "$ALLPATH" \; && echo -n "OK .." || { echo " ERROR al intentar crear symlinks desde '$EVENPATH'"; exit 1; }
-      find "$ODDPATH" -mindepth 1 -maxdepth 1 -type f -exec ln -s {} "$ALLPATH" \; &&  echo " OK" || { echo " ERROR al intentar crear symlinks desde '$ODDPATH'"; exit 1; }
-
-   fi  
 fi
+
+if [ "$CREATE_SYMLINKS" == "Yes" ]
+ then  
+  # create symlinks from 'odd' and 'even' in 'all'
+  # delete "test.jpg" (depreciated!)
+  if find "$EVENPATH" -mindepth 1 -maxdepth 1 -name "test.jpg" | grep -q .
+   then
+    rm "$EVENPATH/test.jpg" && 
+        echo " - se eliminó el archivo de prueba 'test.jpg' de '$EVENPATH'" ||
+        { echo "Error: Debug 01"; exit 1; }
+  fi
+  if find "$ODDPATH" -mindepth 1 -maxdepth 1 -name "test.jpg" | grep -q .  
+   then
+    rm "$ODDPATH/test.jpg" && 
+        echo " - se eliminó el archivo de prueba 'test.jpg' de '$ODDPATH'" ||
+        { echo "Error: Debug 02"; exit 1; }
+  fi
+  
+  # create symlinks
+  echo -n " Creando symlinks en '$ALLPATH'.."
+  find "$EVENPATH" -mindepth 1 -maxdepth 1 -type f -exec ln -s {} "$ALLPATH" \; && 
+    echo -n "OK .." || 
+    { echo " ERROR al intentar crear symlinks desde '$EVENPATH'"; exit 1; }
+  find "$ODDPATH" -mindepth 1 -maxdepth 1 -type f -exec ln -s {} "$ALLPATH" \; &&  
+    echo " OK" || 
+    { echo " ERROR al intentar crear symlinks desde '$ODDPATH'"; exit 1; }
+fi  
 
 if [ "$INCLUDE_LIST" != "" ]
   then
     INCLUDE="include=$INCLUDE_LIST"
-    PARAM=$PARAM" pdfbeads-holds-procfiles"
+    PARAM="$PARAM pdfbeads-holds-procfiles" # solo procesa los tif listados y no todo tif que haya en el dir
+    POST_ACTIONS_ENABLED='No'
 fi
 
 if [ "$PDFBEADS_LAYOUT" != "" ]
@@ -359,28 +653,111 @@ if [ "$PDFBEADS_LAYOUT" != "" ]
     fi
 fi
 
-PARAM="$PARAM scantailor-output-project"
-            
+PROFILE="profile=a3$PROFILE_OPTIONS"
+
 # --- profile-processor
 
 echo " Enviar acción a la cola de procesamiento..."
 echo ""
 
-if [ "$POST_ACTIONS_ENABLED" == "Yes" ]
+if [ "$SEND_QUEUE" == "Yes" ] 
  then
-   $SEND_CMD "$PROFILE_PROCESSOR 'src=$ALLPATH' 'wrk=$DONEPATH' 'log=$LOGPATH' ext=$EXT $PARAM 'name=$OUTPUT_NAME' $INCLUDE profile=a3$PROFILE_OPTIONS debug pretty-format && $POST_ACTIONS_SCRIPT 'project=$PROJECT_PATH' 'title=$PROJECT_TITLE' 'done=$DONEPATH' 'name=$OUTPUT_NAME' 'output_path=$DONEPATH/$OUTPUT_NAME' #$PROJECT_PATH $nItems"
+   if [ "$POST_ACTIONS_ENABLED" == "Yes" ]
+    then
+
+$SEND_CMD \
+"$PROFILE_PROCESSOR \
+'src=$ALLPATH' \
+'wrk=$DONEPATH' \
+'log=$LOGPATH' \
+ext=$EXT \
+$PARAM \
+'name=$OUTPUT_NAME' \
+$INCLUDE \
+$PROFILE \
+debug \
+pretty-format \
+&& \
+$POST_ACTIONS_SCRIPT \
+'project=$PROJECT_PATH' \
+'title=$PROJECT_TITLE' \
+'done=$DONEPATH' \
+'name=$OUTPUT_NAME' \
+'output_path=$DONEPATH/$OUTPUT_NAME' \
+#$PROJECT_PATH $nItems"
+
+     if [ $? -eq 0 ]
+     then
+       echo " Listo."
+     else
+       echo " Se produjeron errores en '$SEND_CMD'"
+       exit 1
+     fi
+
+   else
+
+$SEND_CMD \
+"$PROFILE_PROCESSOR \
+'src=$ALLPATH' \
+'wrk=$DONEPATH' \
+'log=$LOGPATH' \
+ext=$EXT \
+$PARAM \
+'name=$OUTPUT_NAME' \
+$INCLUDE \
+$PROFILE \
+debug \
+pretty-format \
+#$PROJECT_PATH $nItems"
+
+     if [ $? -eq 0 ]
+     then
+       echo " Listo."
+     else
+       echo " Se produjeron errores en '$SEND_CMD'"
+       exit 1
+     fi
+
+   fi
+   
 else
-   $SEND_CMD "$PROFILE_PROCESSOR 'src=$ALLPATH' 'wrk=$DONEPATH' 'log=$LOGPATH' ext=$EXT $PARAM 'name=$OUTPUT_NAME' $INCLUDE profile=a3$PROFILE_OPTIONS debug pretty-format #$PROJECT_PATH $nItems"
+
+
+echo "$PROFILE_PROCESSOR \
+src=$ALLPATH \
+wrk=$DONEPATH \
+log=$LOGPATH \
+ext=$EXT \
+$PARAM \
+name=$OUTPUT_NAME \
+$INCLUDE \
+$PROFILE \
+debug \
+pretty-format"
+
+$PROFILE_PROCESSOR \
+"src=$ALLPATH" \
+"wrk=$DONEPATH" \
+"log=$LOGPATH" \
+ext=$EXT \
+$PARAM \
+"name=$OUTPUT_NAME" \
+$INCLUDE \
+$PROFILE \
+debug \
+pretty-format
+
+   if [ $? -eq 0 ]
+   then
+     echo " Listo."
+   else
+     echo " Se produjeron errores en '$PROFILE_PROCESSOR'"
+     exit 1
+   fi
 fi
 
 
-if [ $? -eq 0 ]
-then
-  echo " Listo."
-else
-  echo " Se produjeron errores en '$SEND_CMD'"
-  exit 1
-fi
+
 
 exit 0
 

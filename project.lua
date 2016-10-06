@@ -797,14 +797,23 @@ function project:list_and_select(opts)
             end
         end
     end
-    
+    function print_dformat(str)
+          if type(str) ~= 'string' then return end
+          if str:len() > 74 then str = string.sub(str, 0, 71).."..." end
+          print( "| "..str..string.rep(" ", 74 - str:len()).." |" )
+    end
     if next(file_list) then
+        local topbotline = "+----------------------------------------------------------------------------+"
         print()
-        print( " "..opts.desc.plural.." encontrados en este proyecto:")
+        print(" "..opts.desc.plural.." encontrados en este proyecto:")
         print()
+        print( topbotline )
+        print_dformat("")
         for index,pdf_file in pairs(file_list) do 
-            print( " "..tostring(index)..") "..pdf_file.."" )
+            print_dformat( tostring(index)..") "..pdf_file )
         end
+        print_dformat("")
+        print( topbotline )
         print()
         print(" Ingrese el número de índice del archivo para abrirlo")
         print(" o <enter> para no abrir ninguno")
@@ -837,6 +846,29 @@ function project:list_scantailors_and_select()
     local status, file_selected, result, msg = self:list_and_select({ext = extensions, desc = description})
     return status, file_selected, result, msg
 end
+
+function project:delete_scantailor_project(sct_name)
+    if type(sct_name) ~= 'string' or sct_name == '' then return false end    
+        
+    local sct_path = self.session.base_path.."/"..self.paths.doc_dir.."/"..sct_name
+    if dcutls.localfs:delete_file( sct_path ) then
+       return true
+    else
+       return false
+    end
+end
+
+function project:delete_pdf(pdf_name)
+    if type(pdf_name) ~= 'string' or pdf_name == '' then return false end    
+        
+    local pdf_path = self.session.base_path.."/"..self.paths.doc_dir.."/"..pdf_name
+    if dcutls.localfs:delete_file( pdf_path ) then
+       return true
+    else
+       return false
+    end
+end
+
 
 function project:init_state( options )
     local options = options or {}
@@ -919,6 +951,27 @@ function project:load_state_secure()
     
 end
 
+function project:get_include_strings(opts)
+    if type(opts) ~= 'table' then opts = {} end    
+    
+    if type(self.session.include_list) ~= 'table' or
+        self.session.include_list.from == nil or self.session.include_list.to == nil then
+        return false, nil, nil
+    end
+    
+    local strlist = ""; local c = ""
+    for i = self.session.include_list.from, self.session.include_list.to, 1 do
+        strlist = strlist..c..string.format("%04d", i)
+        c = ","
+    end
+    local suffix = "["
+        ..string.format("%04d", self.session.include_list.from)
+        .."-"
+        ..string.format("%04d", self.session.include_list.to)
+        .."]"
+     return true, strlist, suffix
+end
+
 function project:send_post_proc_actions(opts)
     if type(opts) ~= 'table' then opts = {} end    
     
@@ -940,34 +993,44 @@ function project:send_post_proc_actions(opts)
             .." 'title="..self.settings.title.."'"
             .." 'pdf-layout=TwoPageRight'" -- TwoPageRight(PDF 1.5) Display the pages two at a time, 
                                            -- with odd-numbered pages on the right
-        if opts.include_list and
-           self.session.include_list.from ~= nil and self.session.include_list.to ~= nil then
-            local strlist = ""; local c = ""
-            for i = self.session.include_list.from, self.session.include_list.to, 1 do
-                strlist = strlist..c..string.format("%04d", i)
-                c = ","
+        local last_pdf_generated
+        if opts.include_list then
+            local status, strlist, suffix = self:get_include_strings()
+            if not status then
+                return false
+            else
+                local pdf_filename = self.dalclick.doc_filebase..suffix.."."..self.dalclick.doc_fileext
+                dcpp_command = dcpp_command.." 'output_name="..pdf_filename.."'"
+                dcpp_command = dcpp_command.." 'include="..strlist.."'"
+                last_pdf_generated = pdf_filename
+                local sct_filename = self.dalclick.doc_filebase..suffix..".".."scantailor"
+                dcpp_command = dcpp_command.." 'scantailor_name="..sct_filename.."'"
             end
-            local doc_filename_wsuff = 
-                self.dalclick.doc_filebase
-              .."["
-              ..string.format("%04d", self.session.include_list.from)
-              .."-"
-              ..string.format("%04d", self.session.include_list.to)
-              .."]"
-              .."."..self.dalclick.doc_fileext
-            dcpp_command = dcpp_command.." 'output_name="..doc_filename_wsuff.."'"
-            dcpp_command = dcpp_command.." 'include="..strlist.."'"
-            last_pdf_generated = doc_filename_wsuff
         else
             dcpp_command = dcpp_command.." 'output_name=".. self.dalclick.doc_filename.."'"
-            dcpp_command = dcpp_command.." post-actions-enabled"
+            
             last_pdf_generated = self.dalclick.doc_filename
+            local sct_filename = self.dalclick.doc_filebase..".".."scantailor"
+            dcpp_command = dcpp_command.." 'scantailor_name="..sct_filename.."'"
         end
         
         if opts.batch_processing then
             dcpp_command = dcpp_command.." quiet"
         end
-
+       
+        -- dcpp special modes
+        if opts.scantailor_create_project then
+            dcpp_command = dcpp_command.." create-new-scantailor-project"
+        elseif opts.scantailor_process_and_exit then
+            dcpp_command = dcpp_command.." pp=+scantailor"
+        elseif opts.pp_mode then
+            dcpp_command = dcpp_command.." "..opts.pp
+        else -- standart mode
+            if not opts.include_list then
+                dcpp_command = dcpp_command.." post-actions-enabled"
+            end
+        end
+                
         print()
         print( "DEBUG: dcpp_command: "..tostring(dcpp_command) )
         print()
@@ -981,7 +1044,7 @@ function project:send_post_proc_actions(opts)
             self:save_state()
             return true
         else
-            return false
+            return false, "El proyecto no pudo ser enviado a la cola de postprocesamiento"
         end       
     else
         return false, "ERROR: La ruta al script de post-procesamiento no esta correctamente configurada:\n '"..tostring(dc_pp).."'"

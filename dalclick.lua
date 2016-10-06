@@ -1758,6 +1758,12 @@ end
 local function open_thunar(path)
    if defaults.thunar_available then
        os.execute("thunar".." "..path.." &")
+   else
+        print()
+        print("ATENCION: Su sistema debe ser configurado para poder usar esta opcion")
+        print("No se encuentra la aplicación 'Thunar' para explorar archivos")
+        print()
+        sys.sleep(2000)
    end
 end
 
@@ -1766,6 +1772,12 @@ local function open_evince(path_to_pdf)
        if type(path_to_pdf) == 'string' and dcutls.localfs:file_exists( path_to_pdf ) then
            os.execute("evince".." "..path_to_pdf.." &")
        end
+   else
+        print()
+        print("ATENCION: Su sistema debe ser configurado para poder usar esta opcion")
+        print("No se encuentra la aplicación 'Evince' para visualizar PDFs")
+        print()
+        sys.sleep(2000)
    end
 end
 
@@ -1775,6 +1787,88 @@ local function open_scantailor_gui(path_to_scproject)
           os.execute(defaults.scantailor_path.." "..path_to_scproject.." &") 
       end
   end
+end
+
+local function parse_pp_args(items)
+    if items == nil or items == '' then return true, '+all', ' Acciones seleccionadas: postprocesado completo' end
+    
+    local errmsg = ""
+    local wrong = false
+    local scantailor = false; local ocr = false; local compile = false
+    local sign
+    
+    for c in string.gmatch(items, "[^%s]+") do
+        if c:sub(1,1) ~= "-" and c:sub(1,1) ~= "+" then
+            c='+'..c
+            sign = '+'
+        elseif c:len() == 1 then
+            errmsg = " los signos '+' ó '-' deben ir pegados a cada argumento, por ejemplo '+ocr'."
+            wrong = true; break
+        end
+        -- if i'm here c begin with '+' or '-' and c:len > 1 !
+        if not sign then
+            sign = c:sub(1,1)
+        elseif sign ~= c:sub(1,1) then
+            errmsg = " no puede mezclar inclusiones y exclusiones (-) en los argumentos"
+            wrong = true; break
+        end                     
+        if c:sub(2) == "scantailor" or c:sub(2) == "sc" then
+            if not scantailor then
+                scantailor = true
+            else 
+                errmsg = " 'scantailor' repetido"
+                wrong = true; break 
+            end
+        elseif c:sub(2) == "ocr" then
+            if not ocr then
+                ocr = true
+            else 
+                errmsg = " 'ocr' repetido"
+                wrong = true; break 
+            end
+        elseif c:sub(2) == "pdf" then
+            if not compile then
+                compile = true
+            else
+                errmsg = " 'pdf' repetido"
+                wrong = true; break
+            end
+        else
+           errmsg = " No se pudo reconocer el argumento '"..tostring(c).."'"
+           wrong = true; break
+        end
+    end
+
+    if wrong then
+       return false, false, " pp: argumento con errores.\n  "..tostring(errmsg)
+    end
+    
+    if not sign then sign = '+' end -- prevent '  ' args string
+    
+    local args = ""
+    local msg = ""
+    if scantailor then
+        args = args..sign..'scantailor'
+        msg = msg.."   "..sign.." procesar con scantailor\n"
+    end
+    if ocr then
+        args = args..sign..'ocr'
+        msg = msg.."   "..sign.." realizar OCR (reconocimiento de caracteres)\n"
+    end
+    if compile then                         
+        args = args..sign..'compile'
+        msg = msg.."   "..sign.." compilar PDF\n"
+    end
+    if args == "" then
+        args = 'all'
+        msg = msg.."   "..sign.." postprocesamiento completo\n"
+    end
+    
+    if sign == "+" then
+       return true, args, " Acciones seleccionadas:".."\n".. msg
+    elseif sign == "-" then
+       return true, args, " Se seleccionó ejecutar todo el postproceso menos:".."\n".. msg
+    end
 end
 
 -- main funtions
@@ -2502,45 +2596,168 @@ function dc:main(
  [v] ver ultima captura     [w] guardar proyecto         referencia
  [e] explorador                                     [zz] ingresar valor de
                             [c] cerrar proyecto          zoom manualmente...
- [i] reiniciar cámaras      [x] cerrar proyecto y
- [b] bip en cámara de ref.      generar pdf          [f] enfocar
-                                                     [m] modo seg/norm/rápido
+ [i] reiniciar cámaras      [x] cerrar y generar pdf
+ [b] bip en cámara de      [xx] ídem, modo auto      [f] enfocar
+     referencia                                      [m] modo seg/norm/rápido
  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
  [r] < retroceder una       [u] avanzar una >       [uu] avanzar al final >>>
                                                      [p] ir a página...
  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
- [a] ver opciones avanzadas (desde, hasta, pdf, pdfp, reparar, ifocus, etc.)
+ [1] opciones avanzadas     [2] opciones scantailor [3] opciones generar PDF
 ]]
 
     local thunar_option = ""
     if defaults.thunar_available then 
-        thunar_option = " [dir]     abrir el proyecto en el explorador de archivos\n"
+        thunar_option = "  [dir]     abrir el proyecto en el explorador de archivos\n"
     end
     local evince_option = ""
-    if defaults.thunar_available then 
-        evince_option = " [vpdf]    ver pdf (si ya fue generado)\n"
+    if defaults.evince_available then 
+        evince_option = "  [pdf abrir]    ver último pdf generado\n"
     end
     
     menu.advanced = [[
- [enter]   volver a opciones
+ [enter] volver a opciones
+ 
+ Reparación de proyectos:
+  [reparar] reparar y checkear integridad del proyecto
 
- [reparar] reparar proyecto
+ Rango o subselección de páginas:
+  [rango]         ingresar valores "desde/hasta" manualmente
+  [rango borrar]  eliminar rango
  
- [scantailor] abrir el proyecto en scantailor para retoque manual
- [proyecto]   crear un proyecto scantailor
- 
- [pdf]    generar pdf (sin cerrar proyecto)
- [pdfp]   generar pdf parcial (sólo rango de páginas seleccionado)
-]]..evince_option..
-[[ 
- [rango]   ingresar valores "desde/hasta" manualmente
+ Explorar archivos:
 ]]..thunar_option..
 [[ 
- [ifocus]  mostrar info de foco
- [iexpo]   mostrar info de exposición
- [chdk]    recargar script chdk
+ Funciones avanzadas de cámaras
+  [ifocus]  mostrar info de foco
+  [iexpo]   mostrar info de exposición
+  [chdk]    recargar script chdk
 
 ]]
+
+    menu.scantailor = [[
+ [enter]   volver a opciones
+
+ Opciones Scantailor
+  [sc abrir]     abrir en scantailor (edicion manual)
+  [sc borrar]    borrar el proyecto scantailor
+
+ Opciones Scantailor para rango de páginas
+  [scr abrir]    ídem para rango de páginas seleccionadas
+  
+ Opciones generales
+  [sc listar]    listar los proyectos Scantailor generados
+  [sc ayuda]     Ver ayuda para scantailor
+  
+]]
+
+    menu.scantailor_help = [[
+ [enter]   volver a opciones
+
+   Scantailor es uno de los componentes de nuestro sistema de postprocesamiento
+ y se encarga de optimizar las capturas y formatearlas para el documento PDF
+ final. El resultado intermedio producido por Scantailor es una colección de ar-
+ chivos 'tif'. Para llegar al PDF final estos 'tifs' deben continuar siendo pro-
+ cesados por otros componentes del sistema de postproceso. Si bien Scantailor se
+ ejecuta de modo automático dentro de nuestro postproceso, de ser necesario es 
+ posible abrir el proyecto en su interfaz gráfica para realizar ajustes manuales
+ y luego recompilar el PDF con las correcciones realizadas.
+
+   El método usual para realizar un ajuste manual a través de la interfaz gráfi-
+ ca de Scantailor consiste en enviar normalmente a la cola de procesamiento el 
+ proyecto por medio de la opción [pp], que luego de procesado habrá generado 
+ automáticamente, además del PDF, un "proyecto Scantailor" que podrá ser abierto
+ en modo interfaz gráfica usando la opción [sc abrir].
+ 
+  [.] seguir...
+]]
+
+    menu.pdf_help = [[
+ [enter]   volver a opciones
+ 
+ La opción [pp] se puede combinar con tres componentes: 
+  - scantailor
+  - ocr
+  - pdf 
+ Si explicita uno o más sólo se ejecutaran los explicitados, por ejemplo:
+ 
+  [pp ocr compilar]     -> ejecuta 'ocr' y 'compilar'
+  [pp scantailor]       -> ejecuta sólo 'scantailor'
+
+ Si le coloca un signo '-' como prefijo se ejecutara todo el proceso menos el
+ o los indicados, ejemplos:
+
+  [pp -scantailor]      -> ejecuta todo menos 'scantailor'
+  [pp -scantailor -ocr] -> ejecuta todo menos 'scantailor' y 'ocr'
+  
+ Si usa [pp] sin argumentos se ejecuta todo el proceso.
+]]
+
+    menu.scantailor_help_01 = [[ 
+ [enter]   volver a opciones
+
+ Luego de corregir lo necesario en el modo gráfico existen dos opciones para 
+ continuar: 1) terminar el procesamiento correspondiente a Scantailor dentro de 
+ la interfaz gráfica de Scantailor o 2) guardar el proyecto y repetir la ejecu-
+ ción en modo automático desde Dalclick, incluyendo la parte de Scantailor.
+ 
+ Para el caso 1) presione el botón play del filtro '6' (dentro de la interfaz 
+ grafica de Scantailor) para actualizar todas las páginas, o si sólo necesita 
+ modificar unas pocas puede ejecutar el filtro 6 en cada página individualmente.
+ El "filtro 6" es el que actualiza los 'tif' de salida de Scantailor con las co-
+ rreciones realizadas. Finalizado este paso, guarde, cierre Scantailor y desde
+ Dalclick ejecute [pp ocr pdf], que realizará el resto de los pasos necesarios 
+ para actualizar los cambios en el PDF. Si no necesita el OCR use [pp pdf].
+ 
+ Para el caso 2) deberá usar [pp scantailor ocr pdf], ya que necesita volver a
+ generar los 'tif' de salida de Scantailor con las correcciones realizadas. Pue-
+ de excluir OCR como el caso anterior con [pp scantailor pdf].
+ 
+ [.] seguir...
+]] 
+
+    menu.scantailor_help_02 = [[ 
+ [enter]   volver a opciones
+
+ Nota importante sobre [sc abrir]: Tenga en cuenta que si abre el proyecto en la
+ interfaz gráfica de Scantailor sin haber realizado ningún paso del procesamien-
+ to automático previo, [sc abrir] abrirá de todas formas el proyecto, pero no
+ habrá ningun ajuste automático realizado sobre el documento, y deberá realizar
+ este paso desde la interfaz de usuario.
+
+   También puede ser útil -para no tener que abrir todo el documento- realizar 
+ una selección de las páginas a retocar con la opción [rango] y trabajar sólo 
+ con esa selección. Para esto use [ppr scantailor] para aplicarle los ajustes
+ automáticos al rango de páginas elegido y luego [scr abrir] para editar en la
+ interfaz grafica de Scantailor. Las imagenes 'tif' generadas por este "minipro-
+ yecto" sobrescribirán las imágenes del procesamiento anterior y podrán ser com-
+ piladas nuevamente en el pdf usando [pp pdf]. Tenga en cuenta que los ajustes 
+ manuales que realize con este método quedarán guardados solo en este "minipro-
+ yecto" parcial y no en el general.
+]]
+
+    menu.pdf = [[
+ [enter]   volver a opciones
+
+ Opciones para generación de PDF:
+  [pp]                           generar pdf (postproceso completo)
+  [pp scantailor ocr compilar]   realiza sólo las opciones explicitadas.
+  [pp -scantailor -ocr -pdf]     con el prefijo '-', omitir el componenete.
+  
+  [pp ocr-p]   realizar OCR 'perezoso' sin sobrescribir OCR previo
+  [pp pdf-p]   compilar PDF en modo 'perezoso' sin reprocesar imágenes
+  
+ Opciones PDF para rango de páginas
+  [ppr]   generar pdf parcial sólo del rango de páginas seleccionado,
+          también se puede usar [ppr -scantailor], [ppr ocr] etc.
+
+ Opciones generales 
+  [pdf listar]   abrir pdf desde una lista de los pdfs generados
+]]..evince_option..
+[[  [pdf ayuda]   ver una ayuda para el comando 'pp'
+
+]]
+
     if init_st == false then
         print(" No se pudieron inicializar correctamente las cámaras.")
         -- self:dalclick_loop(false)
@@ -2557,7 +2774,8 @@ function dc:main(
         end
                
         local status
-        local e_overwt, o_overwt, margin, top_bar
+        local e_overwt, o_overwt, margin, top_bar, the_title
+        local loopmsg = ""
         while true do
             
             o_overwt = false; e_overwt = false
@@ -2601,10 +2819,15 @@ function dc:main(
                 print(" Valor del Zoom: Sin definir")
             end
             print()
-            margin = math.floor( ( 76 - string.len(string.sub(p.settings.title, 0, 50)) ) / 2 )
-            top_bar = string.rep("=", margin).." "..string.sub(p.settings.title, 0, 50).." "..string.rep("=", margin)
+            if string.match(state.menu_mode, "pdf_help") then 
+                the_title = "Ayuda postproceso (PDF)" 
+            elseif string.match(state.menu_mode, "scantailor_help") then 
+                the_title = "Ayuda Scantailor" 
+            else the_title = p.settings.title end
+            margin = math.floor( ( 76 - string.len(string.sub(the_title, 0, 50)) ) / 2 )
+            top_bar = string.rep("=", margin).." "..string.sub(the_title, 0, 50).." "..string.rep("=", margin)
             print( top_bar )
-            print()
+            print("")
             print(menu[state.menu_mode])
             print(
                 "= "
@@ -2623,6 +2846,7 @@ function dc:main(
                     .."' --")
             end
             if loopmsg ~= "" then 
+                print()
                 print(">>"..loopmsg)
                 loopmsg = ""
             end
@@ -2644,8 +2868,24 @@ function dc:main(
                     else
                         loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
                     end
-                elseif state.menu_mode == 'advanced' then
+                else
                     state.menu_mode = 'standart'
+                end
+            elseif key == "1" then
+                state.menu_mode = 'advanced'
+            elseif key == "2" then
+                state.menu_mode = 'scantailor'
+            elseif key == "3" then
+                state.menu_mode = 'pdf'
+            elseif key == "sc ayuda" then
+                state.menu_mode = 'scantailor_help'
+            elseif key == "pdf ayuda" then
+                state.menu_mode = 'pdf_help'
+            elseif key == "." then
+                if state.menu_mode == 'scantailor_help' then
+                    state.menu_mode = 'scantailor_help_01'
+                elseif state.menu_mode == 'scantailor_help_01' then
+                    state.menu_mode = 'scantailor_help_02'
                 end
             elseif key == "t" then
                 if state.cameras_status then
@@ -2724,9 +2964,9 @@ function dc:main(
                     p:save_state()
                     loopmsg = " "..tostring(msg)
                 end
-            elseif key == "rr" then
+            elseif key == "rec" then
                 mc:switch_mode_all('rec')
-            elseif key == "pp" then
+            elseif key == "play" then
                 mc:switch_mode_all('play')
             elseif key == "z" then
                 if state.cameras_status then
@@ -2895,10 +3135,10 @@ function dc:main(
                 else
                     loopmsg = " ERROR: El proyecto no pudo guardarse!"
                 end
-            elseif key == "rrr" then
+            elseif key == "rec2" then
                 -- set to rec mode without waiting (only for testing)
                 mc:switch_mode_all('rec')
-            elseif key == "ppp" then
+            elseif key == "play2" then
                 -- set to play mode without waiting (only for testing)
                 mc:switch_mode_all('play')
             elseif key == "v" then
@@ -2941,16 +3181,19 @@ function dc:main(
                     exit = true
                     break
                 end
-            elseif key == "a" then
-                state.menu_mode = 'advanced'
             elseif key == "h" then
                 if not self:start_options('new_project') then
                     exit = true
                     break
                 end
-            elseif key == "x" then
+            elseif key == "x" or key == "xx"  then
                 local new_project_options = { zoom = p.state.zoom_pos }
-                status, msg = p:send_post_proc_actions()
+                local status, msg
+                if key == "xx" then
+                    status, msg = p:send_post_proc_actions({ batch_processing = true })
+                else
+                    status, msg = p:send_post_proc_actions()
+                end
                 if status then
                     print("\n Proyecto "..p.session.regnum.. ": '"..p.settings.title.."' enviado.")
                     if p:delete_running_project() then
@@ -2963,7 +3206,7 @@ function dc:main(
                         break
                     end
                 end
-                if msg ~= "" then loopmsg = " "..tostring(msg) end
+                if type(msg) == 'string' and msg  ~= "" then loopmsg = " "..tostring(msg) end
             elseif key == "i" then
                 print(" Reiniciando cámaras... ")
                 local cam_status = self:init_cams_or_retry()
@@ -3037,7 +3280,7 @@ function dc:main(
                 end
             elseif key == "dir" then
                 open_thunar(p.session.base_path)
-            elseif key == "vpdf" then
+            elseif key == "pdf abrir" then
                 if p.state.last_pdf_generated then
                     local pdf_path = p.session.base_path.."/"..p.paths.doc_dir.."/"..p.state.last_pdf_generated
                     if dcutls.localfs:file_exists( pdf_path ) then
@@ -3046,15 +3289,104 @@ function dc:main(
                     else
                        loopmsg = " No existe '"..p.state.last_pdf_generated.."'\n"
                                .."   El archivo PDF no se ha terminado de generar o ha sido eliminado.\n"
-                               .."   Para más opciones use 'lpdf' (listar PDFs)"
+                               .."   Para más opciones use 'pdf listar' (verá una lista de los PDFs)"
                     end
                 else
                     loopmsg = " Todavía no se ha creado ningún PDF en este proyecto.\n"
-                            .."   Para más opciones use 'lpdf' (listar PDFs)"
+                            .."   Para más opciones use 'pdf listar' (verá una lista de los PDFs)"
                 end
-            elseif key == "proyecto" then                
-                loopmsg = " Esta función todavía no esta implementada"
-            elseif key == "scantailor" then
+            elseif key == "pdf listar" then                
+                local status, pdf_filename, result, msg = p:list_pdfs_and_select()
+                if status == true then
+                    local pdf_path = p.session.base_path.."/"..p.paths.doc_dir.."/"..pdf_filename
+                    if dcutls.localfs:file_exists( pdf_path ) then
+                       print(" abriendo.. '"..pdf_path.."'")
+                       open_evince( pdf_path )
+                    else
+                    end
+                elseif status == nil then
+                    loopmsg = " "..tostring(msg)
+                else
+                    
+                    loopmsg = " Ha ocurrido un error inesperado."
+                end
+            elseif key == "pdf borrar" then
+                local status, pdf_filename, result, msg = p:list_pdfs_and_select()
+                if status == true then
+                    print()
+                    print(" Borrar '"..pdf_filename.."'? [S/n]")
+                    local confirmar = io.stdin:read'*l'
+                    if confirmar == "S" or confirmar == "s" then
+                        if p:delete_pdf(pdf_filename) then
+                            loopmsg = " El archivo '"..tostring(pdf_filename).."' fue borrado"
+                        else
+                            loopmsg = " El archivo '"..tostring(pdf_filename).."' no pudo borrarse"
+                        end
+                    end
+                elseif status == nil then
+                    loopmsg = " "..tostring(msg)
+                else
+                    loopmsg = " Ha ocurrido un error inesperado."
+                end
+            elseif key == "scr abrir" or key == "sc abrir" then -- abre sc si existe, de lo contrario lo crea (include)
+                local status, strlist, suffix = p:get_include_strings()
+                if key == "scr abrir" and not status then
+                    loopmsg = " Debe seleccionar un rango de páginas primero para seleccionar esta opción."
+                else
+                    if key == "sc abrir" then suffix = nil; strlist = nil; end
+                    suffix = suffix or ""
+                    local sct_name = p.dalclick.doc_filebase..suffix..".scantailor"
+                    local sct_path = p.session.base_path.."/"..p.paths.doc_dir.."/"..sct_name
+                    if dcutls.localfs:file_exists( sct_path ) then
+                       print(" abriendo.. '"..sct_path.."'")
+                       open_scantailor_gui( sct_path )
+                    else
+                        local this_thing = strlist and "este rango seleccionado!" or "este proyecto!"
+                        print()
+                        print(" No existe un proyecto Scantailor para "..this_thing)
+                        print("'"..sct_name.."'")
+                        print()
+                        print(" Importante! a continuación se creará un nuevo proyecto Scantailor para ser")
+                        print(" configurado manualmente desde la interfaz gráfica. Pero si desea que la con-")
+                        print(" figuración se lleve a cabo automáticamente y dejar para la operación manual")
+                        print(" sólo los ajustes y corrección de errores (recomendado), entonces responda no")
+                        print(" y luego use [pp scantailor].")
+                        print()
+                        print(" Crear proyecto nuevo '"..sct_name.."' [S/n]")
+                        local crear = io.stdin:read'*l'
+                        if crear == "S" or crear == "s" then
+                            local include = strlist and true or false
+                            if p:send_post_proc_actions({
+                                    scantailor_create_project = true, 
+                                    include_list              = include,
+                                }) then
+                                print(" abriendo.. '"..sct_path.."'")
+                                open_scantailor_gui( sct_path )
+                            else
+                                loopmsg = " No pudo crearse un nuevo proyecto Scantailor '"..tostring(sct_path).."'."
+                            end
+                        end
+                    end
+                end
+            elseif key == "sc borrar" then
+                local status, sc_filename, result, msg = p:list_scantailors_and_select()
+                if status == true then
+                    print()
+                    print(" Borrar '"..sc_filename.."'? [S/n]")
+                    local confirmar = io.stdin:read'*l'
+                    if confirmar == "S" or confirmar == "s" then
+                        if p:delete_scantailor_project(sc_filename) then
+                            loopmsg = " El archivo '"..tostring(sc_filename).."' fue borrado"
+                        else
+                            loopmsg = " El archivo '"..tostring(sc_filename).."' no pudo borrarse"
+                        end
+                    end
+                elseif status == nil then
+                    loopmsg = " "..tostring(msg)
+                else
+                    loopmsg = " Ha ocurrido un error inesperado."
+                end
+            elseif key == "sc listar" then
                 local status, sc_filename, result, msg = p:list_scantailors_and_select()
                 if status == true then
                     local stproject_path = p.session.base_path.."/"..p.paths.doc_dir.."/"..sc_filename
@@ -3066,27 +3398,15 @@ function dc:main(
                     loopmsg = " "..tostring(msg)
                     if result == false then
                         print()
-                        print(" Para poder realizar esta acción primero debe crear un proyecto Scantailor")
-                        print(" con la opción 'proyecto' o ejecutar al menos una operación de ")
-                        print(" postprocesamiento para generar el PDF.")
+                        print(" Lista vacía!")
+                        print()
+                        print(" Todavía no ha ejecutado ningun paso del postproceso que haya generado")
+                        print(" un archivo Scantailor. Puede crear uno con:")
+                        print(" - 'pp scantailor'")
                         print()
                         print(" Presione <enter> para continuar...")
                         local key = io.stdin:read'*l'
                     end
-                else
-                    loopmsg = " Ha ocurrido un error inesperado."
-                end
-            elseif key == "lpdf" then                
-                local status, pdf_filename, result, msg = p:list_pdfs_and_select()
-                if status == true then
-                    local pdf_path = p.session.base_path.."/"..p.paths.doc_dir.."/"..pdf_filename
-                    if dcutls.localfs:file_exists( pdf_path ) then
-                       print(" abriendo.. '"..pdf_path.."'")
-                       open_evince( pdf_path )
-                    else
-                    end
-                elseif status == nil then
-                    loopmsg = " "..tostring(msg)
                 else
                     loopmsg = " Ha ocurrido un error inesperado."
                 end
@@ -3120,23 +3440,63 @@ function dc:main(
                         end
                     end
                 end
-            elseif key == "pdf" then
-                if p:send_post_proc_actions() then
-                    loopmsg = " Proyecto '"..p.session.regnum.. "' ('"..p.settings.title.."') enviado OK."
-                else
-                    loopmsg = " Hubo errores y el proyecto no pudo ser enviado."
-                    sys.sleep(2000)
-                end
-            elseif key == "pdfp" then
+            elseif key == "rango borrar" then
                 if p.session.include_list.from and p.session.include_list.to then
-                    if p:send_post_proc_actions({ include_list = true }) then
-                        loopmsg = " Proyecto '"..p.session.regnum.. "' ('"..p.settings.title.."') enviado"
-                        .." ["..p.session.include_list.from.."-"..p.session.include_list.to.."]. OK."
-                    else
-                        loopmsg = " Hubo errores y el proyecto no pudo ser enviado."
-                    end
+                    p.session.include_list = {}
+                    loopmsg = " Rango de páginas borrado!"
                 else
-                        loopmsg = " Debe seleccionar un rango 'desde/hasta' primero"
+                    loopmsg = " Todavia no se seleccionó ningún rango de páginas."
+                end
+            elseif key == "pp" or key == "ppr" or key:sub(0,3) == "pp " or key:sub(0,4) == "ppr " then
+                local include_list_exists = false
+                local suffix
+                if p.session.include_list.from and p.session.include_list.to then
+                    include_list_exists = true
+                    suffix = "["..string.format("%04d", p.session.include_list.from).."-"
+                                ..string.format("%04d", p.session.include_list.to).."]"
+                end
+                local ppr = false
+                if key:sub(0,4) == "ppr " or key == "ppr" then
+                    ppr = true
+                end
+                if ppr and not include_list_exists then
+                    loopmsg = " Debe seleccionar un rango 'desde/hasta' primero"
+                else
+                    local args
+                    if ppr then 
+                        args = key:sub(5) 
+                    else 
+                        args = key:sub(4) 
+                        suffix = nil
+                        include_list_exists = false
+                    end
+                    local status, pp_args, msg = parse_pp_args( args )
+                    if status then
+                        print()
+                        print( msg )
+                        print()
+                        if ppr then print(" procesamiento parcial de rango: "..tostring(suffix).."\n") end
+                        print( " ¿Enviar estas acciones a la cola de procesamiento? (S/n)")
+                        printf(">> ")
+                        local confirm = io.stdin:read'*l'
+                        if confirm == "S" or confirm == "s" then
+                            if p:send_post_proc_actions({ 
+                                pp_mode      = true, 
+                                pp           = 'pp='..pp_args, 
+                                include_list = include_list_exists,
+                            }) then
+                                suffix = suffix or ""
+                                loopmsg = 
+                                    " Proyecto '"..p.session.regnum
+                                  .."' ('"..p.settings.title.."') enviado "
+                                  ..suffix..pp_args.." OK."
+                            else
+                                loopmsg = " Hubo errores y el proyecto no pudo ser enviado."
+                            end
+                        end
+                    else
+                        loopmsg = msg
+                    end
                 end
             elseif key == "chdk" then
                 if state.cameras_status then
@@ -3155,6 +3515,8 @@ function dc:main(
                 else
                     loopmsg = "load_state_secure: no se pudo cargar '.dc_state' correctamente"
                 end
+            else
+                loopmsg = " El texto ingresado no corresponde a ninguna opción del menú! ¯\\_(ツ)_/¯"
             end
         end -- /while loop 
         
