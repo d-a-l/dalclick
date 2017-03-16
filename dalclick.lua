@@ -2440,6 +2440,7 @@ function dc:main(
     end
     -- --
 
+    -- Todo: ojo, comprobar si da true con ROTATE_ODD_DEFAULT=""
     if ROTATE_ODD_DEFAULT then 
         defaults.rotate_odd = ROTATE_ODD_DEFAULT
     end
