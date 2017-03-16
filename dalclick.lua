@@ -1023,7 +1023,7 @@ function mc:capt_all(mode)
                     print(" modo test: contador desactivado")
                 else
                     p:counter_next()
-                    if p.state.counter.odd > p.session.counter_max.odd then
+                    if not p.session.counter_max.odd or p.state.counter.odd > p.session.counter_max.odd then
                         p.session.counter_max = p.state.counter
                     end
                 end
