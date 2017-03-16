@@ -162,7 +162,7 @@ if [ "$PP_COMMAND" == "Yes" ]
             [[ "$pp_command_args" == "-ocr_lazy" ]] && PARAM="$PARAM no-overwrite-ocr"
 	        ;;
         +compile|+compile_lazy|-scantailor-ocr) #[compile-lazy]
-	        PARAM="no-scantailor"
+	        PARAM="no-ocr no-scantailor"
             [[ "$pp_command_args" == "-compile_lazy" ]] || PARAM="$PARAM pdfbeads-force"
 	        ;;
         *)

@@ -1965,7 +1965,7 @@ function dc:start_options(mode, options)
   [a]     cargar una lista desde un archivo]]
   
     local start_menu_lote =[[   
-  [pdf] generar pdf   [reparar] reparar  [list] lista detallada
+  [pp] generar pdf   [reparar] reparar  [list] lista detallada
 
   [q] para salir
 
@@ -2115,7 +2115,7 @@ function dc:start_options(mode, options)
                 else
                     loopmsg = empty_list_msg
                 end
-            elseif moption == "pdf" then
+            elseif moption == "pp" then
                 print(" Seleccionó enviar a la cola de post-proceso (para generar pdf)\n proyectos seleccionados:")
                 if next(state.projects_selection) then
                     print()
@@ -2676,13 +2676,13 @@ function dc:main(
  [enter]   volver a opciones
  
  La opción [pp] se puede combinar con tres componentes: 
-  - scantailor
+  - scantailor (también se puede usar 'sc')
   - ocr
   - pdf 
  Si explicita uno o más sólo se ejecutaran los explicitados, por ejemplo:
  
-  [pp ocr compilar]     -> ejecuta 'ocr' y 'compilar'
-  [pp scantailor]       -> ejecuta sólo 'scantailor'
+  [pp ocr pdf]               -> ejecuta 'ocr' y 'compilar'
+  [pp scantailor] ó [pp sc]  -> ejecuta sólo 'scantailor'
 
  Si le coloca un signo '-' como prefijo se ejecutara todo el proceso menos el
  o los indicados, ejemplos:
@@ -2741,7 +2741,7 @@ function dc:main(
 
  Opciones para generación de PDF:
   [pp]                           generar pdf (postproceso completo)
-  [pp scantailor ocr compilar]   realiza sólo las opciones explicitadas.
+  [pp scantailor ocr pdf]   realiza sólo las opciones explicitadas.
   [pp -scantailor -ocr -pdf]     con el prefijo '-', omitir el componenete.
   
   [pp ocr-p]   realizar OCR 'perezoso' sin sobrescribir OCR previo
@@ -3447,7 +3447,8 @@ function dc:main(
                 else
                     loopmsg = " Todavia no se seleccionó ningún rango de páginas."
                 end
-            elseif key == "pp" or key == "ppr" or key:sub(0,3) == "pp " or key:sub(0,4) == "ppr " then
+            elseif key == "pp" or key == "ppr" or key:sub(0,3) == "pp " or key:sub(0,4) == "ppr " or key == "scantailor" then
+                if key == "scantailor" then key = "pp scantailor" end
                 local include_list_exists = false
                 local suffix
                 if p.session.include_list.from and p.session.include_list.to then
