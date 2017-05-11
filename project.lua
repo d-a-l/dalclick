@@ -185,7 +185,8 @@ function project:create( options )
     self.session.base_path = self.session.root_path.."/"..self.session.regnum
     
     self.settings.title = options.title
-    
+    if options.mode then self.settings.mode = options.mode end
+
     print(" Se está creando un nuevo proyecto:\n")
     print(" === "..self.session.regnum.." ===")
     if self.settings.title ~= "" then print(" título: '"..self.settings.title.."'") end
