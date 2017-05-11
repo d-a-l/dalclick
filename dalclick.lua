@@ -351,14 +351,15 @@ function mc:camsound_plip()
         else
             print()
             print(" Atención: cámara desconectada ["..i.."]")
-            printf(" reconectando...")
-            local status, err = lcon:connect()
-            if status then
-                print("OK")
-            else
-                print(' FALLÓ ('..'bus: '..tostring(lcon.condev.bus)..', dev: '..tostring(lcon.condev.dev)..")")
-                return nil
-            end
+            return nil
+            -- printf(" reconectando...")
+            -- local status, err = lcon:connect()
+            -- if status then
+            --    print("OK")
+            -- else
+            --     print(' FALLÓ ('..'bus: '..tostring(lcon.condev.bus)..', dev: '..tostring(lcon.condev.dev)..")")
+            --     return nil
+            -- end
         end
     end
     
