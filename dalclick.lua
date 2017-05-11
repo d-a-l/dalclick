@@ -2592,20 +2592,21 @@ function dc:main(
     menu.standart = [[
  [enter] capturar                                    [s] salir  [h] inicio
 
- [t] test de captura        [n] nuevo proyecto...    [z] sincronizar zoom 
-                            [o] abrir proyecto...        desde la camara de
- [v] ver ultima captura     [w] guardar proyecto         referencia
- [e] explorador                                     [zz] ingresar valor de
-                            [c] cerrar proyecto          zoom manualmente...
- [i] reiniciar cámaras      [x] cerrar y generar pdf
- [b] bip en cámara de      [xx] ídem, modo auto      [f] enfocar
-     referencia                                      [m] modo seg/norm/rápido
+ [t] test de captura       [n] nuevo proyecto...     [z] sincronizar zoom 
+                           [o] abrir proyecto...         desde la camara de
+ [v] ver ultima captura    [w] guardar proyecto          referencia
+ [e] explorador            [c] cerrar proyecto      [zz] ingresar valor de
+                          [cl] clonar proyecto           zoom manualmente...
+ [i] reiniciar cámaras     
+ [b] bip en cámara de      [x] generar pdf y cerrar  [f] enfocar
+     referencia            [l] generar pdf y clonar  [m] modo seg/norm/rápido
+                          [ll] ídem, pdf modo auto
  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
- [r] < retroceder una       [u] avanzar una >       [uu] avanzar al final >>>
-                                                     [p] ir a página...
+ [r][u] retroceder/avanzar    [uu] ir al final       [p] ir a página...
  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
  [1] opciones avanzadas     [2] opciones scantailor [3] opciones generar PDF
 ]]
+-- [xx] ídem, pdf modo auto 
 
     local thunar_option = ""
     if defaults.thunar_available then 
@@ -3191,6 +3192,7 @@ function dc:main(
                 local new_project_options = { zoom = p.state.zoom_pos }
                 local status, msg
                 if key == "xx" then
+                    -- quiet, default options 
                     status, msg = p:send_post_proc_actions({ batch_processing = true })
                 else
                     status, msg = p:send_post_proc_actions()
@@ -3205,6 +3207,53 @@ function dc:main(
                     if not self:start_options('new_project', new_project_options) then
                         exit = true
                         break
+                    end
+                end
+                if type(msg) == 'string' and msg  ~= "" then loopmsg = " "..tostring(msg) end
+            elseif key == "l" or key == "ll" or key == "cl" then
+                local clone_project = true
+                if key == "ll" or key == "l" then
+                   local status, msg
+                   if key == "ll" then
+                       status, msg = p:send_post_proc_actions({ batch_processing = true })
+                   elseif key == "l" then
+                       status, msg = p:send_post_proc_actions()
+                   end
+                   if status then
+                       print("\n Proyecto "..p.session.regnum.. ": '"..p.settings.title.."' enviado.")
+                   else
+                       print("\n ERROR: Proyecto "..p.session.regnum.. ": '"..p.settings.title.."' no pudo enviarse.")
+                       clone_project = false
+                   end
+                end
+                if clone_project then
+                    print(" Iniciando clonar proyecto")
+                    local regnum, title = get_project_newname()
+
+                    if regnum ~= nil then
+                       local pzoom = p.state.zoom_pos
+                       local pmode = p.settings.mode
+                       if p:delete_running_project() then
+                           print(" Cerrando proyecto previo..OK")
+                       end
+                       sys.sleep(2000)
+
+                       if not p:init(defaults) then
+                           exit = true
+                           break
+                       else
+                          local clone_options = { regnum = regnum, title = title, root_path = defaults.root_project_path, 
+                                                  zoom = pzoom, mode = pmode }
+                          if p:create( clone_options ) then
+                             print(" Proyecto clonado como '"..title.."'..OK")
+                          else
+                             exit = true
+                             break
+                          end
+                       end
+                    else
+                       print(" Eligió cancelar!")
+                       msg = "El proyecto no ha sido clonado. Se sigue en: '"..p.settings.title.."'."
                     end
                 end
                 if type(msg) == 'string' and msg  ~= "" then loopmsg = " "..tostring(msg) end
