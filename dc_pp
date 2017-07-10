@@ -653,7 +653,7 @@ if [ "$PDFBEADS_LAYOUT" != "" ]
     fi
 fi
 
-PROFILE="profile=a3$PROFILE_OPTIONS"
+PROFILE="profile=a6$PROFILE_OPTIONS"
 
 # --- profile-processor
 
