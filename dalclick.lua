@@ -2486,7 +2486,7 @@ function dc:main(
         print()
         
         if running_project then
-            print(" [n] no restaurar, iniciar con un nuevo proyecto")
+            print(" [n] no restaurar, abrir proyecto o crear nuevo proyecto")
             print()
         end
         
