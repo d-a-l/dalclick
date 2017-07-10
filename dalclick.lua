@@ -3269,6 +3269,12 @@ function dc:main(
                 if defaults.mode_enable_qm_daemon then
                     self:init_daemons()
                 end 
+            elseif key == "ins" then
+                print(" Insertando espacio vacio en "..string.format("%04d", p.state.counter.even).."-"..string.format("%04d", p.state.counter.odd))
+                p:insert_empty_in_counter()
+                    print()
+                    print(" Presione <enter> para continuar...")
+                    local key = io.stdin:read'*l'
             elseif key == "desde" then
                 if type(p.state.counter) == 'table' then
                     if p.state.counter.even then

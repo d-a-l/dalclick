@@ -736,6 +736,36 @@ function project:set_counter(pos)
     return true, msg
 end
 
+function project:insert_empty_in_counter() -- p.state.counter
+-- check for postprocess!!
+    local files_to_rename = { [self.dalclick.odd_name] = {}, [self.dalclick.even_name] = {} }
+    local folders = { self.dalclick.odd_name, self.dalclick.even_name }
+    for n, idname in pairs(folders) do
+        print("listando en "..self.session.base_path.."/"..self.paths.raw[idname])
+        for f in lfs.dir(self.session.base_path.."/"..self.paths.raw[idname]) do
+            if lfs.attributes( self.session.base_path.."/"..self.paths.raw[idname].."/"..f, "mode") == "file" then
+                if f:match("^(%d+)%.jpg$") or f:match("^(%d+)%.JPG$" ) then
+                    local pos = tonumber(f:match("^(%d+)"))
+                    if pos > self.state.counter[idname] then 
+                        table.insert( files_to_rename[idname], pos ) 
+                    end
+                end
+            end
+        end
+        table.sort(files_to_rename[idname], function(a,b) return(a > b) end)
+        print("se renombraran "..idname)
+        for i, pos in ipairs(files_to_rename[idname]) do
+             print(tostring(pos).."->"..tostring(pos+2))
+-- self.session.base_path.."/"..self.paths.raw[idname]
+-- self.session.base_path.."/"..self.paths.pre[idname]
+-- string.format("%04d", p.state.counter.even)..".".."jpg"
+-- check if newname exist
+-- os.rename(oldname, newname)
+        end
+    end
+
+end
+
 function project:get_counter_max_min()
 
     local min, max
