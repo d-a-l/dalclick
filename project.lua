@@ -846,7 +846,7 @@ function project:list_and_select(opts)
         print_dformat("")
         print( topbotline )
         print()
-        print(" Ingrese el número de índice del archivo para abrirlo")
+        print(" Ingrese el número de índice del archivo para seleccionarlo")
         print(" o <enter> para no abrir ninguno")
         printf(">> ")
         local key = io.stdin:read'*l'
