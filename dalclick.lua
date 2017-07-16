@@ -1544,7 +1544,9 @@ function batch:postprocess(projects)
     
     local c_ok = 0
     local c_fail = 0
+    local l_fail = ""
     local c_failload = 0
+    local l_failload = ""
     for index,pdata in pairs(projects) do
         
         if not p:init(defaults) then
@@ -1564,16 +1566,20 @@ function batch:postprocess(projects)
             else
                 print(" -- "..tostring(msgs).." --")
                 c_fail = c_fail + 1
+                l_fail = l_fail.."     "..pdata.settings_path.."\n"
             end
         else
             print(" Ha ocurrido un error mientras se intentaba cargar el proyecto")
             c_failload = c_failload + 1
+            l_failload = l_failload.."     "..pdata.settings_path.."\n"
         end
     end
     return "Resumen:\n"
             .."  "..tostring(c_ok).." proyectos enviados\n"
             .."  "..tostring(c_fail).." proyectos no enviados\n"
+            ..l_fail
             .."  "..tostring(c_failload).." proyectos que no pudieron abrirse\n"
+            ..l_failload
 end
 
 function batch:repair_projects(projects)
