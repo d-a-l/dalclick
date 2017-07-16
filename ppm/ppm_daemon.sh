@@ -125,21 +125,24 @@ if [ ! -z "$EXISTING_JOBS" ]
             PROJNAME=$(cat "$line" | cut -d "#" -f 2 | cut -d " " -f 1 | xargs basename )
             IMGSINFO=$(cat "$line" | cut -d "#" -f 2 | cut -d " " -f 2)
             EVENIMG=$(ls "$PROJPATH/pre/even" | grep .jpg | wc -w)
-            FINISHED=$(ls "$PROJPATH/done" | grep .pdf | wc -w)
+            FINISHED=$(ls "$PROJPATH/done" | grep output.pdf | wc -w)
             ODDIMG=$(ls "$PROJPATH/pre/odd" | grep .jpg | wc -w)
             if [[ "$IMGSINFO" != "" ]] 
               then
-               IMGS=$IMGSINFO
+               IFS="," read -ra tmpArr <<< "$IMGSINFO"
+               IMGS=$(echo ${#tmpArr[@]})
+			   TYPE="parcial"
             else
                IMGS=$(( EVENIMG + ODDIMG ))
+			   TYPE="total"
             fi
-            if (( FINISHED > 0 ))
+            if (( FINISHED > 0 )) && [ "$TYPE" == "total" ]
              then
-                FWARN="## YA FUE POSTPROCESADO ##"
+                FWARN="## sobreescritura ##"
             else
                 FWARN=""
             fi
-            printf " [%s] '%s' %s capturas %s\n" "$JOBNAME" "$PROJNAME" "$IMGS" "$FWARN"
+            printf " [%s] '%s' %s capturas [%s] %s\n" "$JOBNAME" "$PROJNAME" "$IMGS" "$TYPE" "$FWARN"
         fi
     done <<< "$EXISTING_JOBS"
 else

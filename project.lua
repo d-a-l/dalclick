@@ -1075,6 +1075,11 @@ function project:send_post_proc_actions(opts)
             self:save_state()
             return true
         else
+            if opts.pp_mode then --usability improving
+                print()
+                print(" Presione <enter> para continuar...")
+                local key = io.stdin:read'*l'
+            end
             return false, "El proyecto no pudo ser enviado a la cola de postprocesamiento"
         end       
     else

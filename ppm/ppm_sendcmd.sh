@@ -15,7 +15,7 @@ cd "$THISDIR"
 if [ $# != 1 ]
 then
 	echo "${QMBNAME} $$: ERROR: $# parameter/s has/have been received, expected 1" >> $ERROR_LOG
-	echo "${QMBNAME} $$: ERROR: $# parameter/s has/have been received, expected 1"
+	echo " ${QMBNAME} $$: ERROR: $# parameter/s has/have been received, expected 1"
 	exit 1
 fi
 
@@ -46,6 +46,7 @@ fi
 COMMAND="$1"
 
 THIS_PROJPATH=$(echo "$COMMAND" | cut -d "#" -f 2 | cut -d " " -f 1 )
+THIS_PROJRANGO=$(echo "$COMMAND" | cut -d "#" -f 2 | cut -d " " -f 2)
 EXISTING_JOBS=$(ls -d "${QUEUEPATH}"/* | grep .job)
 
 if [ ! -z "$EXISTING_JOBS" ]
@@ -57,26 +58,40 @@ if [ ! -z "$EXISTING_JOBS" ]
          then
             JOBNAME=$(basename $line)
             PROJPATH=$(cat "$line" | cut -d "#" -f 2 | cut -d " " -f 1)
+            PROJRANGO=$(cat "$line" | cut -d "#" -f 2 | cut -d " " -f 2)
+            INQUEUE=""
+            SAMERANGO=""
             if [ "$PROJPATH" == "$THIS_PROJPATH" ]
              then
              INQUEUE="Yes"
              INQUEUE_JOB="$JOBNAME"
+             if [ "$PROJRANGO" == "$THIS_PROJRANGO" ]
+              then
+               SAMERANGO="Yes"
+               break
+             fi
             fi
             # echo "$JOBNAME"
         fi
     done <<< "$EXISTING_JOBS"
 fi
 
-if [ "$INQUEUE" == "Yes" ]
+if [ "$INQUEUE" == "Yes" ] && [ "$SAMERANGO" == "Yes" ]
  then
-   echo "${QMBNAME} Este proyecto ya está en la cola de procesamiento"
-   echo "${QMBNAME} Job: $INQUEUE_JOB"
-   echo "${QMBNAME} Proyecto: '$THIS_PROJPATH'"
+   echo " ${QMBNAME} Este proyecto ya está en la cola de procesamiento"
+   echo " ${QMBNAME} Job: $INQUEUE_JOB"
+   echo " ${QMBNAME} Proyecto: '$THIS_PROJPATH'"
+   if [ "$THIS_PROJRANGO" != "" ]
+    then
+     echo " ${QMBNAME} Rango: '$THIS_PROJRANGO'"
+   fi
+   echo " ${QMBNAME} Borre el proyecto de la cola de procesamiento"
+   echo " ${QMBNAME} para poder enviarlo nuevamente."
    exit 1
 fi
 
 echo
-echo "${QMBNAME} Enviando trabajo a: '$QUEUEPATH'"
+echo " ${QMBNAME} Enviando trabajo a: '$QUEUEPATH'"
 
 # Check to see if queue path exist
 # if [[ ! -d "${QUEUEPATH}" ]]
@@ -102,7 +117,7 @@ then
 fi
 
 echo "${QMBNAME} job ID ${jobid} assigned" >> $LOG
-echo "${QMBNAME} Nuevo trabajo '${jobid}' en cola para procesar!"
+echo " ${QMBNAME} Nuevo trabajo '${jobid}' en cola para procesar!"
 echo 
 echo "-----"  >> $LOG
 

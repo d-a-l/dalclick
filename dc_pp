@@ -213,9 +213,9 @@ PRE_ACTIONS_SCRIPT="$PWDIR/dc_pp_pre_actions"
 
 if [ "$INCLUDE_LIST" != "" ]
   then
-    echo "Sólo se procesarán los siguientes ítems: '$INCLUDE_LIST'"
     IFS="," read -ra tmpArr <<< "$INCLUDE_LIST"
-    nItems=$(${#tmpArr[@]})
+    nItems=$(echo ${#tmpArr[@]})
+    echo "Sólo se procesarán los siguientes ítems: '$INCLUDE_LIST' ('$nItems' items)"
 fi
 
 # --- check prior execution
@@ -690,7 +690,7 @@ $POST_ACTIONS_SCRIPT \
      then
        echo " Listo."
      else
-       echo " Se produjeron errores en '$SEND_CMD'"
+       echo " El proyecto no fue enviado o se produjeron errores en '$SEND_CMD'"
        exit 1
      fi
 
@@ -708,13 +708,13 @@ $INCLUDE \
 $PROFILE \
 debug \
 pretty-format \
-#$PROJECT_PATH $nItems"
+#$PROJECT_PATH $INCLUDE_LIST"
 
      if [ $? -eq 0 ]
      then
        echo " Listo."
      else
-       echo " Se produjeron errores en '$SEND_CMD'"
+       echo " El proyecto no fue enviado o se produjeron errores en '$SEND_CMD'"
        exit 1
      fi
 
