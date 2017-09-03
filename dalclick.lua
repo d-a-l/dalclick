@@ -59,6 +59,7 @@ local defaults={
     root_project_path = nil, -- -- main(DALCLICK_PROJECTS)
     left_cam_id_filename = "LEFT.TXT",
     right_cam_id_filename = "RIGHT.TXT",
+    noc = 2,
     odd_name = "odd",
     even_name = "even",
     all_name = "all",
@@ -2392,7 +2393,8 @@ function dc:main(
     DALCLICK_MODE,
     THUNAR,
     EVINCE,
-    SCANTAILOR_PATH)
+    SCANTAILOR_PATH,
+    NOC)
 
     -- debug
     if false then
@@ -2430,6 +2432,14 @@ function dc:main(
        defaults.scantailor_available = true
        print(" * scantailor available")
        defaults.scantailor_path = SCANTAILOR_PATH
+    end
+
+    if not NOC_DEFAULT then 
+        print("No está definido el número de cámaras por defecto")
+        return false
+    else
+        defaults.noc = NOC_DEFAULT
+        print(" * NOC: '"..tostring(defaults.noc).."'")
     end
 
     defaults.qm_sendcmd_path = defaults.dalclick_pwdir.."/qm/qm_sendcmd.sh"
@@ -2476,7 +2486,7 @@ function dc:main(
     local running_project = self:check_running_project()
     
     if not mc:connect_all() then
-        print(" DALclick se ha iniciado correctamente, ahora encienda las cámaras.\n")
+        print(" DALclick se ha iniciado correctamente, ya puede encender las cámaras.\n")
         print()
         
         if running_project then
@@ -2492,7 +2502,7 @@ function dc:main(
         print()
         
         if running_project then
-            print(" [n] no restaurar, abrir proyecto o crear nuevo proyecto")
+            print(" [n] no restaurar, abrir un proyecto o crear uno nuevo")
             print()
         end
         
@@ -2512,30 +2522,16 @@ function dc:main(
         end
         
         if not mc:connect_all() then
-            print("")
-            print(" #######################################")
-            print(" ## Las cámaras no fueron encendidas! ##")
-            print(" #######################################")
-            print()
-            print(" [enter] para reintentar.")
-            print()
-            print(" [c] para continuar con las cámaras apagadas")
-            print("     (puede encenderlas luego)")
-            print("")
-            printf(">> ") 
-            local key = io.stdin:read'*l'
-
-            if key ~= "c" then
-                self:dalclick_loop(true)
-                return true
-            end
-            
             no_init_cam = true
         end
     else
         print(" Para prevenir interferencias entre el sistema operativo y DALclick en la")
         print(" gestión de las cámaras digitales, es mejor comenzar con los dispositivos")
-        print(" apagados y encenderlos cuando DALclick lo indique.")
+        print(" apagados y encenderlos luego de iniciar DALclick.")
+        print()
+        print(" * * * * * * * * * * * * * * * * * * * * * * * * * ")
+        print(" Por favor apague las cámaras que estén encendidas")
+        print(" * * * * * * * * * * * * * * * * * * * * * * * * * ")
         print()
         print(" [enter] Continuar luego de apagar las cámaras")
         print(" [c] Continuar sin apagar")
@@ -2545,7 +2541,7 @@ function dc:main(
 
             print(" Existe un proyecto de una sesión anterior de DALclick que se restaurará")
             print(" automáticamente.")
-            print(" [n] para no restaurar")
+            print(" [n] para no restaurar y abrir o crear un nuevo proyecto")
             print()
         end
 
