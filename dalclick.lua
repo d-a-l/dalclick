@@ -59,7 +59,9 @@ local defaults={
     root_project_path = nil, -- -- main(DALCLICK_PROJECTS)
     left_cam_id_filename = "LEFT.TXT",
     right_cam_id_filename = "RIGHT.TXT",
-    noc = 2,
+    noc_mode_default = 'odd-even',
+    rotate_default = true,
+    ref_cam_default = "even",
     odd_name = "odd",
     even_name = "even",
     all_name = "all",
@@ -76,6 +78,7 @@ local defaults={
     capt_type = 'S', -- D=direct shoot S=standart
     rotate_odd = '-90',
     rotate_even = '90',
+    rotate_all = '0',
     tempfolder_name = '.tmp',
     thumbfolder_name = '.previews',
     test_high_name = '_high',
@@ -667,53 +670,104 @@ function mc:init_cams_all()
     end
     
     -- comprueba que haya dos camaras, una "odd" y otra "even"
+
     local init_fail = false
     local init_fail_err = ""
     local idnames = {}
     local count_cams = 0
+    if p.settings.noc_mode then
+        noc_mode = p.settings.noc_mode
+    else
+        noc_mode = defaults.noc_mode_default
+    end
     print(" Identificando cámaras")
-    for i,lcon in ipairs(self.cams) do
-        count_cams = count_cams + 1
-        local status, idname, err = cam:identify_cam(lcon)
-        if idname then
-            if (idname ~= 'odd' and idname ~= 'even') then
-                print(" ["..i.."] no se puede inicializar: alguna de las cámaras no están correctamente identificadas")
-                print("           idname = "..tostring(idname))
-                init_fail = true
-                break
-            end
-            idnames[count_cams] = idname
-            print(" ["..i.."] idname: "..tostring(idname))
-            lcon.idname = idname
-        else
-            print(" ["..i.."] no se puedo inicializar:")
-            print("           status: "..tostring(status).." err: "..tostring(err))
-            init_fail = true
-            break
-        end
-    end
 
-    if type(idnames[1]) == 'string' and type(idnames[2]) == string then    
-        if idnames[1] == idnames[2] then
-            print(" ATENCION: las dos cámaras estan identificadas con el mismo nombre: '"
-            ..idnames[1].."' y '"..idnames[2].."'")
-            init_fail = true
-        end
-    end
-    
-    if count_cams == 1 then
-        print()
-        print(" Atención! Solo hay una cámara conectada")
-        print()
-        init_fail = true
-    elseif count_cams == 0 then
-        print()
-        print(" Atención! No hay cámaras conectadas!")
-        print()
-        init_fail = true
-    end
-    print()
-    
+    -- modo odd-even
+    if noc_mode == 'odd-even' then
+		for i,lcon in ipairs(self.cams) do
+		    count_cams = count_cams + 1
+		    local status, idname, err = cam:identify_cam(lcon)
+		    if idname then
+		        if (idname ~= 'odd' and idname ~= 'even') then
+		            print(" ["..i.."] no se puede inicializar: alguna de las cámaras no están correctamente identificadas")
+		            print("           idname = "..tostring(idname))
+		            init_fail = true
+		            break
+		        end
+		        idnames[count_cams] = idname
+		        print(" ["..i.."] idname: "..tostring(idname))
+		        lcon.idname = idname
+		    else
+		        print(" ["..i.."] no se puedo inicializar:")
+		        print("           status: "..tostring(status).." err: "..tostring(err))
+		        init_fail = true
+		        break
+		    end
+		end
+
+		if type(idnames[1]) == 'string' and type(idnames[2]) == string then    
+		    if idnames[1] == idnames[2] then
+		        print(" ATENCION: las dos cámaras estan identificadas con el mismo nombre: '"
+		        ..idnames[1].."' y '"..idnames[2].."'")
+		        init_fail = true
+		    end
+		end
+		
+		if count_cams == 1 then
+		    print()
+		    print(" Atención! Solo hay una cámara conectada")
+		    print()
+		    init_fail = true
+		elseif count_cams == 0 then
+		    print()
+		    print(" Atención! No hay cámaras conectadas!")
+		    print()
+		    init_fail = true
+		end
+		print()
+
+    -- modo single (una camara, nombre 'all')
+    elseif noc_mode == 'single' then
+		for i,lcon in ipairs(self.cams) do
+		    count_cams = count_cams + 1
+		    local status, idname,err = cam:identify_cam(lcon)
+		    if idname then
+		        if (idname ~= 'all') then
+		            print(" ["..i.."] no se puede inicializar: cámara incorrectamente identificada")
+		            print("           idname = "..tostring(idname))
+		            print('           debe llamarse "all" (modo single)'
+		            init_fail = true
+		            break
+		        end
+		        idnames[count_cams] = idname
+		        print(" ["..i.."] idname: "..tostring(idname))
+		        lcon.idname = idname
+		    else
+		        print(" ["..i.."] no se puedo inicializar:")
+		        print("           status: "..tostring(status).." err: "..tostring(err))
+		        print('           (modo single)'
+		        init_fail = true
+		        break
+		    end
+		end
+
+		if count_cams == 2 then
+		    print()
+		    print(" Atención! Hay dos cámaras conectadas")
+		    print()
+		    init_fail = true
+		elseif count_cams == 0 then
+		    print()
+		    print(" Atención! No hay cámaras conectadas!")
+		    print()
+		    init_fail = true
+		end
+		print()
+	end
+
+    -- modo multi (como minimo una camara, si hay dos, con distinto nombre y que sea 'all' 'even' 'odd')
+    -- ToDo
+
     if init_fail then return false end
 
     -- inicio de camaras
@@ -2394,7 +2448,7 @@ function dc:main(
     THUNAR,
     EVINCE,
     SCANTAILOR_PATH,
-    NOC)
+    NOC_MODE)
 
     -- debug
     if false then
@@ -2434,12 +2488,9 @@ function dc:main(
        defaults.scantailor_path = SCANTAILOR_PATH
     end
 
-    if not NOC_DEFAULT then 
-        print("No está definido el número de cámaras por defecto")
-        return false
-    else
-        defaults.noc = NOC_DEFAULT
-        print(" * NOC: '"..tostring(defaults.noc).."'")
+    if NOC_MODE then 
+        defaults.noc_mode_default = NOC_MODE
+        print(" * NOC_MODE: '"..tostring(defaults.noc_mode_default).."'")
     end
 
     defaults.qm_sendcmd_path = defaults.dalclick_pwdir.."/qm/qm_sendcmd.sh"
