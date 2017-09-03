@@ -27,17 +27,17 @@ function project:init(globalconf)
     --
     self.paths = globalconf.paths
     --
-    self.settings_default.noc_mode = self.dalclick.noc_mode_default
-    self.settings_default.ref_cam = self.dalclick.ref_cam_default
-    self.settings_default.rotate = self.dalclick.rotate_default
+    self.settings_default.noc_mode = nil
+    self.settings_default.ref_cam = nil
+    self.settings_default.rotate = nil
     self.settings_default.mode = 'secure'
 
 
     self.settings.title = nil
-    self.settings.ref_cam = self.settings_default.ref_cam
-    self.settings.rotate = self.settings_default.rotate
+    self.settings.ref_cam = nil
+    self.settings.rotate = nil
     self.settings.mode = self.settings_default.mode
-    self.settings.noc_mode = self.settings_default.noc_mode
+    self.settings.noc_mode = nil
     --
     self.state.counter = {}
     self.state.zoom_pos = nil
@@ -190,6 +190,15 @@ function project:create( options )
     self.settings.title = options.title
     if options.mode then self.settings.mode = options.mode end
 
+    self.settings.noc_mode = self.dalclick.noc_mode_default
+    if self.settings.noc_mode == 'odd-even' then
+	    self.settings.ref_cam = self.dalclick.oddeven_default_ref_cam
+	    self.settings.rotate = self.dalclick.oddeven_default_rotate
+    elseif self.settings.noc_mode == 'single' then
+	    self.settings.ref_cam = self.dalclick.single_default_ref_cam
+	    self.settings.rotate = self.dalclick.single_default_rotate
+    end
+
     print(" Se está creando un nuevo proyecto:\n")
     print(" === "..self.session.regnum.." ===")
     if self.settings.title ~= "" then print(" título: '"..self.settings.title.."'") end
@@ -249,21 +258,31 @@ function project:check_settings(opts)
     if self.settings.noc_mode and self.settings.noc_mode ~= "" then 
         --
     else
-        self.settings.noc_mode = self.settings_default.noc_mode
+        self.settings.noc_mode = self.dalclick.noc_mode_undefined 
+        -- ojo, si no esta definido en los settings de un proyecto se asume que 
+        -- es un formato obsoleto cuando no existia noc_mode (entonces solo puede ser "odd-even")
         log = log .. " * Modo NOC sin definir\n" 
         status = false
     end
     if self.settings.ref_cam and self.settings.ref_cam ~= "" then 
         --
     else
-        self.settings.ref_cam = self.settings_default.ref_cam
+		if self.settings.noc_mode == "odd-even" then
+        	self.settings.ref_cam = self.dalclick.oddeven_default_ref_cam
+        elseif self.settings.noc_mode == "single" then
+        	self.settings.ref_cam = self.dalclick.single_default_ref_cam
+        end
         log = log .. " * Cámara de referencia sin definir\n"
         status = false
     end
     if self.settings.rotate ~= nil then 
         --
     else
-        self.settings.rotate = self.settings_default.rotate
+		if self.settings.noc_mode == "odd-even" then
+        	self.settings.rotate = self.dalclick.oddeven_default_rotate
+        elseif self.settings.noc_mode == "single" then
+        	self.settings.rotate = self.dalclick.single_default_rotate
+        end
         log = log .. " * Rotar sin definir\n"
         status = false
     end
