@@ -194,7 +194,7 @@ function project:create( options )
     if self.settings.noc_mode == 'odd-even' then
 	    self.settings.ref_cam = self.dalclick.oddeven_default_ref_cam
 	    self.settings.rotate = self.dalclick.oddeven_default_rotate
-    elseif self.settings.noc_mode == 'single' then
+    else -- self.settings.noc_mode == 'single'
 	    self.settings.ref_cam = self.dalclick.single_default_ref_cam
 	    self.settings.rotate = self.dalclick.single_default_rotate
     end
@@ -269,7 +269,7 @@ function project:check_settings(opts)
     else
 		if self.settings.noc_mode == "odd-even" then
         	self.settings.ref_cam = self.dalclick.oddeven_default_ref_cam
-        elseif self.settings.noc_mode == "single" then
+        else -- self.settings.noc_mode == 'single'
         	self.settings.ref_cam = self.dalclick.single_default_ref_cam
         end
         log = log .. " * Cámara de referencia sin definir\n"
@@ -280,7 +280,7 @@ function project:check_settings(opts)
     else
 		if self.settings.noc_mode == "odd-even" then
         	self.settings.rotate = self.dalclick.oddeven_default_rotate
-        elseif self.settings.noc_mode == "single" then
+        else -- self.settings.noc_mode == 'single'
         	self.settings.rotate = self.dalclick.single_default_rotate
         end
         log = log .. " * Rotar sin definir\n"
@@ -313,8 +313,8 @@ function project:check_state()
 	            type(self.state.counter.odd) ~= 'number' then
 	                status = false
 	            end
-            elseif self.settings.noc_mode == 'single' then
-	            if type(self.state.counter.all) ~= 'number' then
+            else -- self.settings.noc_mode == 'single'
+	            if type(self.state.counter.single) ~= 'number' then
 	                status = false
 	            end
             end
@@ -374,8 +374,8 @@ function project:load(settings_path, opts)
                 if self.settings.noc_mode == 'odd-even' then
                    print(" = cámara de páginas impares - próxima captura: "..self.state.counter.odd )
                    print(" = cámara de páginas pares - próxima captura: "..  self.state.counter.even)
-                elseif self.settings.noc_mode == 'single' then
-                   print(" = próxima captura: "..  self.state.counter.all)
+                else -- self.settings.noc_mode == 'single'
+                   print(" = próxima captura: "..  self.state.counter.single)
                 end
 		        if not self.state.rotate then
 		            self.state.rotate = {}
@@ -393,12 +393,12 @@ function project:load(settings_path, opts)
 		                self.state.rotate.even = self.dalclick.rotate_even
 		                print(" asignada rotación por defecto para cámara de páginas pares: "..self.state.rotate.even)
 		            end
-                elseif self.settings.noc_mode == 'single' then
-		            if self.state.rotate.all then
-		                print(" = rotación: "..self.state.rotate.all)
+                else -- self.settings.noc_mode == 'single'
+		            if self.state.rotate.single then
+		                print(" = rotación: "..self.state.rotate.single)
 		            else
-		                self.state.rotate.all = self.dalclick.rotate_all
-		                print(" asignada rotación por defecto: "..self.state.rotate.all)
+		                self.state.rotate.single = self.dalclick.rotate_single
+		                print(" asignada rotación por defecto: "..self.state.rotate.single)
 		            end
                 end                
                  -- check state paths
@@ -414,9 +414,9 @@ function project:load(settings_path, opts)
 		                    self.state.saved_files = nil
 		                end
 		            end
-                elseif self.settings.noc_mode == 'single' then
-		            if type(self.state.saved_files) == 'table' and type(self.state.saved_files.all) == 'table' then
-		                if not dcutls.localfs:file_exists(self.state.saved_files.all.path) then
+                else -- self.settings.noc_mode == 'single'
+		            if type(self.state.saved_files) == 'table' and type(self.state.saved_files.single) == 'table' then
+		                if not dcutls.localfs:file_exists(self.state.saved_files.single.path) then
 		                    print()
 		                    print(" ATENCION: la ruta temporal apunta a un archivo que no existe")
 		                    print(" -> es probable que haya renombrado manualmente la carpeta o")
@@ -469,12 +469,15 @@ function project:check_project_paths()
     table.insert( paths_to_check, self.paths.raw.even )
     table.insert( paths_to_check, self.paths.raw.odd )
     table.insert( paths_to_check, self.paths.raw.all )
+    table.insert( paths_to_check, self.paths.raw.single )
     table.insert( paths_to_check, self.paths.proc.even )
     table.insert( paths_to_check, self.paths.proc.odd )
     table.insert( paths_to_check, self.paths.proc.all )
+    table.insert( paths_to_check, self.paths.proc.single )
     table.insert( paths_to_check, self.paths.test.even )
     table.insert( paths_to_check, self.paths.test.odd )
     table.insert( paths_to_check, self.paths.test.all )
+    table.insert( paths_to_check, self.paths.test.single )
     
     for index, path in pairs( paths_to_check ) do
         if not dcutls.localfs:file_exists( self.session.base_path.."/"..path ) then
@@ -504,19 +507,22 @@ function project.mkdir_tree(dalclick,session,paths)
     if not dcutls.localfs:file_exists(session.base_path) then
         print(" Creando árbol de directorios del proyecto...\n")
         dcutls.localfs:create_folder( session.base_path )
-        dcutls.localfs:create_folder( session.base_path.."/"..paths.raw_dir  )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.raw_dir )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.proc_dir )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.test_dir )
-        dcutls.localfs:create_folder( session.base_path.."/"..paths.doc_dir  )
-        dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.odd  )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.doc_dir )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.odd )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.even )
-        dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.all  )
-        dcutls.localfs:create_folder( session.base_path.."/"..paths.proc.odd  )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.all )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.single )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.proc.odd )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.proc.even )
-        dcutls.localfs:create_folder( session.base_path.."/"..paths.proc.all  )
-        dcutls.localfs:create_folder( session.base_path.."/"..paths.test.odd  )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.proc.all )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.proc.single )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.test.odd )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.test.even )
-        dcutls.localfs:create_folder( session.base_path.."/"..paths.test.all  )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.test.all )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.test.single )
         return true
     else
         print("warn: '"..session.base_path.."' ya existe\n")
@@ -531,7 +537,7 @@ function project:forward(counter, max)
 
     if self.settings.noc_mode == 'odd-even' then
 		for idname,count in pairs(counter) do
-            if idname ~= 'all' then
+            if idname ~= 'single' then
 				count = count + 2
 				next_counter[idname] = count
 				if count > max then
@@ -541,9 +547,9 @@ function project:forward(counter, max)
 				end
             end
 		end
-    elseif self.settings.noc_mode == 'single' then
+    else -- self.settings.noc_mode == 'single'
 		for idname,count in pairs(counter) do
-            if idname == 'all' then
+            if idname == 'single' then
 				count = count + 1
 				next_counter[idname] = count
 				if count > max then
@@ -553,9 +559,6 @@ function project:forward(counter, max)
 				end
 			end
 		end
-    else
-        print("noc mode sin definir!")
-        return false
     end
 
 	if out_of_range == false then
@@ -574,7 +577,7 @@ function project:backward(counter, min)
 
     if self.settings.noc_mode == 'odd-even' then
 		for idname,count in pairs(counter) do
-            if idname ~= 'all' then
+            if idname ~= 'single' then
 				count = count - 2
 				prev_counter[idname] = count
 				if count < min then
@@ -584,9 +587,9 @@ function project:backward(counter, min)
 				end
 			end
 		end
-    elseif self.settings.noc_mode == 'single' then
+    else -- self.settings.noc_mode == 'single'
 		for idname,count in pairs(counter) do
-            if idname == 'all' then
+            if idname == 'single' then
 				count = count - 1
 				prev_counter[idname] = count
 				if count < min then
@@ -596,9 +599,6 @@ function project:backward(counter, min)
 				end
             end
 		end
-    else
-        print("noc mode sin definir!")
-        return false
     end
 
     if out_of_range == false then
@@ -826,23 +826,20 @@ function project:set_counter(pos)
     local msg
 
     if self.settings.noc_mode == 'odd-even' then
-		if (pos % 2 == 0) then
-		    -- even
-		    self.state.counter[self.dalclick.even_name] = pos
-		    self.state.counter[self.dalclick.odd_name]  = pos + 1
-		    msg = "contador actualizado -> even: "..tostring(pos).." / odd: "..tostring(pos + 1)
-		else
-		    -- odd
-		    self.state.counter[self.dalclick.even_name] = pos - 1
-		    self.state.counter[self.dalclick.odd_name]  = pos
-		    msg = "contador actualizado -> even: "..tostring(pos - 1).." / odd: "..tostring(pos)
-		end
-    elseif self.settings.noc_mode == 'single' then
-		    self.state.counter[self.dalclick.all_name] = pos
-		    msg = "contador actualizado -> "..tostring(pos)
-	else
-        print("noc mode sin definir!")
-        return false
+       if (pos % 2 == 0) then
+          -- even
+          self.state.counter[self.dalclick.even_name] = pos
+          self.state.counter[self.dalclick.odd_name]  = pos + 1
+          msg = "contador actualizado -> even: "..tostring(pos).." / odd: "..tostring(pos + 1)
+       else
+          -- odd
+          self.state.counter[self.dalclick.even_name] = pos - 1
+          self.state.counter[self.dalclick.odd_name]  = pos
+          msg = "contador actualizado -> even: "..tostring(pos - 1).." / odd: "..tostring(pos)
+       end
+    else -- self.settings.noc_mode == 'single'
+       self.state.counter[self.dalclick.single_name] = pos
+       msg = "contador actualizado -> "..tostring(pos)
     end
     return true, msg
 end
@@ -883,11 +880,8 @@ function project:get_counter_max_min()
     local folders = {}
     if self.settings.noc_mode == 'odd-even' then
         folders = { self.dalclick.odd_name, self.dalclick.even_name }
-    elseif self.settings.noc_mode == 'single' then
-        folders = { self.dalclick.all_name }
-    else
-        print("noc mode sin definir!")
-        return false
+    else -- self.settings.noc_mode == 'single'
+        folders = { self.dalclick.single_name }
     end    
     for n, idname in pairs(folders) do
         for f in lfs.dir(self.session.base_path.."/"..self.paths.raw[idname]) do
@@ -908,29 +902,36 @@ function project:get_counter_max_min()
         end
     end
     if min == nil or max == nil then
-        return nil
+       return nil
     else
-        min.f = tonumber(min.f:match("^(%d+)%..+$"))
-        max.f = tonumber(max.f:match("^(%d+)%..+$"))
+       min.f = tonumber(min.f:match("^(%d+)%..+$"))
+       max.f = tonumber(max.f:match("^(%d+)%..+$"))
 
-		if self.settings.noc_mode == 'odd-even' then
-		    if min.idname == self.dalclick.odd_name then
-		        self.session.counter_min = { [self.dalclick.even_name] = min.f - 1, [self.dalclick.odd_name] = min.f }
-		    elseif min.idname == self.dalclick.even_name then
-		        self.session.counter_min = { [self.dalclick.even_name] = min.f, [self.dalclick.odd_name] = min.f + 1 }
-		    end
-		    if max.idname == self.dalclick.odd_name then
-		        self.session.counter_max = { [self.dalclick.even_name] = max.f - 1, [self.dalclick.odd_name] = max.f }
-		    elseif max.idname == self.dalclick.even_name then
-		        self.session.counter_max = { [self.dalclick.even_name] = max.f, [self.dalclick.odd_name] = max.f + 1 }
-		    end
-		elseif self.settings.noc_mode == 'single' then
-		    self.session.counter_min = { [self.dalclick.all_name] = min.f }
-			self.session.counter_max = { [self.dalclick.all_name] = max.f }
-		end
-        return true
+       if self.settings.noc_mode == 'odd-even' then
+          if min.idname == self.dalclick.odd_name then
+             self.session.counter_min = { [self.dalclick.even_name] = min.f - 1, [self.dalclick.odd_name] = min.f }
+          elseif min.idname == self.dalclick.even_name then
+             self.session.counter_min = { [self.dalclick.even_name] = min.f, [self.dalclick.odd_name] = min.f + 1 }
+          end
+          if max.idname == self.dalclick.odd_name then
+             self.session.counter_max = { [self.dalclick.even_name] = max.f - 1, [self.dalclick.odd_name] = max.f }
+          elseif max.idname == self.dalclick.even_name then
+             self.session.counter_max = { [self.dalclick.even_name] = max.f, [self.dalclick.odd_name] = max.f + 1 }
+          end
+       else -- self.settings.noc_mode == 'single'
+          self.session.counter_min = { [self.dalclick.single_name] = min.f }
+          self.session.counter_max = { [self.dalclick.single_name] = max.f }
+       end
+       return true
     end
+end
 
+function project:project_is_not_empty()
+   if next(self.session.counter_max) == nil then
+      return false
+   else
+      return true
+   end
 end
 
 function project:list_and_select(opts)
@@ -1045,13 +1046,13 @@ function project:init_state( options )
 		    self.state.counter.odd = 1
 		    print(" iniciado contador impar (odd) en:"..tostring(self.state.counter.odd))
 		end
-    elseif self.settings.noc_mode == 'single' then
-		if type(self.session.counter_max.all) == 'number' then
-		    self.state.counter.all = self.session.counter_max.all + 1
-		    print(" iniciado contador en nueva posición en: "..tostring(self.state.counter.all))
+    else -- self.settings.noc_mode == 'single'
+		if type(self.session.counter_max.single) == 'number' then
+		    self.state.counter.single = self.session.counter_max.single + 1
+		    print(" iniciado contador en nueva posición en: "..tostring(self.state.counter.single))
 		else
-		    self.state.counter.all = 1
-		    print(" iniciado contador en:"..tostring(self.state.counter.all))
+		    self.state.counter.single = 1
+		    print(" iniciado contador en:"..tostring(self.state.counter.single))
 		end
     end 
    
@@ -1061,9 +1062,9 @@ function project:init_state( options )
 		print(" asignada rotación por defecto para cámara de páginas impares: "..self.state.rotate.odd)
 		self.state.rotate.even = self.dalclick.rotate_even
 		print(" asignada rotación por defecto para cámara de páginas pares: "..self.state.rotate.even)
-    elseif self.settings.noc_mode == 'single' then
-		self.state.rotate.all = self.dalclick.rotate_all
-		print(" asignada rotación por defecto: "..self.state.rotate.all)
+    else -- self.settings.noc_mode == 'single'
+		self.state.rotate.single = self.dalclick.rotate_single
+		print(" asignada rotación por defecto: "..self.state.rotate.single)
     end
     
     if type(options.zoom) == 'number' then
@@ -1117,11 +1118,11 @@ function project:load_state_secure()
                 	        return true
                 	    end
                 	end
-    			elseif self.settings.noc_mode == 'single' then
-                	if not state.rotate.all then
+    			else -- self.settings.noc_mode == 'single'
+                	if not state.rotate.single then
                 	    return false
                 	else
-                	    if type(state.counter.all) ~= 'number' then
+                	    if type(state.counter.single) ~= 'number' then
                 	        return false
                 	    else
                 	        self.state = state

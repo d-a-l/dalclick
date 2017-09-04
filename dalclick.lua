@@ -61,15 +61,16 @@ local defaults={
     right_cam_id_filename = "RIGHT.TXT",
     noc_mode_default = 'odd-even',
     noc_mode_undefined = 'odd-even',
-	oddeven_default_ref_cam = "even",
-	single_default_ref_cam = "all",
-	oddeven_default_rotate = true,
-	single_default_rotate = false,
+    oddeven_default_ref_cam = "even",
+    single_default_ref_cam = "single",
+    oddeven_default_rotate = true,
+    single_default_rotate = false,
     --rotate_default = true,
     --ref_cam_default = "even",
     odd_name = "odd",
     even_name = "even",
     all_name = "all",
+    single_name = "single",
     raw_name = "raw",
     proc_name = "pre", -- processed
     doc_name = "done", -- destino final (pdf, epub, djvu, etc.)
@@ -83,7 +84,7 @@ local defaults={
     capt_type = 'S', -- D=direct shoot S=standart
     rotate_odd = '-90',
     rotate_even = '90',
-    rotate_all = '0',
+    rotate_single = '0',
     tempfolder_name = '.tmp',
     thumbfolder_name = '.previews',
     test_high_name = '_high',
@@ -102,18 +103,21 @@ defaults.paths.raw = {
     even = defaults.raw_name.."/"..defaults.even_name,
     odd =  defaults.raw_name.."/"..defaults.odd_name,
     all =  defaults.raw_name.."/"..defaults.all_name,
+    single = defaults.raw_name.."/"..defaults.single_name,
 }
 defaults.paths.proc_dir = defaults.proc_name
 defaults.paths.proc = {
     even = defaults.proc_name.."/"..defaults.even_name,
-    odd =  defaults.proc_name.."/"..defaults.odd_name,
-    all =  defaults.proc_name.."/"..defaults.all_name,
+    odd = defaults.proc_name.."/"..defaults.odd_name,
+    all = defaults.proc_name.."/"..defaults.all_name,
+    single = defaults.proc_name.."/"..defaults.single_name,
 }
 defaults.paths.test_dir = defaults.test_name
 defaults.paths.test = {
     even = defaults.test_name.."/"..defaults.even_name,
-    odd =  defaults.test_name.."/"..defaults.odd_name,
-    all =  defaults.test_name.."/"..defaults.all_name,
+    odd = defaults.test_name.."/"..defaults.odd_name,
+    all = defaults.test_name.."/"..defaults.all_name,
+    single = defaults.test_name.."/"..defaults.single_name,
 }
 defaults.paths.doc_dir = defaults.doc_name
 
@@ -159,7 +163,7 @@ function cam:identify_cam(lcon)
         right_fn = p.dalclick.right_cam_id_filename,
         odd = p.dalclick.odd_name,
         even = p.dalclick.even_name,
-        all = p.dalclick.all_name,
+        single = p.dalclick.single_name,
     }
     local status, idname, err = lcon:execwait('return dc_identify_cam('..util.serialize(opts)..')',{libs={'dalclick_identify'}})
     if status then
@@ -658,7 +662,7 @@ end
 
 function mc:init_cams_all()
    
-    -- comprubea que haya conexion
+    -- comprueba que haya conexion
     
     print("\n Verificando conexión cámaras:")
     local status = self:check_cam_connection()
@@ -669,25 +673,24 @@ function mc:init_cams_all()
             print(" Iniciar conexión...")
         end
         if not self:connect_all() then
-            print(" falló el intento de conectarse a las cámaras")
+            print(" falló el intento de conectarse a la/las cámara/s")
             return false
         end
     end
     
-    -- comprueba que haya dos camaras, una "odd" y otra "even"
+    -- comprueba que haya una o dos camaras, segun noc_mode
 
     local init_fail = false
     local init_fail_err = ""
     local idnames = {}
     local count_cams = 0
     if p.settings.noc_mode then
-        noc_mode = p.settings.noc_mode
+        noc_mode =  p.settings.noc_mode
     else
         noc_mode = defaults.noc_mode_default
     end
     print(" Identificando cámaras")
 
-    -- modo odd-even
     if noc_mode == 'odd-even' then
 		for i,lcon in ipairs(self.cams) do
 		    count_cams = count_cams + 1
@@ -731,29 +734,12 @@ function mc:init_cams_all()
 		end
 		print()
 
-    -- modo single (una camara, nombre 'all')
-    elseif noc_mode == 'single' then
+    else -- noc_mode == 'single'
+      print(" Modo cámara única")
 		for i,lcon in ipairs(self.cams) do
 		    count_cams = count_cams + 1
-		    local status, idname,err = cam:identify_cam(lcon)
-		    if idname then
-		        if (idname ~= 'all') then
-		            print(" ["..i.."] no se puede inicializar: cámara incorrectamente identificada")
-		            print("           idname = "..tostring(idname))
-		            print('           debe llamarse "all" (modo single)'
-		            init_fail = true
-		            break
-		        end
-		        idnames[count_cams] = idname
-		        print(" ["..i.."] idname: "..tostring(idname))
-		        lcon.idname = idname
-		    else
-		        print(" ["..i.."] no se puedo inicializar:")
-		        print("           status: "..tostring(status).." err: "..tostring(err))
-		        print('           (modo single)'
-		        init_fail = true
-		        break
-		    end
+		    print(" ["..i.."] idname: "..defaults.single_name)
+          lcon.idname = defaults.single_name
 		end
 
 		if count_cams == 2 then
@@ -770,8 +756,8 @@ function mc:init_cams_all()
 		print()
 	end
 
-    -- modo multi (como minimo una camara, si hay dos, con distinto nombre y que sea 'all' 'even' 'odd')
-    -- ToDo
+    -- modo multi? (como minimo una camara, si hay dos, con distinto nombre y que sea 'all' 'even' 'odd')
+    -- ToDo...
 
     if init_fail then return false end
 
@@ -780,14 +766,7 @@ function mc:init_cams_all()
     -- check SD
     print()
     local check_status = mc:check_sdcams_options() 
-    if check_status == 'exit' then
-        print(" Apagando cámaras...")
-        if not mc:shutdown_all() then
-            print("alguna de las cámaras deberá ser apagada manualmente")
-        end
-        sys.sleep(1000)
-        return 'exit'
-    elseif check_status == false then
+    if check_status == false then
         print(" debug: check_sdcams_options() = false")
         return false
     end
@@ -824,9 +803,13 @@ function mc:init_cams_all()
     print()
     --
     if init_fail then
-        print(" Alguna de las cámaras ha fallado, por favor apagarlas y volverlas a encender.\n")
-        print(" -> "..tostring(init_fail_err))
-        return false
+       if p.settings.noc_mode == 'odd-even' then
+           print(" Alguna de las cámaras ha fallado, por favor apagarlas y volverlas a encender.\n")
+       else -- p.settings.noc_mode == 'single'
+           print(" La cámara ha fallado al inicializar, por favor apaguela y vuelva a encenderla.\n")
+       end
+       print(" -> "..tostring(init_fail_err))
+       return false
     end
     return true
 end
@@ -834,7 +817,8 @@ end
 function mc:check_sdcams_options()
 
     local empty = true
-    local menu = [[
+    if p.settings.noc_mode == 'odd-even' then
+       local menu = [[
  ====================================================================
  ATENCION: Se recomienda borrar todas las imágenes contenidas en las 
  tarjetas SD de las cámaras antes de comenzar.
@@ -844,9 +828,22 @@ function mc:check_sdcams_options()
 
  [enter] para borrar todas las imágenes
  [c] para continuar sin borrar
- [e] para salir de dalclick ahora
  
 ]]
+    else -- p.settings.noc_mode == 'single'
+       local menu = [[
+ ====================================================================
+ ATENCION: Se recomienda borrar todas las imágenes contenidas en la 
+ tarjeta SD de la cámara antes de comenzar.
+ ====================================================================
+
+ opciones:
+
+ [enter] para borrar todas las imágenes
+ [c] para continuar sin borrar
+ 
+]]
+    end
 
     print(" Verificando tarjetas SD..")
     local status, data = mc:check_if_sdcams_are_empty()
@@ -894,9 +891,8 @@ function mc:check_sdcams_options()
                 end
                 return true
             elseif key == "c" then
+                -- NO borrar
                 return true
-            elseif key == "e" then
-                return 'exit'
             end            
             print(" no ha seleccionado ninguna opción válida!")
             print()
@@ -2105,10 +2101,10 @@ function dc:start_options(mode, options)
                         create_options.zoom = options.zoom
                     end
                     if p:create( create_options ) then
-                        local cam_status = self:init_cams_or_retry()
-                        if cam_status == 'exit' then
-                            return 'exit' -- opcion explicita de salir de dalclick desde init_cams_or_retry()
-                        end
+                        -- local cam_status = self:init_cams_or_retry()
+                        -- if cam_status == 'exit' then
+                        --    return 'exit' -- opcion explicita de salir de dalclick desde init_cams_or_retry()
+                        -- end
                         break
                     end
                  end
@@ -2298,7 +2294,9 @@ end
 function dc:init_cams_or_retry()
 
     local status
-    local menu = [[
+    local menu
+    if p.settings.noc_mode == 'odd-even' then
+       menu = [[
     
 + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + 
 
@@ -2315,16 +2313,33 @@ function dc:init_cams_or_retry()
 
  [enter] para reintentar
  [c] continuar sin iniciar las cámaras
- [e] para salir
 
 ==============================================================================]]
+    else -- p.settings.noc_mode == 'single'
+       menu = [[
+    
++ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + 
 
+ No se ha podido configurar correctamente las cámara.
+ Posibles problemas y soluciones:
+
+ 1) La cámara todavía está inicializando.
+    Espere unos segundos y vuelva a intentarlo.
+    
+ 2) La cámara se apagó o dejo de responder.
+    Enciéndala nuevamente y vuelva a intentarlo.
+
+== opciones ==================================================================
+
+ [enter] para reintentar
+ [c] continuar sin iniciar las cámaras
+
+==============================================================================]]
+    end
     while true do
-        status = mc:init_cams_all() -- true: ok, seguir - false: error, reintentar - nil: se eligio salir
+        status = mc:init_cams_all() -- true: ok, seguir - false: error, reintentar - 
         if status == true then
             break
-        elseif status == 'exit' then
-            return 'exit'
         elseif status == false then
             print(menu)
             printf(" >> ")
@@ -2334,8 +2349,8 @@ function dc:init_cams_or_retry()
                 -- continuar
             elseif key == "c" then
                 return 'no_init_select'
-            elseif key == "e" then
-                return false
+            else
+                print("["..key.."]: opción inválida!")
             end
         end
     end
@@ -2538,91 +2553,77 @@ function dc:main(
     print()  
     
     -- el objetivo de este bloque es que las camaras esten apagadas y se enciendan ahora
-    local no_init_cam
+    local cameras_turned_off
     local running_project = self:check_running_project()
     
-    if not mc:connect_all() then
-        print(" DALclick se ha iniciado correctamente, ya puede encender las cámaras.\n")
-        print()
-        
-        if running_project then
-            local ppath, pname, pext = string.match(running_project, "(.-)([^\\/]-%.?([^%.\\/]*))$")
-            print(" Se restaurará automáticamente el proyecto de la sesión anterior")
-            print(" desde:")
-            print()
-            print("   '"..tostring(ppath).."'")
-            print()
-        end
+    while true do
+       if mc:connect_all() then
+           print(" Para prevenir interferencias entre el sistema operativo y DALclick en la")
+           print(" gestión de las cámaras digitales, es mejor comenzar con los dispositivos")
+           print(" apagados y encenderlos luego de iniciar DALclick.")
+           print()
+           print(" * * * * * * * * * * * * * * * * * * * * * * * * * ")
+           print(" Por favor apague las cámaras que estén encendidas")
+           print(" * * * * * * * * * * * * * * * * * * * * * * * * * ")
+           print()
+           print(" [enter] Continuar luego de apagar las cámaras")
+           print()
+           printf(">> ") 
+           cameras_turned_off = false
+           local key = io.stdin:read'*l'
 
-        print(" [enter] seguir")
-        print()
-        
-        if running_project then
-            print(" [n] no restaurar, abrir un proyecto o crear uno nuevo")
-            print()
-        end
-        
-        print(" [Ctrl+C] interrumpir la ejecución del programa")
-        print()
-        
-        printf(">> ") 
-        local key = io.stdin:read'*l'
+           if key == "c" then
+              -- para seguir sin apagar las camaras (funcion oculta)
+              break
+           end
+       else
+           cameras_turned_off = true
+           break
+       end
+    end
 
-        if key == "" then
-            print(" o/")
-        elseif key == "n" then
-            defaults.autorestore_project_on_init = false
-        else
-            self:dalclick_loop(false)
-            return false
-        end
+
+    print(" DALclick se ha iniciado correctamente.\n Puede encender las cámaras si lo desea.\n")
         
-        if not mc:connect_all() then
-            no_init_cam = true
-        end
+    if running_project then
+      local ppath, pname, pext = string.match(running_project, "(.-)([^\\/]-%.?([^%.\\/]*))$")
+      print(" Se restaurará automáticamente el proyecto de la sesión anterior")
+      print(" desde:")
+      print()
+      print("   '"..tostring(ppath).."'")
+      print()
+    end
+
+    print(" [enter] seguir")
+    print()
+        
+    if running_project then
+        print(" [n] no restaurar, abrir un proyecto o crear uno nuevo")
+        print()
+    end
+        
+    print(" [Ctrl+C] interrumpir la ejecución del programa")
+    print()
+        
+    printf(">> ") 
+    local key = io.stdin:read'*l'
+
+    if key == "" then
+       print(" o/")
+    elseif key == "n" then
+       defaults.autorestore_project_on_init = false
     else
-        print(" Para prevenir interferencias entre el sistema operativo y DALclick en la")
-        print(" gestión de las cámaras digitales, es mejor comenzar con los dispositivos")
-        print(" apagados y encenderlos luego de iniciar DALclick.")
-        print()
-        print(" * * * * * * * * * * * * * * * * * * * * * * * * * ")
-        print(" Por favor apague las cámaras que estén encendidas")
-        print(" * * * * * * * * * * * * * * * * * * * * * * * * * ")
-        print()
-        print(" [enter] Continuar luego de apagar las cámaras")
-        print(" [c] Continuar sin apagar")
-        print()
-        
-        if running_project then
-
-            print(" Existe un proyecto de una sesión anterior de DALclick que se restaurará")
-            print(" automáticamente.")
-            print(" [n] para no restaurar y abrir o crear un nuevo proyecto")
-            print()
-        end
-
-
-        print(" (Siempre que quiera salir del programa use Ctrl+C)")
-        print()
-        
-        local key = io.stdin:read'*l'
-
-        if key == "" then
-            self:dalclick_loop(true)
-            return true
-        elseif key == "c" then
-            -- continue
-        elseif key == "cc" then
-            no_init_cam = true
-            -- continue
-        elseif key == "n" then
-            defaults.autorestore_project_on_init = false
-        else
-            self:dalclick_loop(false)
-            return false
-        end  
+       self:dalclick_loop(false)
+       return false
     end
     
+    if mc:connect_all() then
+       cameras_turned_off = false
+    else
+       cameras_turned_off = true
+    end
+
+
     -- opciones al inicio
     if defaults.autorestore_project_on_init then
         if not self:start_options('restore_project') then
@@ -2640,7 +2641,7 @@ function dc:main(
     end
     
     local init_st
-    if no_init_cam then
+    if cameras_turned_off then
         print(" Eligió no inicializar las cámaras.")
         init_st = 'no_init_select'
     else
@@ -2656,10 +2657,10 @@ function dc:main(
  [v] ver ultima captura    [w] guardar proyecto          referencia
  [e] explorador            [c] cerrar proyecto      [zz] ingresar valor de
                           [cl] clonar proyecto           zoom manualmente...
- [i] reiniciar cámaras     
- [b] bip en cámara de      [x] generar pdf y cerrar  [f] enfocar
-     referencia            [l] generar pdf y clonar  [m] modo seg/norm/rápido
-                          [ll] ídem, pdf modo auto
+ [i] iniciar o reiniciar
+     las cámaras           [x] generar pdf y cerrar  [f] enfocar
+ [b] bip en cámara de      [l] generar pdf y clonar  [m] modo seg/norm/rápido
+     referencia            [ll] ídem, pdf modo auto
  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
  [r][u] retroceder/avanzar    [uu] ir al final       [p] ir a página...
  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2821,25 +2822,18 @@ function dc:main(
 
     if init_st == false then
         print(" No se pudieron inicializar correctamente las cámaras.")
-        -- self:dalclick_loop(false)
-        -- return false
-    elseif init_st == 'exit' then
-        print(" Eligió salir.")
-        self:dalclick_loop(false)
-        return false
     else
-
         -- init daemons
         if defaults.mode_enable_qm_daemon then
             self:init_daemons()
         end
                
         local status
-        local e_overwt, o_overwt, margin, top_bar, the_title
+        local e_overwt, o_overwt, s_overwt, margin, top_bar, the_title
         local loopmsg = ""
         while true do
             
-            o_overwt = false; e_overwt = false
+            o_overwt = false; e_overwt = false; s_overwt = false
        
             state.cameras_status = mc:camsound_plip()
             if state.cameras_status == true then
@@ -2850,29 +2844,50 @@ function dc:main(
                 cam_msg = " cámaras apagadas "
             end
 
+            if p.settings.noc_mode == 'odd-even' then
+               if check_overwrite(defaults.even_name) then
+                   e_overwt = true
+               end
+               if check_overwrite(defaults.odd_name) then
+                   o_overwt = true
+               end
+            else -- p.settings.noc_mode == 'single'
+               if check_overwrite(defaults.single_name) then
+                   s_overwt = true
+               end
+            end
 
-            if check_overwrite(defaults.even_name) then
-                e_overwt = true
-            end
-            if check_overwrite(defaults.odd_name) then
-                o_overwt = true
-            end
             print()
             print()
             print(" Proyecto: ["..p.session.regnum.."]" )
-            if next(p.session.counter_min) and next(p.session.counter_max) then
-                printf(" Capturas realizadas: "
-                    ..string.format("%04d", p.session.counter_min.even)
-                    .."-"
-                    ..string.format("%04d", p.session.counter_min.odd)
-                    )
-                if p.session.counter_min.even ~= p.session.counter_max.even then
-                    print(" a "
-                    ..string.format("%04d", p.session.counter_max.even)
-                    .."-"
-                    ..string.format("%04d", p.session.counter_max.odd)
-                    )
-                end
+            if p.settings.noc_mode == 'odd-even' then
+               if next(p.session.counter_min) and next(p.session.counter_max) then
+                   printf(" Capturas realizadas: "
+                       ..string.format("%04d", p.session.counter_min.even)
+                       .."-"
+                       ..string.format("%04d", p.session.counter_min.odd)
+                       )
+                   if p.session.counter_min.even ~= p.session.counter_max.even then
+                       print(" a "
+                       ..string.format("%04d", p.session.counter_max.even)
+                       .."-"
+                       ..string.format("%04d", p.session.counter_max.odd)
+                       .." (odd-even mode)"
+                       )
+                   end
+               end
+	      	else -- p.settings.noc_mode == 'single'
+               if next(p.session.counter_min) and next(p.session.counter_max) then
+                   printf(" Capturas realizadas: "
+                       ..string.format("%04d", p.session.counter_min.single)
+                       )
+                   if p.session.counter_min.single ~= p.session.counter_max.single then
+                       print(" a "
+                       ..string.format("%04d", p.session.counter_max.single)
+                       .." (single mode)"
+                       )
+                   end
+               end
             end
             if p.state.zoom_pos then
                 print(" Valor del Zoom: "..tostring(p.state.zoom_pos))
@@ -2884,21 +2899,31 @@ function dc:main(
                 the_title = "Ayuda postproceso (PDF)" 
             elseif string.match(state.menu_mode, "scantailor_help") then 
                 the_title = "Ayuda Scantailor" 
-            else the_title = p.settings.title end
+            else the_title = p.settings.title..( p:project_is_not_empty() and "" or " [vacio]") end
             margin = math.floor( ( 76 - string.len(string.sub(the_title, 0, 50)) ) / 2 )
             top_bar = string.rep("=", margin).." "..string.sub(the_title, 0, 50).." "..string.rep("=", margin)
             print( top_bar )
             print("")
             print(menu[state.menu_mode])
-            print(
-                "= "
-                ..string.format("%04d", p.state.counter.even)
-                ..(e_overwt and " ##RECAPT## " or " ===========")
-                .."============"..cam_msg.."============"
-                ..(o_overwt and " ##RECAPT## " or "=========== ")
-                ..string.format("%04d", p.state.counter.odd)
-                .." ="
-                )
+            if p.settings.noc_mode == 'odd-even' then
+               print(
+                   "= "
+                   ..string.format("%04d", p.state.counter.even)
+                   ..(e_overwt and " ##RECAPT## " or " ===========")
+                   .."============"..cam_msg.."============"
+                   ..(o_overwt and " ##RECAPT## " or "=========== ")
+                   ..string.format("%04d", p.state.counter.odd)
+                   .." ="
+                   )
+            else -- p.settings.noc_mode == 'single'
+               print(
+                   "=================================== "
+                   ..string.format("%04d", p.state.counter.single)
+                   ..(s_overwt and " ##RECAPT## " or " ===========")
+                   .."==== "..cam_msg.."="
+                   )
+            end
+
             if p.session.include_list.from or p.session.include_list.to then
                 print(" -- Rango seleccionado: desde '"
                     ..tostring(p.session.include_list.from or '..')
@@ -2988,8 +3013,6 @@ function dc:main(
                 end
             elseif key == "r" then
                 printf(" retrocediendo un lugar para volver a realizar la captura...")
-                -- p.state.counter[defaults.odd_name] = p.state.counter[defaults.odd_name] - 2
-                -- p.state.counter[defaults.even_name] = p.state.counter[defaults.even_name] - 2
                 if p:counter_prev() ~= false then
                     print('OK')
                     p:save_state()
@@ -2998,9 +3021,12 @@ function dc:main(
                 end
             elseif key == "u" then
                 printf(" avanzando un lugar hacia adelante...")
-                -- p.state.counter[defaults.odd_name] = p.state.counter[defaults.odd_name] + 2
-                -- p.state.counter[defaults.even_name] = p.state.counter[defaults.even_name] + 2
-                if p:counter_next(p.session.counter_max.odd) ~= false then
+                if p.settings.noc_mode == 'odd-even' then
+                   local countermax = p.session.counter_max.odd
+                else -- p.settings.noc_mode == 'single'
+                   local countermax = p.session.counter_max.single
+                end
+                if p:counter_next(countermax) ~= false then
                     print('OK')
                     p:save_state()
                 else
@@ -3008,13 +3034,22 @@ function dc:main(
                 end
                 p:save_state()
             elseif key == "uu" then
-                if p.session.counter_max.odd ~= nil and p.session.counter_max.even ~= nil then
-                    p.state.counter.odd =  p.session.counter_max.odd  + 2
-                    p.state.counter.even = p.session.counter_max.even + 2
-                    p:save_state()
-                else
-                    loopmsg = " No se puede avanzar al final porque todavía no hay capturas"
-                end
+               if p.settings.noc_mode == 'odd-even' then
+                   if p.session.counter_max.odd ~= nil and p.session.counter_max.even ~= nil then
+                       p.state.counter.odd =  p.session.counter_max.odd  + 2
+                       p.state.counter.even = p.session.counter_max.even + 2
+                       p:save_state()
+                   else
+                       loopmsg = " No se puede avanzar al final porque todavía no hay capturas"
+                   end
+               else -- p.settings.noc_mode == 'single'
+                   if p.session.counter_max.single ~= nil then
+                       p.state.counter.single =  p.session.counter_max.odd
+                       p:save_state()
+                   else
+                       loopmsg = " No se puede avanzar al final porque todavía no hay capturas"
+                   end
+               end
             elseif key == "p" then
                 print(" Ir a la pagina...")
                 print(" ingresar valor numérico, no es necesario agregar ceros a la izquierda:")
@@ -3328,36 +3363,66 @@ function dc:main(
                     self:init_daemons()
                 end 
             elseif key == "ins" then
-                print(" Insertando espacio vacio en "..string.format("%04d", p.state.counter.even).."-"..string.format("%04d", p.state.counter.odd))
+               if p.settings.noc_mode == 'odd-even' then
+                   print(" Insertando espacio vacio en "..string.format("%04d", p.state.counter.even).."-"..string.format("%04d", p.state.counter.odd))
+               else -- p.settings.noc_mode == 'single'
+                   print(" Insertando espacio vacio en "..string.format("%04d", p.state.counter.single))
+               end
                 p:insert_empty_in_counter()
                     print()
                     print(" Presione <enter> para continuar...")
                     local key = io.stdin:read'*l'
             elseif key == "desde" then
                 if type(p.state.counter) == 'table' then
-                    if p.state.counter.even then
-                        if p.state.counter.even <= p.session.counter_max.even then 
+                   if p.settings.noc_mode == 'odd-even' then
+                      if p.state.counter.even and p.session.counter_max.even then
+                         if p.state.counter.even <= p.session.counter_max.even then 
                             p.session.include_list.from = p.state.counter.even
                             loopmsg = " Valor 'desde' actualizado ("..tostring(p.session.include_list.from)..")"
-                        else
+                         else
                             loopmsg = " No puede marcarse esta posición (aun no se realizó la captura)"
-                        end
-                    else
-                        loopmsg = " ERROR: el contador no registra valores"
-                    end
+                         end
+                      else
+                         loopmsg = " ERROR: el contador no registra valores o no esta establecido counter_max"
+                      end
+                   else -- p.settings.noc_mode == 'single'
+                      if p.state.counter.single and p.session.counter_max.single then
+                         if p.state.counter.single <= p.session.counter_max.single then 
+                            p.session.include_list.from = p.state.counter.single
+                            loopmsg = " Valor 'desde' actualizado ("..tostring(p.session.include_list.from)..")"
+                         else
+                            loopmsg = " No puede marcarse esta posición (aun no se realizó la captura)"
+                         end
+                      else
+                         loopmsg = " ERROR: el contador no registra valores o no esta establecido counter_max"
+                      end
+                   end
                 end
             elseif key == "hasta" then
                 if type(p.state.counter) == 'table' then
-                    if p.state.counter.odd then 
-                        if p.state.counter.odd <= p.session.counter_max.odd then 
+                   if p.settings.noc_mode == 'odd-even' then
+                      if p.state.counter.odd and p.session.counter_max.odd then 
+                         if p.state.counter.odd <= p.session.counter_max.odd then 
                             p.session.include_list.to = p.state.counter.odd
                             loopmsg = " Valor 'hasta' actualizado ("..tostring(p.session.include_list.to)..")"
-                        else
+                         else
                             loopmsg = " No puede marcarse esta posición (aun no se realizó la captura)"
-                        end
-                    else
-                        loopmsg = " ERROR: el contador no registra valores"
-                    end
+                         end
+                      else
+                         loopmsg = " ERROR: el contador no registra valores o no esta establecido counter_max"
+                      end
+                   else -- p.settings.noc_mode == 'single'
+                      if p.state.counter.single and p.session.counter_max.single then
+                         if p.state.counter.single <= p.session.counter_max.single then 
+                            p.session.include_list.to = p.state.counter.single
+                            loopmsg = " Valor 'desde' actualizado ("..tostring(p.session.include_list.to)..")"
+                         else
+                            loopmsg = " No puede marcarse esta posición (aun no se realizó la captura)"
+                         end
+                      else
+                         loopmsg = " ERROR: el contador no registra valores o no esta establecido counter_max"
+                      end
+                   end
                 end
             elseif key == "reparar" then
                 local status, no_errors, log = p:reparar() 
@@ -3526,7 +3591,7 @@ function dc:main(
                     loopmsg = " Ha ocurrido un error inesperado."
                 end
             elseif key == "rango" then
-                if tonumber(p.session.counter_max.odd) > 1 then
+                if p:project_is_not_empty() then
                     print("ingrese un valor para 'desde'")
                     printf(">> ")
                     local continue = false
@@ -3535,6 +3600,8 @@ function dc:main(
                         p.session.include_list.from = tonumber(desde)
                         print(" Valor 'desde' ingresado: "..tostring(p.session.include_list.from))
                         continue = true
+                    else
+                        print(" Valor 'desde' ingresado inválido! ("..tostring(p.session.include_list.from)..")")
                     end
                     if continue then
                         print("ingrese un valor para 'hasta'")
@@ -3543,15 +3610,17 @@ function dc:main(
                         if hasta ~= "" and hasta ~= nil then
                             hasta = tonumber(hasta)
                             if hasta > p.session.include_list.from then
-                                if hasta < tonumber(p.session.counter_max.odd) then
+                                if hasta <= p.session.counter_max.odd then
                                     p.session.include_list.to = hasta
                                     print(" Valor 'desde' ingresado: "..tostring(p.session.include_list.to))
                                 else
-                                print(" El valor de 'hasta' debe ser menor a la ultima imagen")
+                                    print(" El valor de 'hasta' debe ser menor o igual a la ultima imagen capturada")
                                 end
                             else
                                 print(" El valor de 'hasta' debe ser mayor a 'desde'")
                             end
+                        else
+                           print(" Valor 'hasta' ingresado inválido! ("..tostring(p.session.include_list.from)..")")
                         end
                     end
                 end
