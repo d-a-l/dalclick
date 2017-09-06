@@ -1299,9 +1299,13 @@ function project:show_capts(mode, previews, filenames )
     end
 
     self.session.preview_counter = self.state.counter
-      
+
     local left = {}
     local right = {}
+    local single = {}
+
+    local noc_mode = self.settings.noc_mode
+
     local gbtn = {}
     local button_prev_init_active = "YES"
     local button_next_init_active = "YES"
@@ -1312,20 +1316,34 @@ function project:show_capts(mode, previews, filenames )
             return false
         end
         -- definir estado inicial
-        if self.session.preview_counter.odd > self.session.counter_max.odd then
-            self.session.preview_counter = self.session.counter_max
+        if noc_mode == 'odd-even' then
+           if self.session.preview_counter.odd > self.session.counter_max.odd then
+               self.session.preview_counter = self.session.counter_max
+           end
+        else
+           if self.session.preview_counter.single > self.session.counter_max.single then
+               self.session.preview_counter = self.session.counter_max
+           end
         end
         
         local status
         status, previews, filenames = self:make_preview()
 
-        if self.session.preview_counter.odd == self.session.counter_max.odd then
-            button_next_init_active = "NO"
+        if noc_mode == 'odd-even' then
+           if self.session.preview_counter.odd == self.session.counter_max.odd then
+               button_next_init_active = "NO"
+           end
+           if self.session.preview_counter.even == self.session.counter_min.even then
+               button_prev_init_active = "NO"
+           end
+        else
+           if self.session.preview_counter.single == self.session.counter_max.single then
+               button_next_init_active = "NO"
+           end
+           if self.session.preview_counter.single == self.session.counter_min.single then
+               button_prev_init_active = "NO"
+           end
         end
-        if self.session.preview_counter.even == self.session.counter_min.even then
-            button_prev_init_active = "NO"
-        end
-
     end
 
     require("imlua")
@@ -1335,38 +1353,60 @@ function project:show_capts(mode, previews, filenames )
     require("iupluacd")
     require("iupluaimglib")
         
-    left.image = im.FileImageLoad( previews.even )
-    left.cnv = iup.canvas{rastersize = left.image:Width().."x"..left.image:Height(), border = "YES"}
-    function left.cnv:map_cb()       -- the CD canvas can only be created when the IUP canvas is mapped
-        self.canvas = cd.CreateCanvas(cd.IUP, self)
+    if noc_mode == 'odd-even' then
+       left.image = im.FileImageLoad( previews.even )
+       left.cnv = iup.canvas{rastersize = left.image:Width().."x"..left.image:Height(), border = "YES"}
+
+       function left.cnv:map_cb()       -- the CD canvas can only be created when the IUP canvas is mapped
+           self.canvas = cd.CreateCanvas(cd.IUP, self)
+       end
+       function left.cnv:action()          -- called everytime the IUP canvas needs to be repainted
+         self.canvas:Activate()
+         self.canvas:Clear()
+         left.image:cdCanvasPutImageRect(self.canvas, 0, 0, 0, 0, 0, 0, 0, 0) -- use default values
+       end
+
+       right.image = im.FileImageLoad( previews.odd )    
+       right.cnv = iup.canvas{rastersize = right.image:Width().."x"..right.image:Height(), border = "YES"}
+
+       function right.cnv:map_cb()       -- the CD canvas can only be created when the IUP canvas is mapped
+           self.canvas = cd.CreateCanvas(cd.IUP, self)
+       end
+       function right.cnv:action()          -- called everytime the IUP canvas needs to be repainted
+         self.canvas:Activate()
+         self.canvas:Clear()
+         right.image:cdCanvasPutImageRect(self.canvas, 0, 0, 0, 0, 0, 0, 0, 0) -- use default values
+       end 
+    else
+       single.image = im.FileImageLoad( previews.single )
+       single.cnv = iup.canvas{rastersize = single.image:Width().."x"..single.image:Height(), border = "YES"}
+
+       function single.cnv:map_cb()       -- the CD canvas can only be created when the IUP canvas is mapped
+           self.canvas = cd.CreateCanvas(cd.IUP, self)
+       end
+       function single.cnv:action()          -- called everytime the IUP canvas needs to be repainted
+         self.canvas:Activate()
+         self.canvas:Clear()
+         single.image:cdCanvasPutImageRect(self.canvas, 0, 0, 0, 0, 0, 0, 0, 0) -- use default values
+       end
     end
-    function left.cnv:action()          -- called everytime the IUP canvas needs to be repainted
-      self.canvas:Activate()
-      self.canvas:Clear()
-      left.image:cdCanvasPutImageRect(self.canvas, 0, 0, 0, 0, 0, 0, 0, 0) -- use default values
-    end
-            
-    right.image = im.FileImageLoad( previews.odd )    
-    right.cnv = iup.canvas{rastersize = right.image:Width().."x"..right.image:Height(), border = "YES"}
-    function right.cnv:map_cb()       -- the CD canvas can only be created when the IUP canvas is mapped
-        self.canvas = cd.CreateCanvas(cd.IUP, self)
-    end
-    function right.cnv:action()          -- called everytime the IUP canvas needs to be repainted
-      self.canvas:Activate()
-      self.canvas:Clear()
-      right.image:cdCanvasPutImageRect(self.canvas, 0, 0, 0, 0, 0, 0, 0, 0) -- use default values
-    end    
 
     -- left.cnv:action(); right.cnv:action()
     -------
     
-    left.label = iup.label{
-        title = filenames.even --, expand = "HORIZONTAL", padding = "10x5"
-    }
-    
-    right.label = iup.label{
-        title = filenames.odd --, expand = "HORIZONTAL", padding = "10x5"
-    }
+    if noc_mode == 'odd-even' then
+       left.label = iup.label{
+           title = filenames.even --, expand = "HORIZONTAL", padding = "10x5"
+       }
+       
+       right.label = iup.label{
+           title = filenames.odd --, expand = "HORIZONTAL", padding = "10x5"
+       }
+    else
+       single.label = iup.label{
+           title = filenames.single --, expand = "HORIZONTAL", padding = "10x5"
+       }
+    end
     
     -- with 'guest' counter mode (contador "interno" solo actualiza state.counter al hacer click en return)
 
@@ -1392,7 +1432,12 @@ function project:show_capts(mode, previews, filenames )
         flat = "Yes", 
         action = 
             function() 
-                local counter_updated = self:preview_counter_next( self.session.counter_max.odd )
+                local counter_updated
+                if noc_mode == 'odd-even' then
+                   counter_updated = self:preview_counter_next( self.session.counter_max.odd )
+                else
+                   counter_updated = self:preview_counter_next( self.session.counter_max.single )
+                end
                 if counter_updated ~= false then
                     local status, previews, filenames = self:make_preview()
                     gbtn:gbtn_action_callback(counter_updated, previews, filenames, 'next') 
@@ -1440,11 +1485,16 @@ function project:show_capts(mode, previews, filenames )
     }
     
     function gbtn:gbtn_action_callback(counter_updated, previews, filenames, action)
-       left.image =  im.FileImageLoad( previews.even ); left.cnv:action()
-       right.image = im.FileImageLoad( previews.odd ); right.cnv:action()
-       left.label.title = filenames.even
-       right.label.title = filenames.odd
+       if noc_mode == 'odd-even' then
+          left.image =  im.FileImageLoad( previews.even ); left.cnv:action()
+          right.image = im.FileImageLoad( previews.odd ); right.cnv:action()
+          left.label.title = filenames.even
+          right.label.title = filenames.odd
        -- gbtn_go.tip = "Go to "..filenames.even.." | "..filenames.odd
+       else
+          single.image =  im.FileImageLoad( previews.single ); single.cnv:action()
+          single.label.title = filenames.single
+       end
        
        if counter_updated == nil then
           if action == 'next' then
@@ -1464,21 +1514,33 @@ function project:show_capts(mode, previews, filenames )
     -- print("DEBUG: even "..tostring(self.session.preview_counter.even)..".."..tostring(self.session.counter_max.even))
 
     -------
+    local viewers, labelbar
+    if noc_mode == 'odd-even' then
+       viewers = iup.hbox{ 
+           left.cnv,
+           right.cnv 
+       }
 
-    local viewers = iup.hbox{ 
-        left.cnv,
-        right.cnv 
-    }
+       labelbar = iup.hbox{ 
+           left.label, 
+           iup.fill {
+               expand="HORIZONTAL"
+           },
+           right.label,
+           -- margin = "10x10",
+           -- gap = 2,
+       }
+    else
+       viewers = iup.hbox{ 
+           single.cnv
+       }
 
-    local labelbar = iup.hbox{ 
-        left.label, 
-        iup.fill {
-            expand="HORIZONTAL"
-        },
-        right.label,
-        -- margin = "10x10",
-        -- gap = 2,
-    }
+       labelbar = iup.hbox{ 
+           single.label
+       }
+    end
+
+
 
     local bottombar = iup.hbox{
         btn_previous, 
@@ -1543,10 +1605,15 @@ function project:show_capts(mode, previews, filenames )
 
     local function destroy_dialog() 
         -- print(" cerrando  ...")
-        right.image:Destroy()
-        right.cnv.canvas:Kill()
-        left.image:Destroy()
-        left.cnv.canvas:Kill()
+        if noc_mode == 'odd-even' then
+           right.image:Destroy()
+           right.cnv.canvas:Kill()
+           left.image:Destroy()
+           left.cnv.canvas:Kill()
+        else
+           single.image:Destroy()
+           single.cnv.canvas:Kill()
+        end
         iup.ExitLoop() -- should be removed if used inside a bigger application
         dlg:destroy()
     end
@@ -1554,7 +1621,11 @@ function project:show_capts(mode, previews, filenames )
     local function set_counter()
         self.state.counter = self.session.preview_counter
         self:save_state()
-        print(" Se actualizó el contador a: "..tostring(self.state.counter.even).."|"..tostring(self.state.counter.odd))
+        if noc_mode == 'odd-even' then
+           print(" Se actualizó el contador a: "..tostring(self.state.counter.even).."|"..tostring(self.state.counter.odd))
+        else
+           print(" Se actualizó el contador a: "..tostring(self.state.counter.single))
+        end
     end
     
     function gbtn.gbtn_go:action() 

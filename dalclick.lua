@@ -64,7 +64,7 @@ local defaults={
     oddeven_default_ref_cam = "even",
     single_default_ref_cam = "single",
     oddeven_default_rotate = true,
-    single_default_rotate = false,
+    single_default_rotate = true, --false,
     --rotate_default = true,
     --ref_cam_default = "even",
     odd_name = "odd",
@@ -123,6 +123,8 @@ defaults.paths.doc_dir = defaults.doc_name
 
 local state = {
     cameras_status = nil,
+    cameras_status_msg = "",
+    show_cam_status_info = false,
     menu_mode = 'standart',
     projects_selection = {},
 }
@@ -352,35 +354,94 @@ end
 -- multicam functions
 
 function mc:camsound_plip()
+
+-- Envia un plip a las camaras y obtiene datos de su estado
+
+-- 1 detectada (detectada en el usb) gris
+-- 2 operativa (inicializada e identificada por dalclick/chdk) amarilla
+-- 3 lista (modo y objetivo desplegado para click) verde
+
+-- 4 desconfigurada o mal configurada: lcon:connect() -> false rojo1
+-- 5 idem: c_pip_cam() -> status false rojo2
+
+    local dalclick_detected = {}
+    local usb_conected = {}
+
+
     if type(self.cams) ~= 'table' then
-        return false
-    end
-    if not next(self.cams) then
-        return nil
+        -- ninguna camara operativa, nunca inicializadas
+        dalclick_detected = false
+    else
+       if not next(self.cams) then
+           -- ninguna camara operativa
+          dalclick_detected = nil
+       else
+          for i, lcon in ipairs(self.cams) do
+             dalclick_detected[i] = {}
+             dalclick_detected[i].idname = lcon.idname
+             if type(lcon.condev) == 'table'
+                and lcon.condev.dev and lcon.condev.bus then
+                dalclick_detected[i].devbus = lcon.condev.dev..lcon.condev.bus
+             end
+             -- print("dalclick_detected[i].devbus: '"..tostring(dalclick_detected[i].devbus).."'")
+             local is_connected
+             if lcon:is_connected() then
+                is_connected = true
+             else
+                local status,err = lcon:connect()
+                if not status then
+                   -- warnf('%d: connect failed dev:%s, bus:%s, err:%s\n',i,devinfo.dev,devinfo.bus,tostring(err))
+                   -- connect_fail
+                   is_connected = false
+                   dalclick_detected[i].status = 4
+                else
+                   is_connected = true
+                end
+             end
+             -- test conection
+             if is_connected then
+                local status, mode, err = lcon:execwait('return dc_pip_cam()',{libs={'dalclick_identify'}})
+                if status then
+                    if mode == "rec" then
+                       dalclick_detected[i].status = 3
+                    else
+                       dalclick_detected[i].status = 2
+                    end
+                else
+                    dalclick_detected[i].status = 5
+                    if err then
+                       dalclick_detected[i].err = err
+                    end
+                end
+             end
+          end --for
+       end
     end
 
-    for i, lcon in ipairs(self.cams) do
-        if lcon:is_connected() then
-        else
-            print()
-            print(" Atención: cámara desconectada ["..i.."]")
-            return nil
-            -- printf(" reconectando...")
-            -- local status, err = lcon:connect()
-            -- if status then
-            --    print("OK")
-            -- else
-            --     print(' FALLÓ ('..'bus: '..tostring(lcon.condev.bus)..', dev: '..tostring(lcon.condev.dev)..")")
-            --     return nil
-            -- end
-        end
+    local devices = chdk.list_usb_devices()
+    if type(devices) == 'table' and next(devices) then
+       for i, dev in ipairs(devices) do
+          local duplicated = false
+          local devbus = tostring(dev.dev)..tostring(dev.bus)
+          -- print("devbus: "..devbus)
+          if dalclick_detected then
+             for i, prevdev in ipairs(dalclick_detected) do
+                -- print("prevdev.devbus: "..prevdev.devbus)
+                if prevdev.devbus == devbus then
+                   duplicated = true
+                end
+             end
+          end
+          if not duplicated then 
+             usb_conected[i] = {}
+             usb_conected[i].status = 1
+          end
+       end
+    else
+       usb_conected = false
     end
-    
-    for i,lcon in ipairs(self.cams) do
-        lcon:exec("play_sound(2)")
-        sys.sleep(200) -- avoid running simultaneously
-    end
-    return true
+    return dalclick_detected, usb_conected
+
 end
 
 function mc:camsound_pip()
@@ -594,15 +655,205 @@ function mc:check_cam_connection()
     end
 end
 
-function mc:connect_all()
-    local connect_fail = false
+function mc:get_cam_status()
+-- detected
+--     dev type: string, bus type: string, vendor_id type: number, product_id type: number 
+-- connected
+--
+-- inconcluso1!!!
+    print("-- self.cams --")
+
+    if type(self.cams) == 'table' then
+       print("self.cams == {}")
+       if next(self.cams) then
+          for i, lconnection in ipairs(self.cams) do
+             if lconnection:is_connected() then
+                --lconnection:update_connection_info()
+                print("camara conectada en self.cams ["..i.."]")
+             else 
+                print("camara NO conectada en self.cams ["..i.."]")
+             end
+             if type(lconnection) == 'table' then
+                print( "ptpdev.model: "..(type(lconnection.ptpdev) == 'table' and lconnection.ptpdev.model or 'nil'))
+                print( "condev.bus: "  ..(type(lconnection.condev) == 'table' and lconnection.condev.bus or 'nil'))
+                print( "condev.dev: "  ..(type(lconnection.condev) == 'table' and lconnection.condev.dev or 'nil'))
+                print( "condev.dev: "  ..(type(lconnection.ptpdev) == 'table' and tostring(lconnection.ptpdev.serial_number) or 'nil'))
+                print( "idname: "..lconnection.idname)
+             else
+                print("lconnection type:"..type(lconnection))
+             end
+          end
+       else
+           print("no hay camaras *iniciadas* en self.cams")
+       end
+    else
+       print("self.cams == nil")
+    end
+    print("-- chdk.list_usb_devices() --")
+
     local devices = chdk.list_usb_devices()
 
-    self.cams={}
     if not next(devices) then
         -- print(" Aparentemente no hay cámaras conectadas al equipo\n")
+        print("no hay camaras *conectadas y encendidas* al equipo")
+        print()
         return false
     end
+
+    for i, devinfo in ipairs(devices) do
+       print("camara detectada ["..i.."]")
+       print("devinfo type:"..type(devinfo))
+       print("devinfo:"..tostring(devinfo))
+       print()
+       for j, info in pairs(devinfo) do
+          print(j.." type: "..type(info).." - '"..tostring(info).."'")
+       end
+       print()
+       local lcon,msg = chdku.connection(devinfo)
+       print("chdku.connection(devinfo) msg: '"..tostring(msg).."'")
+       if lcon:is_connected() then
+          print("is_connected: true")
+       else
+          print("is_connected: false")
+       end
+       if type(lcon) == 'table' then
+          print( "ptpdev.model: "..(type(lcon.ptpdev) == 'table' and lcon.ptpdev.model or 'nil'))
+          print( "condev.bus: "  ..(type(lcon.condev) == 'table' and lcon.condev.bus or 'nil'))
+          print( "condev.dev: "  ..(type(lcon.condev) == 'table' and lcon.condev.dev or 'nil'))
+          print( "ptpdev.serial_number: "  ..(type(lcon.ptpdev) == 'table' and tostring(lcon.ptpdev.serial_number) or 'nil'))
+          print( "idname: "..tostring(lcon.idname))
+       else
+          print("lcon type:"..type(lcon))
+       end
+       print()
+    end
+
+end
+
+function mc:detect_all()
+
+    -- detecta camaras conectadas via usb, no importa si estan conectadas via chdk
+    local detect_cam = false
+    local devices = chdk.list_usb_devices()
+    if type(devices) == 'table' and next(devices) then
+       for i, dev in ipairs(devices) do
+          io.write(" ["..i.."] - Cámara conectada en"
+               .." USB BUS: "..dev.bus.." ".."DEV:"..dev.dev.." "
+               ..string.format("%04x", dev.vendor_id)..":"..string.format("%04x", dev.product_id))
+          local lcon,msg = chdku.connection(dev)
+          if lcon:is_connected() then
+             io.write(" [chdk]")
+          end
+          print("\n")
+          detect_cam = true
+       end
+       return detect_cam
+    else
+        -- print(" No hay cámaras conectadas al equipo, o estan apagadas")
+        return false
+    end
+end
+
+function mc:camera_status(dalclick_detected, usb_conected)
+   -- true  ready - CAMARAS OPERATIVAS
+   -- nil   reiniciar camras - ACTIVAR CAMARAS
+   -- false apagadas o mal configuradas - SIN CAMARAS
+
+-- 1 detectada (detectada en el usb) gris
+-- 2 operativa (inicializada e identificada por dalclick/chdk) amarilla
+-- 3 lista (modo y objetivo desplegado para click) verde
+
+-- 4 no se puede conectar -- desconfigurada o mal configurada: lcon:connect() -> false rojo1
+-- 5 sin respuesta -- idem: c_pip_cam() -> status false rojo2
+
+  local cam_status = {[1] = 'sin activar', [2] = 'modo play', [3] = 'operativa', [4] = 'no conecta', [5] = 'no responde',}
+
+   if type(dalclick_detected) == "table" and next(dalclick_detected) then
+      -- continue
+   else
+      if type(usb_conected) == "table" and next(usb_conected) then
+         return nil, "Hay cámaras conectadas al equipo pero no han sido inicializadas desde\n dalclick, o no responden. Use la función '[a] activar cámaras'"
+      else
+         return false, "No se detectan cámaras. Están apagadas o el cable USB desconectado.\n Encienda las camaras o verifique el cable USB."
+      end
+   end
+
+   if p.settings.noc_mode == 'odd-even' then
+      local unnamed = false; local oddname = false; local evenname = false; local evenrepeat = false; local oddrepeat = false
+      local oddstatus; local evenstatus
+      for i, cam_item in ipairs(dalclick_detected) do
+         if cam_item.idname == "odd" then 
+            if oddname then oddrepeat = true else oddname = true; oddstatus = cam_item.status end
+         elseif cam_item.idname == "even" then
+            if evenname then evenrepeat = true else evenname = true; evenstatus = cam_item.status end
+         else unnamed = true end
+      end
+      if oddname == true and evenname == true and unnamed == false then
+         -- estructura de camaras ok
+         if oddstatus == 3 and evenstatus == 3 then
+            if type(usb_conected) == "table" and next(usb_conected) then
+               return nil, "Las configuración de las cámaras es correcta y están operativas, pero se\n detectan más conexiones. Use la función '[a] activar cámaras' y\n verifique que no haya dispositivos extra conectados."
+            else
+               return true, "Las cámaras están operativas."
+            end
+         else
+            return nil, "Las configuración de las cámaras es correcta, pero su estado no es operativo:\n derecha: '"..cam_status[evenstatus].."' / izquierda: '"..cam_status[oddstatus].."'. Use la función '[a] activar cámaras'.\n Si persiste el problema apague y vuelva a encender las cámaras."
+         end
+      else
+         -- estructura de camaras no coincide
+         if unnamed == true then
+            return false, "Se ha detectado al menos una cámara cuya configuración no corresponde con la\n configuración del proyecto (no está identificada como 'derecha' o 'izquierda').\n Verifique la configuracion de las cámaras."
+         elseif evenrepeat == true or oddrepeat == true then
+            return false, "Hay más de una cámara con la misma identificación (dos "..(oddrepeat and "izquierdas" or "derechas")..") conectadas\n al equipo. Verifique la configuracion de las cámaras."
+         elseif oddname == false or evenname == false then
+            return false, "La cámara "..(oddname and "izquierda" or "derecha").." no está siendo reconocida por Dalclick.\n Verifique el cable USB de la cámara "..(oddname and "izquierda" or "derecha").." y que esté encendida.\n Luego reinicie las cámaras en dalclick."
+         else
+            return false, "debug: un error interno de programa no permite reconocer el problema."
+         end
+      end
+   else
+      local singlename = false
+      local singlestatus; local extracam = false
+      for i, cam_item in ipairs(dalclick_detected) do
+         if cam_item.idname == "single" then 
+            singlename = true; singlestatus = cam_item.status 
+         end
+         if i > 1 then extracam = true end
+      end
+      if singlename == true and extracam == false then
+         -- estructura de camaras ok
+         if singlestatus == 3 then
+            if type(usb_conected) == "table" and next(usb_conected) then
+               return nil, "Las configuración de la cámara es correcta y está operativas, pero se detectan\n más conexiones. Use la función '[a] activar cámaras' y verifique que no\n haya dispositivos extra conectados."
+            else
+               return true, "Cámara operativa."
+            end
+         else
+            return nil, "La configuración de la cámara es correcta, pero su estado no es operativo:\n '"..cam_status[singlestatus].."'. Use la función '[a] activar cámaras'.\n Si persiste el problema apague y vuelva a encender las cámaras."
+         end
+      else
+         -- estructura de camaras no coincide
+         if extracam == true then
+            return false, "Se ha detectado al menos una cámara extra que no corresponde con la\n configuración del proyecto. Verifique la configuracion de las cámaras."
+         elseif singlename == false then
+            return false, "La cámara no esta correctamente configurada. Verifique la configuracion de\n las cámaras."
+         else
+            return false, "debug (single): un error interno de programa no permite reconocer el problema."
+         end
+      end
+   end
+end
+
+function mc:connect_all()
+
+    -- print("mc:connect_all()")
+    -- local key = io.stdin:read'*l'
+
+    local connect_fail = false
+    self.cams={}
+
+    local devices = chdk.list_usb_devices()
+
     for i, devinfo in ipairs(devices) do
         if i > 2 then
             print(" hay mas de dos dispositivos detectados!")
@@ -634,6 +885,36 @@ function mc:connect_all()
             -- -- --
         end
     end
+    print("-- test devices --")
+    for i, devinfo in ipairs(devices) do
+       local lcon,msg = chdku.connection(devinfo)
+       print("["..i.."] - lcon: '"..tostring(lcon).."'")
+       print("["..i.."] - mc_id: '"..tostring(lcon.mc_id).."'")
+       print("["..i.."] - sn: '"..tostring(lcon.sn).."'")
+       for j, el in pairs(lcon) do
+          print("["..j.."] ("..type(el).."): '"..tostring(el).."'")
+       end
+       print()
+       for j, el in pairs(getmetatable(lcon)) do
+          print("["..j.."] ("..type(el).."): '"..tostring(el).."'")
+       end
+       print()
+    end
+    print("-- test selt.cams --")
+    for i, lcon in ipairs(self.cams) do
+       print("["..i.."] - lcon: '"..tostring(lcon).."'")
+       print("["..i.."] - mc_id: '"..tostring(lcon.mc_id).."'")
+       print("["..i.."] - sn: '"..tostring(lcon.sn).."'")
+       for j, el in pairs(lcon) do
+          print("["..j.."] ("..type(el).."): '"..tostring(el).."'")
+       end
+       print()
+       for j, el in pairs(getmetatable(lcon)) do
+          print("["..j.."] ("..type(el).."): '"..tostring(el).."'")
+       end
+       print()
+    end
+    print("-- /test --")
     print()
     if connect_fail then
         return false
@@ -643,6 +924,7 @@ function mc:connect_all()
 end
 
 function mc:shutdown_all()
+
     local shutdown_fail = false
     for i,lcon in ipairs(self.cams) do
 
@@ -662,6 +944,9 @@ end
 
 function mc:init_cams_all()
    
+    -- print("mc:init_cams_all()")
+    -- local key = io.stdin:read'*l'
+
     -- comprueba que haya conexion
     
     print("\n Verificando conexión cámaras:")
@@ -815,6 +1100,9 @@ function mc:init_cams_all()
 end
 
 function mc:check_sdcams_options()
+
+    -- print("mc:check_sdcams_options()")
+    -- local key = io.stdin:read'*l'
 
     local empty = true
     if p.settings.noc_mode == 'odd-even' then
@@ -982,6 +1270,9 @@ end
 
 function mc:check_if_sdcams_are_empty()
 
+    -- print("mc:check_if_sdcams_are_empty()")
+    -- local key = io.stdin:read'*l'
+
     local out = {}
     for i,lcon in ipairs(self.cams) do
         local status, count, err = lcon:execwait([[
@@ -1016,6 +1307,9 @@ function mc:check_if_sdcams_are_empty()
 end
 
 function mc:empty_sdcams()
+
+    -- print("mc:check_if_sdcams_are_empty()")
+    -- local key = io.stdin:read'*l'
 
     local out = {}
     for i,lcon in ipairs(self.cams) do
@@ -1080,8 +1374,14 @@ function mc:capt_all(mode)
                     print(" modo test: contador desactivado")
                 else
                     p:counter_next()
-                    if not p.session.counter_max.odd or p.state.counter.odd > p.session.counter_max.odd then
-                        p.session.counter_max = p.state.counter
+                    if p.settings.noc_mode == 'odd-even' then
+                       if not p.session.counter_max.odd or p.state.counter.odd > p.session.counter_max.odd then
+                           p.session.counter_max = p.state.counter
+                       end
+                    else
+                       if not p.session.counter_max.single or p.state.counter.single > p.session.counter_max.single then
+                           p.session.counter_max = p.state.counter
+                       end
                     end
                 end
                 if p:save_state() then
@@ -1089,12 +1389,15 @@ function mc:capt_all(mode)
                     --print("DEBUG p.state.counter:\n"..util.serialize(p.state.counter))
                     --print("DEBUG p.state.zoom_pos:\n"..util.serialize(p.state.zoom_pos))
                     -- mc:rotate_all( saved_files )
-                    if p.state.saved_files and p.settings.rotate == true then
+                    -- if p.state.saved_files and p.settings.rotate == true then
+                    if p.state.saved_files then
                         if mc:rotate_and_resize_all() then
                         else
                             print(" Error: alguna de las imágenes no pudo ser rotada")
                             return false
                         end
+                    else
+                        print("ATENCION: solo se guardo en raw!!")
                     end
 
                 else
@@ -1165,7 +1468,11 @@ function mc:capt_all_test_and_preview()
             
             if not command_fail then
                 -- preview
-                p:show_capts('show_test', previews, {odd = 'PREVIEW', even = 'PREVIEW'})
+               if p.settings.noc_mode == 'odd-even' then
+                  p:show_capts('show_test', previews, {odd = 'PREVIEW', even = 'PREVIEW'})
+               else
+                  p:show_capts('show_test', previews, {single = 'PREVIEW'})
+               end
             end
             -- remove test paths if any
             for idname, paths in pairs(command_paths) do
@@ -2014,13 +2321,17 @@ function dc:start_options(mode, options)
     
     local start_menu = [[
 
- == Nueva sesión de DALclick ==================================================
+ ================================ DALclick ===================================
 
   Carpeta de proyectos: ']]..defaults.root_project_path..[['
  
   [n] crear nuevo proyecto        [o] abrir proyecto
   
-  ---- seleccionar una lista de proyectos -------------------------------------
+  [m] más opciones]]
+
+    local start_menu_more = [[
+
+  ---- Selección multiple de proyectos -------------------------------------
 
   [s]     seleccionar todos
   [s-pdf] seleccionar pendientes sin pdf 
@@ -2030,10 +2341,15 @@ function dc:start_options(mode, options)
     local start_menu_lote =[[   
   [pp] generar pdf   [reparar] reparar  [list] lista detallada
 
-  [q] para salir
+  [q] para salir]]
+
+    local start_menu_footer =[[
 
  ==============================================================================]]
     
+
+    local more = false
+
     if not running_project_loaded then    
         local key
         local empty_list_msg = " Primero debe seleccionar una lista de proyectos!"
@@ -2072,9 +2388,17 @@ function dc:start_options(mode, options)
         repeat
             print("\n\n\n\n")
             print(start_menu)
-            print()
-            print("  ---- acciones en lote para "..tostring(table.getn(state.projects_selection)).." proyectos seleccionados --------------------")
-            print(start_menu_lote)
+            if more then 
+               print(start_menu_more)
+               print()
+               print("  ---- acciones en lote para "..tostring(table.getn(state.projects_selection)).." proyectos seleccionados --------------------")
+               print(start_menu_lote)
+               print(start_menu_footer)
+            else
+               print(start_menu_footer)
+               print("\n\n\n\n\n\n\n")
+            end
+
             if next(state.projects_selection) then
                 print("Puede abrir un proyecto ingresando el número de índice de la lista previa")
             end
@@ -2089,6 +2413,8 @@ function dc:start_options(mode, options)
 
             if moption == "q" then
                 return false
+            elseif moption == "m" then
+                more = true
             elseif moption == "n" then
                 print(); print(" Eligió: Crear Nuevo Proyecto...")
                 local regnum, title = get_project_newname()
@@ -2300,13 +2626,16 @@ function dc:init_cams_or_retry()
     
 + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + 
 
- No se ha podido configurar correctamente alguna de las cámaras.
+ No se ha podido activar correctamente alguna de las cámaras.
  Posibles problemas y soluciones:
 
- 1) Alguna de las cámaras (o ambas) todavía está inicializando.
+ 1) Alguna de las cámaras (o ambas) estan apagadas.
+    Verifique que estén encendidas y la conexión del cable USB.
+
+ 2) Alguna de las cámaras (o ambas) todavía está inicializando.
     Espere unos segundos y vuelva a intentarlo.
     
- 2) Alguna de las cámaras (o ambas) se apagó o dejo de responder.
+ 3) Alguna de las cámaras (o ambas) dejo de responder.
     Enciéndala nuevamente y vuelva a intentarlo.
 
 == opciones ==================================================================
@@ -2395,6 +2724,17 @@ function dc_identify_cam(opts)
     return idname
 end
 
+function dc_pip_cam()
+   play_sound(2); sleep(150)
+   local rec,vid,mode = get_mode()
+   if rec then 
+      rec = "rec"
+   else
+      rec = ""
+   end
+   return rec
+end
+
 function dc_init_cam(opts)
 --  shoot_half and lock focus
     play_sound(2)
@@ -2456,6 +2796,46 @@ function dc:check_running_project()
         end
     end    
     return false
+end
+
+function dc:get_cam_icons(dalclick_detected, usb_conected)
+
+   local str_t = ""
+   local str_b = ""
+   local str_f = ""
+
+   if dalclick_detected then
+      for i, detected in ipairs(dalclick_detected) do
+         if     detected.status == 1 then b = "\27[90m[o]\27[0m"; t = "\27[90m _ \27[0m"
+         elseif detected.status == 2 then b = "\27[33m[o]\27[0m"; t = "\27[33m _ \27[0m"
+         elseif detected.status == 3 then b = "\27[32m[o]\27[0m"; t = "\27[32m _ \27[0m"
+         elseif detected.status == 4 then b = "\27[31m[x]\27[0m"; t = "\27[31m _ \27[0m"
+         elseif detected.status == 5 then b = "\27[31m[x]\27[0m"; t = "\27[31m _ \27[0m"
+         else b = "???"; t = "   "   end
+
+         if     detected.idname == "even"   then f = " R "
+         elseif detected.idname == "odd"    then f = " L "
+         elseif detected.idname == "single" then f = " S "
+         else f = "   " end
+         str_t = str_t.." "..t
+         str_b = str_b.." "..b
+         str_f = str_f.." "..f
+      end
+   end
+   if usb_conected then
+      for i, conected in ipairs(usb_conected) do
+         if     conected.status == 1 then b = "\27[90m[o]\27[0m"; t = "\27[90m _ \27[0m"
+         elseif conected.status == 2 then b = "\27[33m[o]\27[0m"; t = "\27[33m _ \27[0m"
+         elseif conected.status == 3 then b = "\27[32m[o]\27[0m"; t = "\27[32m _ \27[0m"
+         elseif conected.status == 4 then b = "\27[31m[x]\27[0m"; t = "\27[31m _ \27[0m"
+         else b = "???"; t = "   "   end
+         f = " ? "
+         str_t = str_t.." "..t
+         str_b = str_b.." "..b
+         str_f = str_f.." "..f
+      end
+   end
+   return str_t, str_b, str_f
 end
 
 function dc:main(
@@ -2541,37 +2921,40 @@ function dc:main(
 
 
     local exit = false
-    print()
-    print(" ====================================")
-    print('   ____   ___  _       _|_|     _')
-    print('  |  _ \\ / _ \\| |  ___| |_  __| | _')
-    print('  | | | | |_| | | /  _| | /  _| |/ /')
-    print('  | |_| |  _  | |_| |_| | | |_|   (')
-    print('  |___ /|_| |_|___\\___|_|_\\___|_|\\_\\')
-    print()
-    print(" ====================================")  
-    print()  
-    
-    -- el objetivo de este bloque es que las camaras esten apagadas y se enciendan ahora
+
+    local dalclick_logo = " ====================================\n"
+    ..'   ____   ___  _       _|_|     _\n'
+    ..'  |  _ \\ / _ \\| |  ___| |_  __| | _\n'
+    ..'  | | | | |_| | | /  _| | /  _| |/ /\n'
+    ..'  | |_| |  _  | |_| |_| | | |_|   (\n'
+    ..'  |___ /|_| |_|___\\___|_|_\\___|_|\\_\\\n'
+    ..'\n'
+    .." ====================================\n"
+
+    -- el objetivo de este bloque es que las camaras esten apagadas 
+    -- o dalclick no inicie hasta que el usuairo las apague
+
     local cameras_turned_off
     local running_project = self:check_running_project()
     
+    print("\n\n\n\n\n")
     while true do
-       if mc:connect_all() then
+       if mc:detect_all() then
+           print(" * * * * * * * * * * * * * * * * * * * * * * * * * * *")
+           print(" * Por favor apague las cámaras que estén encendidas *")
+           print(" * * * * * * * * * * * * * * * * * * * * * * * * * * *")
+           print()
            print(" Para prevenir interferencias entre el sistema operativo y DALclick en la")
            print(" gestión de las cámaras digitales, es mejor comenzar con los dispositivos")
            print(" apagados y encenderlos luego de iniciar DALclick.")
            print()
-           print(" * * * * * * * * * * * * * * * * * * * * * * * * * ")
-           print(" Por favor apague las cámaras que estén encendidas")
-           print(" * * * * * * * * * * * * * * * * * * * * * * * * * ")
-           print()
            print(" [enter] Continuar luego de apagar las cámaras")
-           print()
+           print("\n\n\n\n\n")
            printf(">> ") 
            cameras_turned_off = false
            local key = io.stdin:read'*l'
 
+           print("\n\n\n\n\n")
            if key == "c" then
               -- para seguir sin apagar las camaras (funcion oculta)
               break
@@ -2582,8 +2965,9 @@ function dc:main(
        end
     end
 
-
-    print(" DALclick se ha iniciado correctamente.\n Puede encender las cámaras si lo desea.\n")
+    print()
+    print(dalclick_logo)
+    print(" DALclick se ha iniciado correctamente.\n")
         
     if running_project then
       local ppath, pname, pext = string.match(running_project, "(.-)([^\\/]-%.?([^%.\\/]*))$")
@@ -2617,7 +3001,8 @@ function dc:main(
        return false
     end
     
-    if mc:connect_all() then
+    -- check if user turn on cam after initial menus
+    if mc:detect_all() then
        cameras_turned_off = false
     else
        cameras_turned_off = true
@@ -2653,11 +3038,11 @@ function dc:main(
  [enter] capturar                                    [s] salir  [h] inicio
 
  [t] test de captura       [n] nuevo proyecto...     [z] sincronizar zoom 
-                           [o] abrir proyecto...         desde la camara de
- [v] ver ultima captura    [w] guardar proyecto          referencia
- [e] explorador            [c] cerrar proyecto      [zz] ingresar valor de
-                          [cl] clonar proyecto           zoom manualmente...
- [i] iniciar o reiniciar
+ [v] ver ultima captura    [o] abrir proyecto...         desde la camara de
+ [e] explorador            [w] guardar proyecto          referencia
+                           [c] cerrar proyecto      [zz] ingresar valor de
+ [a] activar camaras       [cl] clonar proyecto           zoom manualmente...
+ [i] informacion sobre
      las cámaras           [x] generar pdf y cerrar  [f] enfocar
  [b] bip en cámara de      [l] generar pdf y clonar  [m] modo seg/norm/rápido
      referencia            [ll] ídem, pdf modo auto
@@ -2835,13 +3220,15 @@ function dc:main(
             
             o_overwt = false; e_overwt = false; s_overwt = false
        
-            state.cameras_status = mc:camsound_plip()
+            local dalclick_detected, usb_conected = mc:camsound_plip()
+            local iconline_t, iconline_b, iconline_f = dc:get_cam_icons(dalclick_detected, usb_conected)
+            state.cameras_status, state.cameras_status_msg = mc:camera_status(dalclick_detected, usb_conected)
             if state.cameras_status == true then
-                cam_msg = "=================="
+                cam_msg = " CAMARAS OPERATIVAS"
             elseif state.cameras_status == false then
-                cam_msg = " CÁMARAS APAGADAS "
+                cam_msg = " SIN CÁMARAS ======"
             elseif state.cameras_status == nil then
-                cam_msg = " cámaras apagadas "
+                cam_msg = " ACTIVAR CAMARAS =="
             end
 
             if p.settings.noc_mode == 'odd-even' then
@@ -2858,43 +3245,57 @@ function dc:main(
             end
 
             print()
-            print()
-            print(" Proyecto: ["..p.session.regnum.."]" )
+            local regnum_line, capt_line, zoom_line
+
+            regnum_line = string.sub(" Proyecto: ["..p.session.regnum.."]", 0, 50)
+
             if p.settings.noc_mode == 'odd-even' then
                if next(p.session.counter_min) and next(p.session.counter_max) then
-                   printf(" Capturas realizadas: "
+                   capt_line = " Capturas realizadas: "
                        ..string.format("%04d", p.session.counter_min.even)
                        .."-"
                        ..string.format("%04d", p.session.counter_min.odd)
-                       )
                    if p.session.counter_min.even ~= p.session.counter_max.even then
-                       print(" a "
+                       capt_line = capt_line
+                       .." a "
                        ..string.format("%04d", p.session.counter_max.even)
                        .."-"
                        ..string.format("%04d", p.session.counter_max.odd)
                        .." (odd-even mode)"
-                       )
                    end
+               else
+                  capt_line = " Capturas realizadas: Ninguna"
                end
-	      	else -- p.settings.noc_mode == 'single'
+            else -- p.settings.noc_mode == 'single'
                if next(p.session.counter_min) and next(p.session.counter_max) then
-                   printf(" Capturas realizadas: "
+                   capt_line = " Capturas realizadas: "
                        ..string.format("%04d", p.session.counter_min.single)
-                       )
                    if p.session.counter_min.single ~= p.session.counter_max.single then
-                       print(" a "
+                       capt_line = capt_line 
+                       .." a "
                        ..string.format("%04d", p.session.counter_max.single)
                        .." (single mode)"
-                       )
                    end
+               else
+                  capt_line = " Capturas realizadas: Ninguna"
                end
             end
+
             if p.state.zoom_pos then
-                print(" Valor del Zoom: "..tostring(p.state.zoom_pos))
+                zoom_line = " Valor del Zoom: "..tostring(p.state.zoom_pos)
             else
-                print(" Valor del Zoom: Sin definir")
+                zoom_line = " Valor del Zoom: Sin definir"
             end
-            print()
+
+            print( regnum_line.." "..string.rep(" ", 65 - string.len(regnum_line))
+                  ..string.rep(" ", 12 - string.len(iconline_f))..iconline_t
+            )
+            print(   capt_line.." "..string.rep(" ", 65 - string.len(capt_line))
+                  ..string.rep(" ", 12 - string.len(iconline_f))..iconline_b
+            )
+            print(   zoom_line.." "..string.rep(" ", 65 - string.len(zoom_line))
+                  ..string.rep(" ", 12 - string.len(iconline_f))..iconline_f
+            )
             if string.match(state.menu_mode, "pdf_help") then 
                 the_title = "Ayuda postproceso (PDF)" 
             elseif string.match(state.menu_mode, "scantailor_help") then 
@@ -2910,7 +3311,7 @@ function dc:main(
                    "= "
                    ..string.format("%04d", p.state.counter.even)
                    ..(e_overwt and " ##RECAPT## " or " ===========")
-                   .."============"..cam_msg.."============"
+                   .."=========="..cam_msg.." ========="
                    ..(o_overwt and " ##RECAPT## " or "=========== ")
                    ..string.format("%04d", p.state.counter.odd)
                    .." ="
@@ -2920,7 +3321,7 @@ function dc:main(
                    "=================================== "
                    ..string.format("%04d", p.state.counter.single)
                    ..(s_overwt and " ##RECAPT## " or " ===========")
-                   .."==== "..cam_msg.."="
+                   .."======"..cam_msg..""
                    )
             end
 
@@ -2931,8 +3332,12 @@ function dc:main(
                     ..tostring(p.session.include_list.to or '..')
                     .."' --")
             end
+            if state.show_cam_status_info == true then
+               loopmsg = " "..state.cameras_status_msg
+               state.show_cam_status_info = false
+            end
             if loopmsg ~= "" then 
-                print()
+                -- print()
                 print(">>"..loopmsg)
                 loopmsg = ""
             end
@@ -3351,8 +3756,8 @@ function dc:main(
                     end
                 end
                 if type(msg) == 'string' and msg  ~= "" then loopmsg = " "..tostring(msg) end
-            elseif key == "i" then
-                print(" Reiniciando cámaras... ")
+            elseif key == "a" then
+                print(" Activando cámaras... ")
                 local cam_status = self:init_cams_or_retry()
                 -- cam_status == 'no_init_select' or cam_status == true --> continue
                 if cam_status == 'exit' or cam_status == false then
@@ -3361,7 +3766,9 @@ function dc:main(
                 end
                 if defaults.mode_enable_qm_daemon then
                     self:init_daemons()
-                end 
+                end
+            elseif key == "i" then 
+                  state.show_cam_status_info = true
             elseif key == "ins" then
                if p.settings.noc_mode == 'odd-even' then
                    print(" Insertando espacio vacio en "..string.format("%04d", p.state.counter.even).."-"..string.format("%04d", p.state.counter.odd))
