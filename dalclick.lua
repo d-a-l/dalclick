@@ -64,7 +64,7 @@ local defaults={
     oddeven_default_ref_cam = "even",
     single_default_ref_cam = "single",
     oddeven_default_rotate = true,
-    single_default_rotate = true, --false,
+    single_default_rotate = false, --false,
     --rotate_default = true,
     --ref_cam_default = "even",
     odd_name = "odd",
@@ -778,7 +778,7 @@ function mc:camera_status(dalclick_detected, usb_conected)
       end
    end
 
-   if p.settings.noc_mode == 'odd-even' then
+   if p.session.noc_mode == 'odd-even' then
       local unnamed = false; local oddname = false; local evenname = false; local evenrepeat = false; local oddrepeat = false
       local oddstatus; local evenstatus
       for i, cam_item in ipairs(dalclick_detected) do
@@ -969,8 +969,8 @@ function mc:init_cams_all()
     local init_fail_err = ""
     local idnames = {}
     local count_cams = 0
-    if p.settings.noc_mode then
-        noc_mode =  p.settings.noc_mode
+    if p.session.noc_mode then
+        noc_mode =  p.session.noc_mode
     else
         noc_mode = defaults.noc_mode_default
     end
@@ -1088,9 +1088,9 @@ function mc:init_cams_all()
     print()
     --
     if init_fail then
-       if p.settings.noc_mode == 'odd-even' then
+       if p.session.noc_mode == 'odd-even' then
            print(" Alguna de las cámaras ha fallado, por favor apagarlas y volverlas a encender.\n")
-       else -- p.settings.noc_mode == 'single'
+       else -- p.session.noc_mode == 'single'
            print(" La cámara ha fallado al inicializar, por favor apaguela y vuelva a encenderla.\n")
        end
        print(" -> "..tostring(init_fail_err))
@@ -1105,7 +1105,7 @@ function mc:check_sdcams_options()
     -- local key = io.stdin:read'*l'
 
     local empty = true
-    if p.settings.noc_mode == 'odd-even' then
+    if p.session.noc_mode == 'odd-even' then
        local menu = [[
  ====================================================================
  ATENCION: Se recomienda borrar todas las imágenes contenidas en las 
@@ -1118,7 +1118,7 @@ function mc:check_sdcams_options()
  [c] para continuar sin borrar
  
 ]]
-    else -- p.settings.noc_mode == 'single'
+    else -- p.session.noc_mode == 'single'
        local menu = [[
  ====================================================================
  ATENCION: Se recomienda borrar todas las imágenes contenidas en la 
@@ -1193,7 +1193,7 @@ end
 
 function mc:rotate_all()
     local command, path
-    local rotate_fail = false
+    local command_fail = false
     for idname,saved_file in pairs(p.state.saved_files) do
         -- saved_files[lcon.idname] = {
         -- saved_file.path
@@ -1206,20 +1206,20 @@ function mc:rotate_all()
             print(" ["..idname.."] enviando comando (rotar) a la cola de acciones") 
             if not os.execute(p.dalclick.qm_sendcmd_path..' '..p.session.base_path.."/"..p.paths.raw[idname]..' "'..command..'"') then
                print(" error: falló: "..p.dalclick.qm_sendcmd_path..' '..p.session.base_path.."/"..p.paths.raw[idname]..' "'..command..'"')
-               rotate_fail = true
+               command_fail = true
             end
         else
             printf(" ["..idname.."] rotando("..saved_file.basename..")...") -- sin testear!!
             if not os.execute(command) then
                 print("ERROR")
                 print("     falló: '"..command.."'")
-                rotate_fail = true
+                command_fail = true
             else
                 print("OK")
             end
         end
     end
-    if rotate_fail then
+    if command_fail then
         return false
     else
         return true
@@ -1228,7 +1228,7 @@ end
 
 function mc:rotate_and_resize_all()
     local command, path
-    local rotate_fail = false
+    local command_fail = false
     for idname,saved_file in pairs(p.state.saved_files) do
         local thumbpath = p.session.base_path.."/"..p.paths.proc[idname].."/"..p.dalclick.thumbfolder_name
         if not dcutls.localfs:file_exists( thumbpath ) then
@@ -1239,29 +1239,29 @@ function mc:rotate_and_resize_all()
         end
         command = 
             "econvert -i "..saved_file.path
-          .." --rotate "..p.state.rotate[idname]
+          ..( p.settings.rotate and " --rotate "..p.state.rotate[idname] or "")
           .." -o "..p.session.base_path.."/"..p.paths.proc[idname].."/"..saved_file.basename
-          .." --thumbnail ".."0.125"
+          .." --thumbnail "..( p.settings.rotate and "0.125" or "0.167")
           .." -o "..thumbpath.."/"..saved_file.basename
           .." > /dev/null 2>&1"
         if defaults.mode_enable_qm_daemon then
             print(" ["..idname.."] enviando de comando de procesamiento a la cola de acciones ("..saved_file.basename..").") 
             if not os.execute(p.dalclick.qm_sendcmd_path..' '..p.session.base_path.."/"..p.paths.raw[idname]..' "'..command..'"') then
                 print(" error: falló: "..p.dalclick.qm_sendcmd_path..' '..p.session.base_path.."/"..p.paths.raw[idname]..' "'..command..'"')
-                rotate_fail = true
+                command_fail = true
             end
         else
-            printf(" ["..idname.."] rotando y generando vista previa ("..saved_file.basename..")...") 
+            printf(" ["..idname.."] "..(p.settings.rotate and "rotando y " or "").."generando vista previa ("..saved_file.basename..")...") 
             if not os.execute(command) then
                 print("ERROR")
                 print("    falló: '"..command.."'")
-                rotate_fail = true
+                command_fail = true
             else
                 print("OK")
             end
         end
     end
-    if rotate_fail then
+    if command_fail then
         return false
     else
         return true
@@ -1374,7 +1374,7 @@ function mc:capt_all(mode)
                     print(" modo test: contador desactivado")
                 else
                     p:counter_next()
-                    if p.settings.noc_mode == 'odd-even' then
+                    if p.session.noc_mode == 'odd-even' then
                        if not p.session.counter_max.odd or p.state.counter.odd > p.session.counter_max.odd then
                            p.session.counter_max = p.state.counter
                        end
@@ -1448,9 +1448,9 @@ function mc:capt_all_test_and_preview()
                 local command = 
                     "econvert"
                   .." -i "..command_paths[idname].src_path
-                  .." --rotate "..p.state.rotate[idname]
+                  ..( p.settings.rotate and " --rotate "..p.state.rotate[idname] or "")
                   .." -o "..command_paths[idname].high_path
-                  .." --thumbnail ".."0.125"
+                  .." --thumbnail "..( p.settings.rotate and "0.125" or "0.167")
                   .." -o "..command_paths[idname].low_path
                   .." > /dev/null 2>&1"
 
@@ -1468,7 +1468,7 @@ function mc:capt_all_test_and_preview()
             
             if not command_fail then
                 -- preview
-               if p.settings.noc_mode == 'odd-even' then
+               if p.session.noc_mode == 'odd-even' then
                   p:show_capts('show_test', previews, {odd = 'PREVIEW', even = 'PREVIEW'})
                else
                   p:show_capts('show_test', previews, {single = 'PREVIEW'})
@@ -2273,63 +2273,41 @@ function dc:kill_daemons()
     os.execute("killall qm_daemon.sh 2>&1") -- TODO: qm_daemon se deberia apagar creando un archivo 'quit' en job folder
 end
 
-function dc:start_options(mode, options)
+
+
+function dc:start_options(options)
 
     local options = options or {}
     if type(options) ~= 'table' then return false end
-    -- mode -> 'restore_project' ó 'new_project' (por ahora igual a '')
-    -- iniciando la estructura para un proyecto
-    if not p:init(defaults) then
-        return false
+
+    local current_project = false
+    local ppath, pname, pext
+    if not options.disable_restore_option then
+		current_project = self:check_running_project() 
+		if current_project then
+		  ppath, pname, pext = string.match(current_project, "(.-)([^\\/]-%.?([^%.\\/]*))$")
+		end
     end
 
-    -- iniciando proyecto (carga proyecto anterior o crea nuevo)
-    local running_project_loaded = false
-
-    if mode == "restore_project" then
-        local settings_path
-        if options.settings_path then
-            settings_path = options.settings_path
-        else
-            settings_path = self:check_running_project() 
-        end
-        if settings_path then
-            print("")
-            print(" Restaurando proyecto...")
-            local load_status, project_status = p:load(settings_path)
-            if load_status then
-                if project_status == 'opened' then
-                    running_project_loaded = true
-                    if p:update_running_project(settings_path) then
-                        -- success!!
-                    end
-                else
-                    print(" ATENCION: Está intentado cargar al inicio un proyecto en formato obsoleto.")
-                    print(" Por favor cárguelo seleccionando la opción [o] a continuación.")
-                    print()
-                end
-            else
-                print(" Ha ocurrido un error mientras se intentaba restaurar el proyecto")
-                sys.sleep(2000)
-            end
-        else
-            print()
-            print(" # Sin proyecto previo para restaurar #")
-            print()
-        end
+	local logo_lmargin = "                   "
+    local dalclick_logo = " =============================================================================\n"
+          ..logo_lmargin..'   ____   ___  _       _|_|     _\n'
+          ..logo_lmargin..'  |  _ \\ / _ \\| |  ___| |_  __| | _\n'
+          ..logo_lmargin..'  | | | | |_| | | /  _| | /  _| |/ /\n'
+          ..logo_lmargin..'  | |_| |  _  | |_| |_| | | |_|   (\n'
+          ..logo_lmargin..'  |___ /|_| |_|___\\___|_|_\\___|_|\\_\\\n'
+          ..logo_lmargin..'\n'
+          .." ================================  Inicio  ==================================="
+    -- Carpeta de proyectos: ']]..defaults.root_project_path..[['
+    local start_menu = ""
+    if current_project then
+       start_menu = "  [enter] restaurar: '"..ppath.."'\n\n"
     end
-    
-    local start_menu = [[
+    start_menu = start_menu.."  [n] crear nuevo proyecto        [o] abrir proyecto\n"
 
- ================================ DALclick ===================================
+    local start_menu_more = "  [m] más opciones"
 
-  Carpeta de proyectos: ']]..defaults.root_project_path..[['
- 
-  [n] crear nuevo proyecto        [o] abrir proyecto
-  
-  [m] más opciones]]
-
-    local start_menu_more = [[
+    local start_menu_advanced = [[
 
   ---- Selección multiple de proyectos -------------------------------------
 
@@ -2347,260 +2325,286 @@ function dc:start_options(mode, options)
 
  ==============================================================================]]
     
-
     local more = false
-
-    if not running_project_loaded then    
-        local key
-        local empty_list_msg = " Primero debe seleccionar una lista de proyectos!"
-        local loopmsg = ""
-        
-        local function get_options()
-            print(" - Seleccionados "..tostring(table.getn(state.projects_selection)).." proyectos.")
-            print()
-            print(" Puede abrir un proyecto ingresando el número de índice de la lista\n"
-                .." ó aplicar las acciones por lote a los proyectos listados.\n"
-                .." <enter> para más opciones..." )
-            printf(">> ")
-            local key = io.stdin:read'*l'
-            if key == "" then
-                return nil
-            else
-                return key
-            end
+    local key
+    local empty_list_msg = " Primero debe seleccionar una lista de proyectos!"
+    local loopmsg = ""
+    
+    local function get_options()
+        print(" - Seleccionados "..tostring(table.getn(state.projects_selection)).." proyectos.")
+        print()
+        print(" Puede abrir un proyecto ingresando el número de índice de la lista\n"
+            .." ó aplicar las acciones por lote a los proyectos listados.\n"
+            .." <enter> para más opciones..." )
+        printf(">> ")
+        local key = io.stdin:read'*l'
+        if key == "" then
+            return nil
+        else
+            return key
         end
+    end
+    
+    local function list_projects_and_get_options(status, projects)
+        if status == nil then
+            print(" La carpeta no contiene proyectos")
+        elseif status == false then
+            print(" Se produjeron errores al intentar obtener una lista de proyectos")
+        else
+            state.projects_selection = projects
+            print()
+            batch:list_projects( state.projects_selection )
+            print()
+            print(" - Fin de la lista")
+            return get_options()
+        end 
+    end
+    
+    repeat
+        if not more then 
+           print(dalclick_logo) 
+        else
+           print("================================ DALclick ===================================")
+        end
+        print()
+        print(start_menu)
+        if more then 
+           print(start_menu_advanced)
+           print()
+           print("  ---- acciones en lote para "..tostring(table.getn(state.projects_selection)).." proyectos seleccionados --------------------")
+           print(start_menu_lote)
+           print(start_menu_footer)
+        else
+           print(start_menu_more)
+           print(start_menu_footer)
+           print("\n")
+        end
+
+        if next(state.projects_selection) then
+            print("Puede abrir un proyecto ingresando el número de índice de la lista previa")
+        end
+        if loopmsg ~= "" then print(">> "..loopmsg) end
+        loopmsg = ""
+        printf(">> ")
+        if not key then key = io.stdin:read'*l' end
+        local moption = key
+        key = nil
         
-        local function list_projects_and_get_options(status, projects)
-            if status == nil then
-                print(" La carpeta no contiene proyectos")
-            elseif status == false then
-                print(" Se produjeron errores al intentar obtener una lista de proyectos")
+        -- ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
+        if moption == "" then
+			if current_project then
+		        print(); print(" Eligió: Restaurar '"..ppath.."'...")
+				-- limpiando estructura de proyecto
+				if not p:init(defaults) then
+					return false
+				end
+				local load_status, project_status = p:load(current_project)
+				if load_status then
+					if project_status == 'opened' then
+					    if p:update_running_project(current_project) then
+					        -- success!!
+					    end
+                        break
+					else
+					    print(" ATENCION: Está intentado cargar al inicio un proyecto en formato obsoleto.")
+					    print(" Por favor cárguelo seleccionando la opción [o]")
+					    print()
+					end
+				else
+					print(" Ha ocurrido un error mientras se intentaba restaurar el proyecto")
+					sys.sleep(2000)
+				end
+		    end
+        elseif moption == "q" then
+            return false
+        elseif moption == "m" then
+            more = true
+            print("\n\n\n\n")
+        elseif moption == "n" then
+            print(); print(" Eligió: Crear Nuevo Proyecto...")
+            local regnum, title = get_project_newname()
+            if regnum ~= nil then
+                if not p:init(defaults) then
+                    return false
+                end
+                local create_options = { regnum = regnum, title = title, root_path = defaults.root_project_path }
+                if config.zoom_persistent then
+                    create_options.zoom = options.zoom
+                end
+                if p:create( create_options ) then
+                    -- local cam_status = self:init_cams_or_retry()
+                    -- if cam_status == 'exit' then
+                    --    return 'exit' -- opcion explicita de salir de dalclick desde init_cams_or_retry()
+                    -- end
+                    break
+                end
+             end
+             -- state.projects_selection = {}
+             -- back to start options
+        elseif moption == "o" then
+            print(); print(" Eligió: Abrir Proyecto...")
+            local open_status, project_status = p:open(defaults, { root_path = defaults.root_project_path })
+            if open_status then
+                if project_status == 'modified' then
+                    printf(" El formato del proyecto era obsoleto. Guardando proyecto actualizado...")
+                    if p:write() then print("OK") else print("ERROR") end
+                end
+                if project_status ~= 'canceled' then
+                    break
+                end
+                -- back to start options
+            end
+            -- state.projects_selection = {}
+            -- back to start options
+        elseif moption == "s" then
+            print(" Eligió seleccionar todos los proyectos...")
+            local status, projects = 
+                batch:load_projects_list_from_path({ 
+                    path = defaults.root_project_path,
+                    -- hide_proc = true 
+                })            
+             key = list_projects_and_get_options(status, projects)
+        elseif moption == "s-pdf" then
+            print(" Eligió seleccionar todos los proyectos sin pdf...")
+            local status, projects = 
+                batch:load_projects_list_from_path({ 
+                    path = defaults.root_project_path,
+                    hide_proc = true 
+                })            
+             key = list_projects_and_get_options(status, projects)
+        elseif moption == "s+pdf" then
+            print(" Eligió seleccionar todos los proyectos que ya tienen pdf generado...")
+            local status, projects = 
+                batch:load_projects_list_from_path({ 
+                    path = defaults.root_project_path,
+                    hide_noproc = true 
+                })            
+             key = list_projects_and_get_options(status, projects)
+        elseif moption == "a" then
+            print(" Eligió seleccionar proyectos desde una lista en un archivo...")
+            local select_file_status, selected_file = select_file(defaults.root_project_path)
+            if select_file_status == true then
+                print(" Archivo seleccionado: '"..selected_file.."'")
+                local status, projects = 
+                    batch:load_projects_list_from_file({ 
+                        file = selected_file
+                    })
+                if status == nil then
+                    print(" No pudo cargarse ningún proyecto de la lista proporcionada")
+                elseif status == false then
+                    print(" Se canceló la operación o se produjeron errores")
+                else
+                    state.projects_selection = projects
+                    print()
+                    key = get_options()
+                end 
+            end
+        elseif moption == "list" then
+            print(" Seleccionó mostrar lista detallada:")
+            if next(state.projects_selection) then
+                print()
+                batch:show_projects( state.projects_selection )
+                print()
+                key = get_options()
             else
-                state.projects_selection = projects
+                loopmsg = empty_list_msg
+            end
+        elseif moption == "pp" then
+            print(" Seleccionó enviar a la cola de post-proceso (para generar pdf)\n proyectos seleccionados:")
+            if next(state.projects_selection) then
                 print()
                 batch:list_projects( state.projects_selection )
                 print()
-                print(" - Fin de la lista")
-                return get_options()
-            end 
-        end
-        
-        repeat
-            print("\n\n\n\n")
-            print(start_menu)
-            if more then 
-               print(start_menu_more)
-               print()
-               print("  ---- acciones en lote para "..tostring(table.getn(state.projects_selection)).." proyectos seleccionados --------------------")
-               print(start_menu_lote)
-               print(start_menu_footer)
-            else
-               print(start_menu_footer)
-               print("\n\n\n\n\n\n\n")
-            end
-
-            if next(state.projects_selection) then
-                print("Puede abrir un proyecto ingresando el número de índice de la lista previa")
-            end
-            if loopmsg ~= "" then print(">> "..loopmsg) end
-            loopmsg = ""
-            printf(">> ")
-            if not key then key = io.stdin:read'*l' end
-            local moption = key
-            key = nil
-            
-            -- ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
-
-            if moption == "q" then
-                return false
-            elseif moption == "m" then
-                more = true
-            elseif moption == "n" then
-                print(); print(" Eligió: Crear Nuevo Proyecto...")
-                local regnum, title = get_project_newname()
-                if regnum ~= nil then
-                    if not p:init(defaults) then
-                        return false
-                    end
-                    local create_options = { regnum = regnum, title = title, root_path = defaults.root_project_path }
-                    if config.zoom_persistent then
-                        create_options.zoom = options.zoom
-                    end
-                    if p:create( create_options ) then
-                        -- local cam_status = self:init_cams_or_retry()
-                        -- if cam_status == 'exit' then
-                        --    return 'exit' -- opcion explicita de salir de dalclick desde init_cams_or_retry()
-                        -- end
-                        break
-                    end
-                 end
-                 -- state.projects_selection = {}
-                 -- back to start options
-            elseif moption == "o" then
-                print(); print(" Eligió: Abrir Proyecto...")
-                local open_status, project_status = p:open(defaults, { root_path = defaults.root_project_path })
-                if open_status then
-                    if project_status == 'modified' then
-                        printf(" El formato del proyecto era obsoleto. Guardando proyecto actualizado...")
-                        if p:write() then print("OK") else print("ERROR") end
-                    end
-                    if project_status ~= 'canceled' then
-                        break
-                    end
-                    -- back to start options
-                end
-                -- state.projects_selection = {}
-                -- back to start options
-            elseif moption == "s" then
-                print(" Eligió seleccionar todos los proyectos...")
-                local status, projects = 
-                    batch:load_projects_list_from_path({ 
-                        path = defaults.root_project_path,
-                        -- hide_proc = true 
-                    })            
-                 key = list_projects_and_get_options(status, projects)
-            elseif moption == "s-pdf" then
-                print(" Eligió seleccionar todos los proyectos sin pdf...")
-                local status, projects = 
-                    batch:load_projects_list_from_path({ 
-                        path = defaults.root_project_path,
-                        hide_proc = true 
-                    })            
-                 key = list_projects_and_get_options(status, projects)
-            elseif moption == "s+pdf" then
-                print(" Eligió seleccionar todos los proyectos que ya tienen pdf generado...")
-                local status, projects = 
-                    batch:load_projects_list_from_path({ 
-                        path = defaults.root_project_path,
-                        hide_noproc = true 
-                    })            
-                 key = list_projects_and_get_options(status, projects)
-            elseif moption == "a" then
-                print(" Eligió seleccionar proyectos desde una lista en un archivo...")
-                local select_file_status, selected_file = select_file(defaults.root_project_path)
-                if select_file_status == true then
-                    print(" Archivo seleccionado: '"..selected_file.."'")
-                    local status, projects = 
-                        batch:load_projects_list_from_file({ 
-                            file = selected_file
-                        })
-                    if status == nil then
-                        print(" No pudo cargarse ningún proyecto de la lista proporcionada")
-                    elseif status == false then
-                        print(" Se canceló la operación o se produjeron errores")
-                    else
-                        state.projects_selection = projects
-                        print()
-                        key = get_options()
-                    end 
-                end
-            elseif moption == "list" then
-                print(" Seleccionó mostrar lista detallada:")
-                if next(state.projects_selection) then
-                    print()
-                    batch:show_projects( state.projects_selection )
-                    print()
-                    key = get_options()
-                else
-                    loopmsg = empty_list_msg
-                end
-            elseif moption == "pp" then
-                print(" Seleccionó enviar a la cola de post-proceso (para generar pdf)\n proyectos seleccionados:")
-                if next(state.projects_selection) then
-                    print()
-                    batch:list_projects( state.projects_selection )
-                    print()
-                    print(" ¿Desea generar pdf en los proyectos listados? [s/n]")
+                print(" ¿Desea generar pdf en los proyectos listados? [s/n]")
+                printf(">> ")
+                local pkey = io.stdin:read'*l'
+                if pkey == "S" or pkey == "s" then
+                    print(" Procesando lista de proyectos obtenida...")
+                    local result = batch:postprocess( state.projects_selection )
+                    print("\n"..tostring(result).."\n")
+                    print(" <enter> para continuar")
                     printf(">> ")
-                    local pkey = io.stdin:read'*l'
-                    if pkey == "S" or pkey == "s" then
-                        print(" Procesando lista de proyectos obtenida...")
-                        local result = batch:postprocess( state.projects_selection )
-                        print("\n"..tostring(result).."\n")
+                    pkey = io.stdin:read'*l'
+                end
+            else
+                loopmsg = empty_list_msg
+            end
+        elseif moption == "reparar" then
+            print(" Eligió reparar los proyectos seleccionados:")
+            if next(state.projects_selection) then
+                print()
+                batch:list_projects( state.projects_selection )
+                print()
+                print(" ¿Desea reparar proyectos listados? [s/n]")
+                printf(">> ")
+                local pkey = io.stdin:read'*l'
+                if pkey == "S" or pkey == "s" then
+                    print(" Procesando proyectos seleccionados...")
+                    local repair_status, success, fail = batch:repair_projects( state.projects_selection )
+                    if repair_status then
+                        print(); 
+                        print(" Proyectos reparados existosamente:")
+                        print(" ----------------------------------")
+                        print()
+                        for _,b in pairs( success ) do print( " OK "..tostring(b) ) end
+                        print()
+                        print(" Proyectos que no pudieron ser reparados o generaron mensajes de error:")
+                        print(" ----------------------------------------------------------------------")
+                        print()
+                        for _,b in pairs( fail ) do print( " ?? "..tostring(b) ) end
+                        print()
+                        print(" - Fin de la listas -")
                         print(" <enter> para continuar")
                         printf(">> ")
                         pkey = io.stdin:read'*l'
                     end
-                else
-                    loopmsg = empty_list_msg
-                end
-            elseif moption == "reparar" then
-                print(" Eligió reparar los proyectos seleccionados:")
-                if next(state.projects_selection) then
-                    print()
-                    batch:list_projects( state.projects_selection )
-                    print()
-                    print(" ¿Desea reparar proyectos listados? [s/n]")
-                    printf(">> ")
-                    local pkey = io.stdin:read'*l'
-                    if pkey == "S" or pkey == "s" then
-                        print(" Procesando proyectos seleccionados...")
-                        local repair_status, success, fail = batch:repair_projects( state.projects_selection )
-                        if repair_status then
-                            print(); 
-                            print(" Proyectos reparados existosamente:")
-                            print(" ----------------------------------")
-                            print()
-                            for _,b in pairs( success ) do print( " OK "..tostring(b) ) end
-                            print()
-                            print(" Proyectos que no pudieron ser reparados o generaron mensajes de error:")
-                            print(" ----------------------------------------------------------------------")
-                            print()
-                            for _,b in pairs( fail ) do print( " ?? "..tostring(b) ) end
-                            print()
-                            print(" - Fin de la listas -")
-                            print(" <enter> para continuar")
-                            printf(">> ")
-                            pkey = io.stdin:read'*l'
-                        end
-                    end
-                else
-                    loopmsg = empty_list_msg
                 end
             else
-                if next(state.projects_selection) then
-                    if state.projects_selection[tonumber(moption)] ~= nil then
-                        print()
-                        print(" ¿Seguro que desea abrir el ítem "
-                              ..tostring(moption)
-                              .." '"..tostring(state.projects_selection[tonumber(moption)].id).."'"
-                              .."? [S/n]")
-                        print()
-                        printf(">> ")
-                        local confirm = io.stdin:read'*l'
-                        if confirm == "S" or confirm == "s" then
-                            local settings_path = state.projects_selection[tonumber(moption)].settings_path
-                            local load_status, project_status = p:load(settings_path)
-                            if load_status == true then
-                                
-                                print(" Proyecto cargado con éxito" )
-                                -- guardar referencia al proyecto cargado como "running project"
-                                if project_status == 'modified' then
-                                    printf(" El formato del proyecto era obsoleto. Guardando proyecto actualizado...")
-                                    if p:write() then print("OK") else print("ERROR") end
-                                end
-                                if p:update_running_project( settings_path ) then
-                                    break
-                                else
-                                    print(" Error: no se pudo actualizar la configuración interna de DALclick" )
-                                    sys.sleep(2000)
-                                    return false
-                                end
+                loopmsg = empty_list_msg
+            end
+        else
+            if next(state.projects_selection) then
+                if state.projects_selection[tonumber(moption)] ~= nil then
+                    print()
+                    print(" ¿Seguro que desea abrir el ítem "
+                          ..tostring(moption)
+                          .." '"..tostring(state.projects_selection[tonumber(moption)].id).."'"
+                          .."? [S/n]")
+                    print()
+                    printf(">> ")
+                    local confirm = io.stdin:read'*l'
+                    if confirm == "S" or confirm == "s" then
+                        local settings_path = state.projects_selection[tonumber(moption)].settings_path
+                        local load_status, project_status = p:load(settings_path)
+                        if load_status == true then
+                            
+                            print(" Proyecto cargado con éxito" )
+                            -- guardar referencia al proyecto cargado como "running project"
+                            if project_status == 'modified' then
+                                printf(" El formato del proyecto era obsoleto. Guardando proyecto actualizado...")
+                                if p:write() then print("OK") else print("ERROR") end
+                            end
+                            if p:update_running_project( settings_path ) then
+                                break
                             else
-                                print(" Ha ocurrido un error mientras se cargar el proyecto")
+                                print(" Error: no se pudo actualizar la configuración interna de DALclick" )
                                 sys.sleep(2000)
                                 return false
                             end
+                        else
+                            print(" Ha ocurrido un error mientras se cargar el proyecto")
+                            sys.sleep(2000)
+                            return false
                         end
-                    else
-                        print(" El índice "..tostring(moption).." no corresponde a ningún elemento de la lista")
                     end
                 else
-                    print(" Lista de proyectos vacía. Seleccione primero 'Listar proyectos' para cargarla.")
+                    print(" El índice "..tostring(moption).." no corresponde a ningún elemento de la lista")
                 end
+            else
+                print(" Lista de proyectos vacía. Seleccione primero 'Listar proyectos' para cargarla.")
             end
-        until false
-    end
+        end
+    until false
 
     return true
 end
@@ -2621,7 +2625,7 @@ function dc:init_cams_or_retry()
 
     local status
     local menu
-    if p.settings.noc_mode == 'odd-even' then
+    if p.session.noc_mode == 'odd-even' then
        menu = [[
     
 + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + 
@@ -2629,13 +2633,13 @@ function dc:init_cams_or_retry()
  No se ha podido activar correctamente alguna de las cámaras.
  Posibles problemas y soluciones:
 
- 1) Alguna de las cámaras (o ambas) estan apagadas.
+  - Alguna de las cámaras (o ambas) estan apagadas.
     Verifique que estén encendidas y la conexión del cable USB.
 
- 2) Alguna de las cámaras (o ambas) todavía está inicializando.
+  - Alguna de las cámaras (o ambas) todavía está inicializando.
     Espere unos segundos y vuelva a intentarlo.
     
- 3) Alguna de las cámaras (o ambas) dejo de responder.
+  - Alguna de las cámaras (o ambas) dejo de responder.
     Enciéndala nuevamente y vuelva a intentarlo.
 
 == opciones ==================================================================
@@ -2644,7 +2648,7 @@ function dc:init_cams_or_retry()
  [c] continuar sin iniciar las cámaras
 
 ==============================================================================]]
-    else -- p.settings.noc_mode == 'single'
+    else -- p.session.noc_mode == 'single'
        menu = [[
     
 + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + 
@@ -2652,10 +2656,10 @@ function dc:init_cams_or_retry()
  No se ha podido configurar correctamente las cámara.
  Posibles problemas y soluciones:
 
- 1) La cámara todavía está inicializando.
+  - La cámara todavía está inicializando.
     Espere unos segundos y vuelva a intentarlo.
     
- 2) La cámara se apagó o dejo de responder.
+  - La cámara se apagó o dejo de responder.
     Enciéndala nuevamente y vuelva a intentarlo.
 
 == opciones ==================================================================
@@ -2898,8 +2902,14 @@ function dc:main(
     
     defaults.ppm_sendcmd_path = defaults.dalclick_pwdir.."/ppm/ppm_sendcmd.sh" -- post process mananager
 
-    defaults.empty_thumb_path = defaults.dalclick_pwdir.."/empty_g.jpg"
-    defaults.empty_thumb_path_error = defaults.dalclick_pwdir.."/empty.jpg"
+    defaults.empty_thumb_path = defaults.dalclick_pwdir.."/img/empty_g.jpg"
+    defaults.empty_thumb_path_error = defaults.dalclick_pwdir.."/img/empty.jpg"
+
+    defaults.empty_thumb_path_landscape = defaults.dalclick_pwdir.."/img/empty_g-landscape.jpg"
+    defaults.empty_thumb_path_landscape_error = defaults.dalclick_pwdir.."/img/empty-landscape.jpg"
+
+    defaults.empty_thumb_path_landscapebig = defaults.dalclick_pwdir.."/img/empty_g-landscape-big.jpg"
+    defaults.empty_thumb_path_landscapebig_error = defaults.dalclick_pwdir.."/img/empty-landscape-big.jpg"
 
     -- --
     if not self:load_cam_scripts() then
@@ -2918,18 +2928,7 @@ function dc:main(
     
     self:dalclick_loop(false)
 
-
-
     local exit = false
-
-    local dalclick_logo = " ====================================\n"
-    ..'   ____   ___  _       _|_|     _\n'
-    ..'  |  _ \\ / _ \\| |  ___| |_  __| | _\n'
-    ..'  | | | | |_| | | /  _| | /  _| |/ /\n'
-    ..'  | |_| |  _  | |_| |_| | | |_|   (\n'
-    ..'  |___ /|_| |_|___\\___|_|_\\___|_|\\_\\\n'
-    ..'\n'
-    .." ====================================\n"
 
     -- el objetivo de este bloque es que las camaras esten apagadas 
     -- o dalclick no inicie hasta que el usuairo las apague
@@ -2940,9 +2939,9 @@ function dc:main(
     print("\n\n\n\n\n")
     while true do
        if mc:detect_all() then
-           print(" * * * * * * * * * * * * * * * * * * * * * * * * * * *")
-           print(" * Por favor apague las cámaras que estén encendidas *")
-           print(" * * * * * * * * * * * * * * * * * * * * * * * * * * *")
+           print("          =====================================================")
+           print("          = Por favor apague las cámaras que estén encendidas =")
+           print("          =====================================================")
            print()
            print(" Para prevenir interferencias entre el sistema operativo y DALclick en la")
            print(" gestión de las cámaras digitales, es mejor comenzar con los dispositivos")
@@ -2965,74 +2964,26 @@ function dc:main(
        end
     end
 
-    print()
-    print(dalclick_logo)
     print(" DALclick se ha iniciado correctamente.\n")
-        
-    if running_project then
-      local ppath, pname, pext = string.match(running_project, "(.-)([^\\/]-%.?([^%.\\/]*))$")
-      print(" Se restaurará automáticamente el proyecto de la sesión anterior")
-      print(" desde:")
-      print()
-      print("   '"..tostring(ppath).."'")
-      print()
+
+    local start_options_options = {}
+    if not defaults.autorestore_project_on_init then
+        start_options_options.disable_restore_option = true
+    end
+    if not self:start_options(start_options_options) then
+        self:dalclick_loop(false)
+        return false
     end
 
-    print(" [enter] seguir")
-    print()
-        
-    if running_project then
-        print(" [n] no restaurar, abrir un proyecto o crear uno nuevo")
-        print()
-    end
-        
-    print(" [Ctrl+C] interrumpir la ejecución del programa")
-    print()
-        
-    printf(">> ") 
-    local key = io.stdin:read'*l'
-
-    if key == "" then
-       print(" o/")
-    elseif key == "n" then
-       defaults.autorestore_project_on_init = false
-    else
-       self:dalclick_loop(false)
-       return false
-    end
-    
-    -- check if user turn on cam after initial menus
+    -- check if user turn on cam while initial menus
     if mc:detect_all() then
        cameras_turned_off = false
+       self:init_cams_or_retry()
     else
        cameras_turned_off = true
     end
 
-
-    -- opciones al inicio
-    if defaults.autorestore_project_on_init then
-        if not self:start_options('restore_project') then
-            self:dalclick_loop(false)
-            return false
-        end
-    else
-        print()
-        print(" (Como seleccionó 'n' previamente DALclick se inicia sin restaurar")
-        print(" el proyecto de la sesión anterior)")
-        if not self:start_options('new_project') then
-            self:dalclick_loop(false)
-            return false
-        end 
-    end
-    
-    local init_st
-    if cameras_turned_off then
-        print(" Eligió no inicializar las cámaras.")
-        init_st = 'no_init_select'
-    else
-        init_st = self:init_cams_or_retry()
-    end
-    
+	-- Todo: sacar las variables    
     local menu = {}
     menu.standart = [[
  [enter] capturar                                    [s] salir  [h] inicio
@@ -3205,184 +3156,150 @@ function dc:main(
 
 ]]
 
-    if init_st == false then
-        print(" No se pudieron inicializar correctamente las cámaras.")
-    else
-        -- init daemons
-        if defaults.mode_enable_qm_daemon then
-            self:init_daemons()
+    -- init daemons
+    if defaults.mode_enable_qm_daemon then
+        self:init_daemons()
+    end
+
+    -- project loop
+    local status
+    local e_overwt, o_overwt, s_overwt, margin, top_bar, the_title
+    local loopmsg = ""
+    while true do
+        
+        o_overwt = false; e_overwt = false; s_overwt = false
+   
+        local dalclick_detected, usb_conected = mc:camsound_plip()
+        local iconline_t, iconline_b, iconline_f = dc:get_cam_icons(dalclick_detected, usb_conected)
+        state.cameras_status, state.cameras_status_msg = mc:camera_status(dalclick_detected, usb_conected)
+        if state.cameras_status == true then
+            cam_msg = " CAMARAS OPERATIVAS"
+        elseif state.cameras_status == false then
+            cam_msg = " SIN CÁMARAS ======"
+        elseif state.cameras_status == nil then
+            cam_msg = " ACTIVAR CAMARAS =="
         end
-               
-        local status
-        local e_overwt, o_overwt, s_overwt, margin, top_bar, the_title
-        local loopmsg = ""
-        while true do
-            
-            o_overwt = false; e_overwt = false; s_overwt = false
-       
-            local dalclick_detected, usb_conected = mc:camsound_plip()
-            local iconline_t, iconline_b, iconline_f = dc:get_cam_icons(dalclick_detected, usb_conected)
-            state.cameras_status, state.cameras_status_msg = mc:camera_status(dalclick_detected, usb_conected)
-            if state.cameras_status == true then
-                cam_msg = " CAMARAS OPERATIVAS"
-            elseif state.cameras_status == false then
-                cam_msg = " SIN CÁMARAS ======"
-            elseif state.cameras_status == nil then
-                cam_msg = " ACTIVAR CAMARAS =="
-            end
 
-            if p.settings.noc_mode == 'odd-even' then
-               if check_overwrite(defaults.even_name) then
-                   e_overwt = true
+        if p.session.noc_mode == 'odd-even' then
+           if check_overwrite(defaults.even_name) then
+               e_overwt = true
+           end
+           if check_overwrite(defaults.odd_name) then
+               o_overwt = true
+           end
+        else -- p.session.noc_mode == 'single'
+           if check_overwrite(defaults.single_name) then
+               s_overwt = true
+           end
+        end
+
+        print()
+        local regnum_line, capt_line, zoom_line
+
+        regnum_line = string.sub(" Proyecto: ["..p.session.regnum.."]", 0, 50)
+
+        if p.session.noc_mode == 'odd-even' then
+           if next(p.session.counter_min) and next(p.session.counter_max) then
+               capt_line = " Capturas realizadas: "
+                   ..string.format("%04d", p.session.counter_min.even)
+                   .."-"
+                   ..string.format("%04d", p.session.counter_min.odd)
+               if p.session.counter_min.even ~= p.session.counter_max.even then
+                   capt_line = capt_line
+                   .." a "
+                   ..string.format("%04d", p.session.counter_max.even)
+                   .."-"
+                   ..string.format("%04d", p.session.counter_max.odd)
+                   .." (odd-even mode)"
                end
-               if check_overwrite(defaults.odd_name) then
-                   o_overwt = true
+           else
+              capt_line = " Capturas realizadas: Ninguna"
+           end
+        else -- p.session.noc_mode == 'single'
+           if next(p.session.counter_min) and next(p.session.counter_max) then
+               capt_line = " Capturas realizadas: "
+                   ..string.format("%04d", p.session.counter_min.single)
+               if p.session.counter_min.single ~= p.session.counter_max.single then
+                   capt_line = capt_line 
+                   .." a "
+                   ..string.format("%04d", p.session.counter_max.single)
+                   .." (single mode)"
                end
-            else -- p.settings.noc_mode == 'single'
-               if check_overwrite(defaults.single_name) then
-                   s_overwt = true
-               end
-            end
+           else
+              capt_line = " Capturas realizadas: Ninguna"
+           end
+        end
 
-            print()
-            local regnum_line, capt_line, zoom_line
+        if p.state.zoom_pos then
+            zoom_line = " Valor del Zoom: "..tostring(p.state.zoom_pos)
+        else
+            zoom_line = " Valor del Zoom: Sin definir"
+        end
 
-            regnum_line = string.sub(" Proyecto: ["..p.session.regnum.."]", 0, 50)
+        print( regnum_line.." "..string.rep(" ", 65 - string.len(regnum_line))
+              ..string.rep(" ", 12 - string.len(iconline_f))..iconline_t
+        )
+        print(   capt_line.." "..string.rep(" ", 65 - string.len(capt_line))
+              ..string.rep(" ", 12 - string.len(iconline_f))..iconline_b
+        )
+        print(   zoom_line.." "..string.rep(" ", 65 - string.len(zoom_line))
+              ..string.rep(" ", 12 - string.len(iconline_f))..iconline_f
+        )
+        if string.match(state.menu_mode, "pdf_help") then 
+            the_title = "Ayuda postproceso (PDF)" 
+        elseif string.match(state.menu_mode, "scantailor_help") then 
+            the_title = "Ayuda Scantailor" 
+        else the_title = p.settings.title..( p:project_is_not_empty() and "" or " [vacio]") end
+        margin = math.floor( ( 76 - string.len(string.sub(the_title, 0, 50)) ) / 2 )
+        top_bar = string.rep("=", margin).." "..string.sub(the_title, 0, 50).." "..string.rep("=", margin)
+        print( top_bar )
+        print("")
+        print(menu[state.menu_mode])
+        if p.session.noc_mode == 'odd-even' then
+           print(
+               "= "
+               ..string.format("%04d", p.state.counter.even)
+               ..(e_overwt and " ##RECAPT## " or " ===========")
+               .."=========="..cam_msg.." ========="
+               ..(o_overwt and " ##RECAPT## " or "=========== ")
+               ..string.format("%04d", p.state.counter.odd)
+               .." ="
+               )
+        else -- p.session.noc_mode == 'single'
+           print(
+               "=================================== "
+               ..string.format("%04d", p.state.counter.single)
+               ..(s_overwt and " ##RECAPT## " or " ===========")
+               .."======"..cam_msg..""
+               )
+        end
 
-            if p.settings.noc_mode == 'odd-even' then
-               if next(p.session.counter_min) and next(p.session.counter_max) then
-                   capt_line = " Capturas realizadas: "
-                       ..string.format("%04d", p.session.counter_min.even)
-                       .."-"
-                       ..string.format("%04d", p.session.counter_min.odd)
-                   if p.session.counter_min.even ~= p.session.counter_max.even then
-                       capt_line = capt_line
-                       .." a "
-                       ..string.format("%04d", p.session.counter_max.even)
-                       .."-"
-                       ..string.format("%04d", p.session.counter_max.odd)
-                       .." (odd-even mode)"
-                   end
-               else
-                  capt_line = " Capturas realizadas: Ninguna"
-               end
-            else -- p.settings.noc_mode == 'single'
-               if next(p.session.counter_min) and next(p.session.counter_max) then
-                   capt_line = " Capturas realizadas: "
-                       ..string.format("%04d", p.session.counter_min.single)
-                   if p.session.counter_min.single ~= p.session.counter_max.single then
-                       capt_line = capt_line 
-                       .." a "
-                       ..string.format("%04d", p.session.counter_max.single)
-                       .." (single mode)"
-                   end
-               else
-                  capt_line = " Capturas realizadas: Ninguna"
-               end
-            end
+        if p.session.include_list.from or p.session.include_list.to then
+            print(" -- Rango seleccionado: desde '"
+                ..tostring(p.session.include_list.from or '..')
+                .."' hasta '"
+                ..tostring(p.session.include_list.to or '..')
+                .."' --")
+        end
+        if state.show_cam_status_info == true then
+           loopmsg = " "..state.cameras_status_msg
+           state.show_cam_status_info = false
+        end
+        if loopmsg ~= "" then 
+            -- print()
+            print(">>"..loopmsg)
+            loopmsg = ""
+        end
+        printf(">> ")
+        local key = io.stdin:read'*l'
+        
+        -- ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
-            if p.state.zoom_pos then
-                zoom_line = " Valor del Zoom: "..tostring(p.state.zoom_pos)
-            else
-                zoom_line = " Valor del Zoom: Sin definir"
-            end
-
-            print( regnum_line.." "..string.rep(" ", 65 - string.len(regnum_line))
-                  ..string.rep(" ", 12 - string.len(iconline_f))..iconline_t
-            )
-            print(   capt_line.." "..string.rep(" ", 65 - string.len(capt_line))
-                  ..string.rep(" ", 12 - string.len(iconline_f))..iconline_b
-            )
-            print(   zoom_line.." "..string.rep(" ", 65 - string.len(zoom_line))
-                  ..string.rep(" ", 12 - string.len(iconline_f))..iconline_f
-            )
-            if string.match(state.menu_mode, "pdf_help") then 
-                the_title = "Ayuda postproceso (PDF)" 
-            elseif string.match(state.menu_mode, "scantailor_help") then 
-                the_title = "Ayuda Scantailor" 
-            else the_title = p.settings.title..( p:project_is_not_empty() and "" or " [vacio]") end
-            margin = math.floor( ( 76 - string.len(string.sub(the_title, 0, 50)) ) / 2 )
-            top_bar = string.rep("=", margin).." "..string.sub(the_title, 0, 50).." "..string.rep("=", margin)
-            print( top_bar )
-            print("")
-            print(menu[state.menu_mode])
-            if p.settings.noc_mode == 'odd-even' then
-               print(
-                   "= "
-                   ..string.format("%04d", p.state.counter.even)
-                   ..(e_overwt and " ##RECAPT## " or " ===========")
-                   .."=========="..cam_msg.." ========="
-                   ..(o_overwt and " ##RECAPT## " or "=========== ")
-                   ..string.format("%04d", p.state.counter.odd)
-                   .." ="
-                   )
-            else -- p.settings.noc_mode == 'single'
-               print(
-                   "=================================== "
-                   ..string.format("%04d", p.state.counter.single)
-                   ..(s_overwt and " ##RECAPT## " or " ===========")
-                   .."======"..cam_msg..""
-                   )
-            end
-
-            if p.session.include_list.from or p.session.include_list.to then
-                print(" -- Rango seleccionado: desde '"
-                    ..tostring(p.session.include_list.from or '..')
-                    .."' hasta '"
-                    ..tostring(p.session.include_list.to or '..')
-                    .."' --")
-            end
-            if state.show_cam_status_info == true then
-               loopmsg = " "..state.cameras_status_msg
-               state.show_cam_status_info = false
-            end
-            if loopmsg ~= "" then 
-                -- print()
-                print(">>"..loopmsg)
-                loopmsg = ""
-            end
-            printf(">> ")
-            local key = io.stdin:read'*l'
-            
-            -- ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
-
-            if key == "" then
-                if state.menu_mode == 'standart' then
-                    if state.cameras_status then
-                        print("capturando...")
-                        if mc:capt_all() then
-                            sys.sleep(500)
-                        else
-                            exit = true
-                            break
-                        end
-                    else
-                        loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
-                    end
-                else
-                    state.menu_mode = 'standart'
-                end
-            elseif key == "1" then
-                state.menu_mode = 'advanced'
-            elseif key == "2" then
-                state.menu_mode = 'scantailor'
-            elseif key == "3" then
-                state.menu_mode = 'pdf'
-            elseif key == "sc ayuda" then
-                state.menu_mode = 'scantailor_help'
-            elseif key == "pdf ayuda" then
-                state.menu_mode = 'pdf_help'
-            elseif key == "." then
-                if state.menu_mode == 'scantailor_help' then
-                    state.menu_mode = 'scantailor_help_01'
-                elseif state.menu_mode == 'scantailor_help_01' then
-                    state.menu_mode = 'scantailor_help_02'
-                end
-            elseif key == "t" then
+        if key == "" then
+            if state.menu_mode == 'standart' then
                 if state.cameras_status then
-                    print("captura de test a test.jpg...")
-                    if mc:capt_all_test_and_preview() then
-                    -- if mc:capt_all('test') then
+                    print("capturando...")
+                    if mc:capt_all() then
                         sys.sleep(500)
                     else
                         exit = true
@@ -3391,90 +3308,150 @@ function dc:main(
                 else
                     loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
                 end
-            elseif key == "m" then
-                if p.settings.mode == 'secure' then
-                    p.settings.mode = 'normal'
-                    loopmsg = " modo cambiado a 'normal' (4s)"
-                elseif p.settings.mode == 'normal' then
-                    p.settings.mode = 'fast'
-                    loopmsg = " modo cambiado a 'rápido' (2s)"
+            else
+                state.menu_mode = 'standart'
+            end
+        elseif key == "1" then
+            state.menu_mode = 'advanced'
+        elseif key == "2" then
+            state.menu_mode = 'scantailor'
+        elseif key == "3" then
+            state.menu_mode = 'pdf'
+        elseif key == "sc ayuda" then
+            state.menu_mode = 'scantailor_help'
+        elseif key == "pdf ayuda" then
+            state.menu_mode = 'pdf_help'
+        elseif key == "." then
+            if state.menu_mode == 'scantailor_help' then
+                state.menu_mode = 'scantailor_help_01'
+            elseif state.menu_mode == 'scantailor_help_01' then
+                state.menu_mode = 'scantailor_help_02'
+            end
+        elseif key == "t" then
+            if state.cameras_status then
+                print("captura de test a test.jpg...")
+                if mc:capt_all_test_and_preview() then
+                -- if mc:capt_all('test') then
+                    sys.sleep(500)
                 else
-                    p.settings.mode = 'secure'
-                    loopmsg = " modo cambiado a 'seguro' (8s)"
+                    exit = true
+                    break
                 end
+            else
+                loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
+            end
+        elseif key == "m" then
+            if p.settings.mode == 'secure' then
+                p.settings.mode = 'normal'
+                loopmsg = " modo cambiado a 'normal' (4s)"
+            elseif p.settings.mode == 'normal' then
+                p.settings.mode = 'fast'
+                loopmsg = " modo cambiado a 'rápido' (2s)"
+            else
+                p.settings.mode = 'secure'
+                loopmsg = " modo cambiado a 'seguro' (8s)"
+            end
 
-            elseif key == "f" then
-                if state.cameras_status then
-                    print(" refocus...")
-                    print()
-                    local status, info = mc:refocus_cam_all()
-                    if status then
-                        loopmsg = info
+        elseif key == "f" then
+            if state.cameras_status then
+                print(" refocus...")
+                print()
+                local status, info = mc:refocus_cam_all()
+                if status then
+                    loopmsg = info
+                else
+                    loopmsg = " Alguna de las cámaras no pudo reenfocar, por favor apáguelas y reinicie el programa\n"..info
+                end
+            else
+                loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
+            end
+        elseif key == "r" then
+            printf(" retrocediendo un lugar para volver a realizar la captura...")
+            if p:counter_prev() ~= false then
+                print('OK')
+                p:save_state()
+            else
+                loopmsg =  " No se puede retroceder, está al inicio de la lista"
+            end
+        elseif key == "u" then
+            printf(" avanzando un lugar hacia adelante...")
+            if p.session.noc_mode == 'odd-even' then
+               local countermax = p.session.counter_max.odd
+            else -- p.session.noc_mode == 'single'
+               local countermax = p.session.counter_max.single
+            end
+            if p:counter_next(countermax) ~= false then
+                print('OK')
+                p:save_state()
+            else
+                loopmsg = " No se puede avanzar mas, está al final de la lista"
+            end
+            p:save_state()
+        elseif key == "uu" then
+           if p.session.noc_mode == 'odd-even' then
+               if p.session.counter_max.odd ~= nil and p.session.counter_max.even ~= nil then
+                   p.state.counter.odd =  p.session.counter_max.odd  + 2
+                   p.state.counter.even = p.session.counter_max.even + 2
+                   p:save_state()
+               else
+                   loopmsg = " No se puede avanzar al final porque todavía no hay capturas"
+               end
+           else -- p.session.noc_mode == 'single'
+               if p.session.counter_max.single ~= nil then
+                   p.state.counter.single =  p.session.counter_max.odd
+                   p:save_state()
+               else
+                   loopmsg = " No se puede avanzar al final porque todavía no hay capturas"
+               end
+           end
+        elseif key == "p" then
+            print(" Ir a la pagina...")
+            print(" ingresar valor numérico, no es necesario agregar ceros a la izquierda:")
+            printf(">> ")
+            local pos = io.stdin:read'*l'
+            if pos ~= "" and pos ~= nil then
+                local status, msg = p:set_counter(pos)
+                p:save_state()
+                loopmsg = " "..tostring(msg)
+            end
+        elseif key == "rec" then
+            mc:switch_mode_all('rec')
+        elseif key == "play" then
+            mc:switch_mode_all('play')
+        elseif key == "z" then
+            if state.cameras_status then
+                local status, zoom_pos, err = mc:get_zoom_from_ref_cam()
+                if status and zoom_pos then
+                    p.state.zoom_pos = zoom_pos 
+                    loopmsg = "Valor zoom leído de cámara de referencia: "..zoom_pos.."\n"
+                    if p:save_state() then
+                        print(" nuevo valor de zoom guardado")
+                        print(" Reiniciando camaras... ")
+                        local cam_status = self:init_cams_or_retry()
+                        -- cam_status == 'no_init_select' or cam_status == true --> continue
+                        if cam_status == 'exit' or cam_status == false then
+                            exit = true
+                            break
+                        end
                     else
-                        loopmsg = " Alguna de las cámaras no pudo reenfocar, por favor apáguelas y reinicie el programa\n"..info
+                        loopmsg = " Error: no se pudieron guardar las variables de estado en el disco"
                     end
                 else
-                    loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
+                    loopmsg = " Error: no se pudo leer el valor de zoom de la cámara de referencia.\n error: "..err.."\n"
                 end
-            elseif key == "r" then
-                printf(" retrocediendo un lugar para volver a realizar la captura...")
-                if p:counter_prev() ~= false then
-                    print('OK')
-                    p:save_state()
-                else
-                    loopmsg =  " No se puede retroceder, está al inicio de la lista"
-                end
-            elseif key == "u" then
-                printf(" avanzando un lugar hacia adelante...")
-                if p.settings.noc_mode == 'odd-even' then
-                   local countermax = p.session.counter_max.odd
-                else -- p.settings.noc_mode == 'single'
-                   local countermax = p.session.counter_max.single
-                end
-                if p:counter_next(countermax) ~= false then
-                    print('OK')
-                    p:save_state()
-                else
-                    loopmsg = " No se puede avanzar mas, está al final de la lista"
-                end
-                p:save_state()
-            elseif key == "uu" then
-               if p.settings.noc_mode == 'odd-even' then
-                   if p.session.counter_max.odd ~= nil and p.session.counter_max.even ~= nil then
-                       p.state.counter.odd =  p.session.counter_max.odd  + 2
-                       p.state.counter.even = p.session.counter_max.even + 2
-                       p:save_state()
-                   else
-                       loopmsg = " No se puede avanzar al final porque todavía no hay capturas"
-                   end
-               else -- p.settings.noc_mode == 'single'
-                   if p.session.counter_max.single ~= nil then
-                       p.state.counter.single =  p.session.counter_max.odd
-                       p:save_state()
-                   else
-                       loopmsg = " No se puede avanzar al final porque todavía no hay capturas"
-                   end
-               end
-            elseif key == "p" then
-                print(" Ir a la pagina...")
-                print(" ingresar valor numérico, no es necesario agregar ceros a la izquierda:")
+            else
+                loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
+            end
+        elseif key == "zz" then 
+            if state.cameras_status then
+                print("ingrese un valor para el zoom:")
                 printf(">> ")
-                local pos = io.stdin:read'*l'
-                if pos ~= "" and pos ~= nil then
-                    local status, msg = p:set_counter(pos)
-                    p:save_state()
-                    loopmsg = " "..tostring(msg)
-                end
-            elseif key == "rec" then
-                mc:switch_mode_all('rec')
-            elseif key == "play" then
-                mc:switch_mode_all('play')
-            elseif key == "z" then
-                if state.cameras_status then
-                    local status, zoom_pos, err = mc:get_zoom_from_ref_cam()
-                    if status and zoom_pos then
-                        p.state.zoom_pos = zoom_pos 
-                        loopmsg = "Valor zoom leído de cámara de referencia: "..zoom_pos.."\n"
+                local zkey = io.stdin:read'*l'
+                if zkey ~= "" and zkey ~= nil then
+                    local zoom = tonumber(zkey)
+                    print(" Valor de zoom ingresado: "..tostring(zoom))
+                    if zoom >= 0 then
+                        p.state.zoom_pos = zoom
                         if p:save_state() then
                             print(" nuevo valor de zoom guardado")
                             print(" Reiniciando camaras... ")
@@ -3487,636 +3464,634 @@ function dc:main(
                         else
                             loopmsg = " Error: no se pudieron guardar las variables de estado en el disco"
                         end
-                    else
-                        loopmsg = " Error: no se pudo leer el valor de zoom de la cámara de referencia.\n error: "..err.."\n"
                     end
-                else
-                    loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
-                end
-            elseif key == "zz" then 
-                if state.cameras_status then
-                    print("ingrese un valor para el zoom:")
-                    printf(">> ")
-                    local zkey = io.stdin:read'*l'
-                    if zkey ~= "" and zkey ~= nil then
-                        local zoom = tonumber(zkey)
-                        print(" Valor de zoom ingresado: "..tostring(zoom))
-                        if zoom >= 0 then
-                            p.state.zoom_pos = zoom
-                            if p:save_state() then
-                                print(" nuevo valor de zoom guardado")
-                                print(" Reiniciando camaras... ")
-                                local cam_status = self:init_cams_or_retry()
-                                -- cam_status == 'no_init_select' or cam_status == true --> continue
-                                if cam_status == 'exit' or cam_status == false then
-                                    exit = true
-                                    break
-                                end
-                            else
-                                loopmsg = " Error: no se pudieron guardar las variables de estado en el disco"
-                            end
-                        end
-                    end
-                else
-                    loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
-                end
-            elseif key == "b" then
-                if state.cameras_status then
-                    mc:camsound_ref_cam()
-                    sys.sleep(2000)
-                else
-                    loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
-                end
-            elseif key == "sinc" then -- sincronizar zoom testear!
-                if state.cameras_status then
-                    mc:switch_mode_all('rec')
-                    local status, zoom_pos, err = mc:get_zoom_from_ref_cam()
-                    if status and zoom_pos then
-                        print(" Valor zoom leído de cámara de referencia: "..zoom_pos)
-                        p.state.zoom_pos = zoom_pos
-                        if p:save_state() then
-                            if mc:set_zoom_other() then
-                                print(" OK: zoom fijado en: "..zoom_pos)
-                            else
-                                print(" error: No se pudo posicionar el zoom en la otra cámara")
-                                print(" Apague las cámaras y vuelva a iniciar DALclick")
-                            end
-                        else
-                            print(" error: no se pudieron guardar las variables de estado en el disco")
-                        end
-                    else
-                        print(" No se pudo leer el valor de zoom de la cámara de referencia.")
-                    end
-                else
-                    loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
-                end
-            elseif key == "n" then
-                local previous_zoom = p.state.zoom_pos
-                local regnum, title = get_project_newname()
-                if regnum ~= nil then                
-                    printf(" Guardando proyecto anterior... ")
-                    if not p:write() then
-                        print(" ERROR\n    no se pudo guardar el proyecto actual.")
-                        exit = true; break
-                    else
-                        print("OK")
-                    end
-                    
-                    if not p:init(defaults) then
-                        print(" ERROR: no se puedo iniciar el proyecto")
-                        exit = true; break
-                    end
-                    
-                    local create_options = { regnum = regnum, title = title, root_path = defaults.root_project_path }
-                    if config.zoom_persistent then
-                        create_options.zoom = previous_zoom
-                    end
-                    if p:create( create_options ) then
-                        print(" Reiniciando cámaras... ")
-                        local cam_status = self:init_cams_or_retry()
-                        if cam_status == 'exit' or cam_status == false then
-                            exit = true
-                            break
-                        end
-                        if defaults.mode_enable_qm_daemon then
-                            self:init_daemons()
-                        end
-                    end
-                 end
-            elseif key == "o" then
-                local previous_settings_path = self:check_running_project()
-                local status
-                local open_options = { root_path = defaults.root_project_path }
-                print(); status, project_status = p:open(defaults,open_options); print()
-                sys.sleep(2000) -- pausa para dejar ver los mensajes
-                if status then
-                    if project_status == 'canceled' then
-                        -- no se hace nada
-                    elseif project_status == 'modified' then
-                        printf(" El formato del proyecto era obsoleto. Guardando proyecto actualizado...")
-                        if p:write() then print("OK") else print("ERROR") end
-                        print(" Reiniciando cámaras... ")
-                        local cam_status = self:init_cams_or_retry()
-                        -- cam_status == 'no_init_select' or cam_status == true --> continue
-                        if cam_status == 'exit' or cam_status == false then
-                            exit = true
-                            break
-                        end
-                        if defaults.mode_enable_qm_daemon then
-                            self:init_daemons()
-                        end                 
-                    elseif project_status == 'opened' then
-                        print(" Reiniciando cámaras... ")
-                        local cam_status = self:init_cams_or_retry()
-                        -- cam_status == 'no_init_select' or cam_status == true --> continue
-                        if cam_status == 'exit' or cam_status == false then
-                            exit = true
-                            break
-                        end
-                        if defaults.mode_enable_qm_daemon then
-                            self:init_daemons()
-                        end                    
-                    end
-                else                  
-                    if p:delete_running_project() then
-                        print(" proyecto fallido cerrado")
-                        print()
-                    end
-                    sys.sleep(500)
-                    print(" Se restaurará el proyecto previo")
-                    local options = { settings_path = previous_settings_path }
-                    if not self:start_options('restore_project', options) then
-                        exit = true
-                        break
-                    end
-                end
-            elseif key == "w" then
-                if p:write() then
-                    loopmsg = " Proyecto guardado con éxito."
-                else
-                    loopmsg = " ERROR: El proyecto no pudo guardarse!"
-                end
-            elseif key == "rec2" then
-                -- set to rec mode without waiting (only for testing)
-                mc:switch_mode_all('rec')
-            elseif key == "play2" then
-                -- set to play mode without waiting (only for testing)
-                mc:switch_mode_all('play')
-            elseif key == "v" then
-                if type(p.state.saved_files) == 'table' then
-                    if next(p.state.saved_files) then
-                        -- print("1) p.state.saved_files: "..util.serialize(p.state.saved_files))
-                        local status, previews, filenames = p:make_preview(p.state.saved_files)
-                        if status then
-                            -- print("2) previews: "..util.serialize(previews))
-                            p:show_capts( 'view_last_capture', previews, filenames )
-                        end
-                     else
-                        loopmsg = " El registro de la última captura esta vacío."
-                     end
-                else
-                    loopmsg = " No hay registro de última captura."
-                end
-            elseif key == "e" then
-                if next(p.session.counter_max) then
-                    p:show_capts( "explorer" )
-                end
-            elseif key == "s" then
-                if not p:save_state() then
-                    print(" error: no se pudieron guardar las variables de estado en el disco")
-                    -- print("debug: zoom_pos: "..tostring(p.state.zoom_pos))
-                end
-                if not mc:shutdown_all() then
-                    print("alguna de las cámaras deberá ser apagada manualmente")
-                end
-                sys.sleep(3000)
-                print(" saliendo...")
-                exit = true
-                break
-            elseif key == "c" then
-                if p:delete_running_project() then
-                    print(" Proyecto '"..p.settings.title.."' cerrado.")
-                end
-                sys.sleep(2000)
-                if not self:start_options('new_project') then
-                    exit = true
-                    break
-                end
-            elseif key == "h" then
-                if not self:start_options('new_project') then
-                    exit = true
-                    break
-                end
-            elseif key == "x" or key == "xx"  then
-                local new_project_options = { zoom = p.state.zoom_pos }
-                local status, msg
-                if key == "xx" then
-                    -- quiet, default options 
-                    status, msg = p:send_post_proc_actions({ batch_processing = true })
-                else
-                    status, msg = p:send_post_proc_actions()
-                end
-                if status then
-                    print("\n Proyecto "..p.session.regnum.. ": '"..p.settings.title.."' enviado.")
-                    if p:delete_running_project() then
-                        print(" Cerrando proyecto..OK")
-                    end
-                    sys.sleep(2000)
-                    
-                    if not self:start_options('new_project', new_project_options) then
-                        exit = true
-                        break
-                    end
-                end
-                if type(msg) == 'string' and msg  ~= "" then loopmsg = " "..tostring(msg) end
-            elseif key == "l" or key == "ll" or key == "cl" then
-                local clone_project = true
-                if key == "ll" or key == "l" then
-                   local status, msg
-                   if key == "ll" then
-                       status, msg = p:send_post_proc_actions({ batch_processing = true })
-                   elseif key == "l" then
-                       status, msg = p:send_post_proc_actions()
-                   end
-                   if status then
-                       print("\n Proyecto "..p.session.regnum.. ": '"..p.settings.title.."' enviado.")
-                   else
-                       print("\n ERROR: Proyecto "..p.session.regnum.. ": '"..p.settings.title.."' no pudo enviarse.")
-                       clone_project = false
-                   end
-                end
-                if clone_project then
-                    print(" Iniciando clonar proyecto")
-                    local regnum, title = get_project_newname()
-
-                    if regnum ~= nil then
-                       local pzoom = p.state.zoom_pos
-                       local pmode = p.settings.mode
-                       if p:delete_running_project() then
-                           print(" Cerrando proyecto previo..OK")
-                       end
-                       sys.sleep(2000)
-
-                       if not p:init(defaults) then
-                           exit = true
-                           break
-                       else
-                          local clone_options = { regnum = regnum, title = title, root_path = defaults.root_project_path, 
-                                                  zoom = pzoom, mode = pmode }
-                          if p:create( clone_options ) then
-                             print(" Proyecto clonado como '"..title.."'..OK")
-                          else
-                             exit = true
-                             break
-                          end
-                       end
-                    else
-                       print(" Eligió cancelar!")
-                       msg = "El proyecto no ha sido clonado. Se sigue en: '"..p.settings.title.."'."
-                    end
-                end
-                if type(msg) == 'string' and msg  ~= "" then loopmsg = " "..tostring(msg) end
-            elseif key == "a" then
-                print(" Activando cámaras... ")
-                local cam_status = self:init_cams_or_retry()
-                -- cam_status == 'no_init_select' or cam_status == true --> continue
-                if cam_status == 'exit' or cam_status == false then
-                    exit = true
-                    break
-                end
-                if defaults.mode_enable_qm_daemon then
-                    self:init_daemons()
-                end
-            elseif key == "i" then 
-                  state.show_cam_status_info = true
-            elseif key == "ins" then
-               if p.settings.noc_mode == 'odd-even' then
-                   print(" Insertando espacio vacio en "..string.format("%04d", p.state.counter.even).."-"..string.format("%04d", p.state.counter.odd))
-               else -- p.settings.noc_mode == 'single'
-                   print(" Insertando espacio vacio en "..string.format("%04d", p.state.counter.single))
-               end
-                p:insert_empty_in_counter()
-                    print()
-                    print(" Presione <enter> para continuar...")
-                    local key = io.stdin:read'*l'
-            elseif key == "desde" then
-                if type(p.state.counter) == 'table' then
-                   if p.settings.noc_mode == 'odd-even' then
-                      if p.state.counter.even and p.session.counter_max.even then
-                         if p.state.counter.even <= p.session.counter_max.even then 
-                            p.session.include_list.from = p.state.counter.even
-                            loopmsg = " Valor 'desde' actualizado ("..tostring(p.session.include_list.from)..")"
-                         else
-                            loopmsg = " No puede marcarse esta posición (aun no se realizó la captura)"
-                         end
-                      else
-                         loopmsg = " ERROR: el contador no registra valores o no esta establecido counter_max"
-                      end
-                   else -- p.settings.noc_mode == 'single'
-                      if p.state.counter.single and p.session.counter_max.single then
-                         if p.state.counter.single <= p.session.counter_max.single then 
-                            p.session.include_list.from = p.state.counter.single
-                            loopmsg = " Valor 'desde' actualizado ("..tostring(p.session.include_list.from)..")"
-                         else
-                            loopmsg = " No puede marcarse esta posición (aun no se realizó la captura)"
-                         end
-                      else
-                         loopmsg = " ERROR: el contador no registra valores o no esta establecido counter_max"
-                      end
-                   end
-                end
-            elseif key == "hasta" then
-                if type(p.state.counter) == 'table' then
-                   if p.settings.noc_mode == 'odd-even' then
-                      if p.state.counter.odd and p.session.counter_max.odd then 
-                         if p.state.counter.odd <= p.session.counter_max.odd then 
-                            p.session.include_list.to = p.state.counter.odd
-                            loopmsg = " Valor 'hasta' actualizado ("..tostring(p.session.include_list.to)..")"
-                         else
-                            loopmsg = " No puede marcarse esta posición (aun no se realizó la captura)"
-                         end
-                      else
-                         loopmsg = " ERROR: el contador no registra valores o no esta establecido counter_max"
-                      end
-                   else -- p.settings.noc_mode == 'single'
-                      if p.state.counter.single and p.session.counter_max.single then
-                         if p.state.counter.single <= p.session.counter_max.single then 
-                            p.session.include_list.to = p.state.counter.single
-                            loopmsg = " Valor 'desde' actualizado ("..tostring(p.session.include_list.to)..")"
-                         else
-                            loopmsg = " No puede marcarse esta posición (aun no se realizó la captura)"
-                         end
-                      else
-                         loopmsg = " ERROR: el contador no registra valores o no esta establecido counter_max"
-                      end
-                   end
-                end
-            elseif key == "reparar" then
-                local status, no_errors, log = p:reparar() 
-                if status then
-                    if no_errors == true then
-                        loopmsg = " Reparacion del proyecto exitosa."
-                    elseif no_errors == 'warning' then
-                        loopmsg = " Reparacion del proyecto exitosa, pero con observaciones."
-                    elseif no_errors == false then
-                        loopmsg = " Hubo errores al intentar reparar el proyecto."
-                    else
-                        loopmsg = " Hubo errores al intentar reparar el proyecto."
-                    end
-                else
-                        loopmsg = " No se pudo reparar el proyecto."
-                end
-                sys.sleep(1000)
-            elseif key == "ifocus" then
-                if state.cameras_status then
-                    mc:get_cam_info('focus')
-                    print()
-                    print(" Presione <enter> para continuar...")
-                    local key = io.stdin:read'*l'
-                else
-                    loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
-                end
-            elseif key == "iexpo" then
-                if state.cameras_status then
-                    mc:get_cam_info('expo')
-                    print()
-                    print(" Presione <enter> para continuar...")
-                    local key = io.stdin:read'*l'
-                else
-                    loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
-                end
-            elseif key == "dir" then
-                open_thunar(p.session.base_path)
-            elseif key == "pdf abrir" then
-                if p.state.last_pdf_generated then
-                    local pdf_path = p.session.base_path.."/"..p.paths.doc_dir.."/"..p.state.last_pdf_generated
-                    if dcutls.localfs:file_exists( pdf_path ) then
-                       print(" abriendo.. '"..pdf_path.."'")
-                       open_evince( pdf_path )
-                    else
-                       loopmsg = " No existe '"..p.state.last_pdf_generated.."'\n"
-                               .."   El archivo PDF no se ha terminado de generar o ha sido eliminado.\n"
-                               .."   Para más opciones use 'pdf listar' (verá una lista de los PDFs)"
-                    end
-                else
-                    loopmsg = " Todavía no se ha creado ningún PDF en este proyecto.\n"
-                            .."   Para más opciones use 'pdf listar' (verá una lista de los PDFs)"
-                end
-            elseif key == "pdf listar" then                
-                local status, pdf_filename, result, msg = p:list_pdfs_and_select()
-                if status == true then
-                    local pdf_path = p.session.base_path.."/"..p.paths.doc_dir.."/"..pdf_filename
-                    if dcutls.localfs:file_exists( pdf_path ) then
-                       print(" abriendo.. '"..pdf_path.."'")
-                       open_evince( pdf_path )
-                    else
-                    end
-                elseif status == nil then
-                    loopmsg = " "..tostring(msg)
-                else
-                    
-                    loopmsg = " Ha ocurrido un error inesperado."
-                end
-            elseif key == "pdf borrar" then
-                local status, pdf_filename, result, msg = p:list_pdfs_and_select()
-                if status == true then
-                    print()
-                    print(" Borrar '"..pdf_filename.."'? [S/n]")
-                    local confirmar = io.stdin:read'*l'
-                    if confirmar == "S" or confirmar == "s" then
-                        if p:delete_pdf(pdf_filename) then
-                            loopmsg = " El archivo '"..tostring(pdf_filename).."' fue borrado"
-                        else
-                            loopmsg = " El archivo '"..tostring(pdf_filename).."' no pudo borrarse"
-                        end
-                    end
-                elseif status == nil then
-                    loopmsg = " "..tostring(msg)
-                else
-                    loopmsg = " Ha ocurrido un error inesperado."
-                end
-            elseif key == "scr abrir" or key == "sc abrir" then -- abre sc si existe, de lo contrario lo crea (include)
-                local status, strlist, suffix = p:get_include_strings()
-                if key == "scr abrir" and not status then
-                    loopmsg = " Debe seleccionar un rango de páginas primero para seleccionar esta opción."
-                else
-                    if key == "sc abrir" then suffix = nil; strlist = nil; end
-                    suffix = suffix or ""
-                    local sct_name = p.dalclick.doc_filebase..suffix..".scantailor"
-                    local sct_path = p.session.base_path.."/"..p.paths.doc_dir.."/"..sct_name
-                    if dcutls.localfs:file_exists( sct_path ) then
-                       print(" abriendo.. '"..sct_path.."'")
-                       open_scantailor_gui( sct_path )
-                    else
-                        local this_thing = strlist and "este rango seleccionado!" or "este proyecto!"
-                        print()
-                        print(" No existe un proyecto Scantailor para "..this_thing)
-                        print("'"..sct_name.."'")
-                        print()
-                        print(" Importante! a continuación se creará un nuevo proyecto Scantailor para ser")
-                        print(" configurado manualmente desde la interfaz gráfica. Pero si desea que la con-")
-                        print(" figuración se lleve a cabo automáticamente y dejar para la operación manual")
-                        print(" sólo los ajustes y corrección de errores (recomendado), entonces responda no")
-                        print(" y luego use [pp scantailor].")
-                        print()
-                        print(" Crear proyecto nuevo '"..sct_name.."' [S/n]")
-                        local crear = io.stdin:read'*l'
-                        if crear == "S" or crear == "s" then
-                            local include = strlist and true or false
-                            if p:send_post_proc_actions({
-                                    scantailor_create_project = true, 
-                                    include_list              = include,
-                                }) then
-                                print(" abriendo.. '"..sct_path.."'")
-                                open_scantailor_gui( sct_path )
-                            else
-                                loopmsg = " No pudo crearse un nuevo proyecto Scantailor '"..tostring(sct_path).."'."
-                            end
-                        end
-                    end
-                end
-            elseif key == "sc borrar" then
-                local status, sc_filename, result, msg = p:list_scantailors_and_select()
-                if status == true then
-                    print()
-                    print(" Borrar '"..sc_filename.."'? [S/n]")
-                    local confirmar = io.stdin:read'*l'
-                    if confirmar == "S" or confirmar == "s" then
-                        if p:delete_scantailor_project(sc_filename) then
-                            loopmsg = " El archivo '"..tostring(sc_filename).."' fue borrado"
-                        else
-                            loopmsg = " El archivo '"..tostring(sc_filename).."' no pudo borrarse"
-                        end
-                    end
-                elseif status == nil then
-                    loopmsg = " "..tostring(msg)
-                else
-                    loopmsg = " Ha ocurrido un error inesperado."
-                end
-            elseif key == "sc listar" then
-                local status, sc_filename, result, msg = p:list_scantailors_and_select()
-                if status == true then
-                    local stproject_path = p.session.base_path.."/"..p.paths.doc_dir.."/"..sc_filename
-                    if dcutls.localfs:file_exists( stproject_path ) then
-                       print(" abriendo.. '"..stproject_path.."'")
-                       open_scantailor_gui( stproject_path )
-                    end
-                elseif status == nil then
-                    loopmsg = " "..tostring(msg)
-                    if result == false then
-                        print()
-                        print(" Lista vacía!")
-                        print()
-                        print(" Todavía no ha ejecutado ningun paso del postproceso que haya generado")
-                        print(" un archivo Scantailor. Puede crear uno con:")
-                        print(" - 'pp scantailor'")
-                        print()
-                        print(" Presione <enter> para continuar...")
-                        local key = io.stdin:read'*l'
-                    end
-                else
-                    loopmsg = " Ha ocurrido un error inesperado."
-                end
-            elseif key == "rango" then
-                if p:project_is_not_empty() then
-                    print("ingrese un valor para 'desde'")
-                    printf(">> ")
-                    local continue = false
-                    local desde = io.stdin:read'*l'
-                    if desde ~= "" and desde ~= nil and tonumber(desde) >= 0 then
-                        p.session.include_list.from = tonumber(desde)
-                        print(" Valor 'desde' ingresado: "..tostring(p.session.include_list.from))
-                        continue = true
-                    else
-                        print(" Valor 'desde' ingresado inválido! ("..tostring(p.session.include_list.from)..")")
-                    end
-                    if continue then
-                        print("ingrese un valor para 'hasta'")
-                        printf(">> ")
-                        local hasta = io.stdin:read'*l'
-                        if hasta ~= "" and hasta ~= nil then
-                            hasta = tonumber(hasta)
-                            if hasta > p.session.include_list.from then
-                                if hasta <= p.session.counter_max.odd then
-                                    p.session.include_list.to = hasta
-                                    print(" Valor 'desde' ingresado: "..tostring(p.session.include_list.to))
-                                else
-                                    print(" El valor de 'hasta' debe ser menor o igual a la ultima imagen capturada")
-                                end
-                            else
-                                print(" El valor de 'hasta' debe ser mayor a 'desde'")
-                            end
-                        else
-                           print(" Valor 'hasta' ingresado inválido! ("..tostring(p.session.include_list.from)..")")
-                        end
-                    end
-                end
-            elseif key == "rango borrar" then
-                if p.session.include_list.from and p.session.include_list.to then
-                    p.session.include_list = {}
-                    loopmsg = " Rango de páginas borrado!"
-                else
-                    loopmsg = " Todavia no se seleccionó ningún rango de páginas."
-                end
-            elseif key == "pp" or key == "ppr" or key:sub(0,3) == "pp " or key:sub(0,4) == "ppr " or key == "scantailor" then
-                if key == "scantailor" then key = "pp scantailor" end
-                local include_list_exists = false
-                local suffix
-                if p.session.include_list.from and p.session.include_list.to then
-                    include_list_exists = true
-                    suffix = "["..string.format("%04d", p.session.include_list.from).."-"
-                                ..string.format("%04d", p.session.include_list.to).."]"
-                end
-                local ppr = false
-                if key:sub(0,4) == "ppr " or key == "ppr" then
-                    ppr = true
-                end
-                if ppr and not include_list_exists then
-                    loopmsg = " Debe seleccionar un rango 'desde/hasta' primero"
-                else
-                    local args
-                    if ppr then 
-                        args = key:sub(5) 
-                    else 
-                        args = key:sub(4) 
-                        suffix = nil
-                        include_list_exists = false
-                    end
-                    local status, pp_args, msg = parse_pp_args( args )
-                    if status then
-                        print()
-                        print( msg )
-                        print()
-                        if ppr then print(" procesamiento parcial de rango: "..tostring(suffix).."\n") end
-                        print( " ¿Enviar estas acciones a la cola de procesamiento? (S/n)")
-                        printf(">> ")
-                        local confirm = io.stdin:read'*l'
-                        if confirm == "S" or confirm == "s" then
-                            if p:send_post_proc_actions({ 
-                                pp_mode      = true, 
-                                pp           = 'pp='..pp_args, 
-                                include_list = include_list_exists,
-                            }) then
-                                suffix = suffix or ""
-                                loopmsg = 
-                                    " Proyecto '"..p.session.regnum
-                                  .."' ('"..p.settings.title.."') enviado "
-                                  ..suffix..pp_args.." OK."
-                            else
-                                loopmsg = " Hubo errores y el proyecto no pudo ser enviado."
-                            end
-                        end
-                    else
-                        loopmsg = msg
-                    end
-                end
-            elseif key == "chdk" then
-                if state.cameras_status then
-                    print(" recargando chdk scripts...")
-                    if not self:load_cam_scripts() then
-                        print(' ERROR falló load_cam_scripts()')
-                        exit = true
-                        break
-                    end
-                else
-                    loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
-                end
-            elseif key == "load_secure" then
-                if p:load_state_secure() then
-                    loopmsg = "load_state_secure: OK"                    
-                else
-                    loopmsg = "load_state_secure: no se pudo cargar '.dc_state' correctamente"
                 end
             else
-                loopmsg = " El texto ingresado no corresponde a ninguna opción del menú! ¯\\_(ツ)_/¯"
+                loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
             end
-        end -- /while loop 
-        
-        if defaults.mode_enable_qm_daemon then
-            self:kill_daemons()
+        elseif key == "b" then
+            if state.cameras_status then
+                mc:camsound_ref_cam()
+                sys.sleep(2000)
+            else
+                loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
+            end
+        elseif key == "sinc" then -- sincronizar zoom testear!
+            if state.cameras_status then
+                mc:switch_mode_all('rec')
+                local status, zoom_pos, err = mc:get_zoom_from_ref_cam()
+                if status and zoom_pos then
+                    print(" Valor zoom leído de cámara de referencia: "..zoom_pos)
+                    p.state.zoom_pos = zoom_pos
+                    if p:save_state() then
+                        if mc:set_zoom_other() then
+                            print(" OK: zoom fijado en: "..zoom_pos)
+                        else
+                            print(" error: No se pudo posicionar el zoom en la otra cámara")
+                            print(" Apague las cámaras y vuelva a iniciar DALclick")
+                        end
+                    else
+                        print(" error: no se pudieron guardar las variables de estado en el disco")
+                    end
+                else
+                    print(" No se pudo leer el valor de zoom de la cámara de referencia.")
+                end
+            else
+                loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
+            end
+        elseif key == "n" then
+            local previous_zoom = p.state.zoom_pos
+            local regnum, title = get_project_newname()
+            if regnum ~= nil then                
+                printf(" Guardando proyecto anterior... ")
+                if not p:write() then
+                    print(" ERROR\n    no se pudo guardar el proyecto actual.")
+                    exit = true; break
+                else
+                    print("OK")
+                end
+                
+                if not p:init(defaults) then
+                    print(" ERROR: no se puedo iniciar el proyecto")
+                    exit = true; break
+                end
+                
+                local create_options = { regnum = regnum, title = title, root_path = defaults.root_project_path }
+                if config.zoom_persistent then
+                    create_options.zoom = previous_zoom
+                end
+                if p:create( create_options ) then
+                    print(" Reiniciando cámaras... ")
+                    local cam_status = self:init_cams_or_retry()
+                    if cam_status == 'exit' or cam_status == false then
+                        exit = true
+                        break
+                    end
+                    if defaults.mode_enable_qm_daemon then
+                        self:init_daemons()
+                    end
+                end
+             end
+        elseif key == "o" then
+            local previous_settings_path = self:check_running_project()
+            local status
+            local open_options = { root_path = defaults.root_project_path }
+            print(); status, project_status = p:open(defaults,open_options); print()
+            sys.sleep(2000) -- pausa para dejar ver los mensajes
+            if status then
+                if project_status == 'canceled' then
+                    -- no se hace nada
+                elseif project_status == 'modified' then
+                    printf(" El formato del proyecto era obsoleto. Guardando proyecto actualizado...")
+                    if p:write() then print("OK") else print("ERROR") end
+                    print(" Reiniciando cámaras... ")
+                    local cam_status = self:init_cams_or_retry()
+                    -- cam_status == 'no_init_select' or cam_status == true --> continue
+                    if cam_status == 'exit' or cam_status == false then
+                        exit = true
+                        break
+                    end
+                    if defaults.mode_enable_qm_daemon then
+                        self:init_daemons()
+                    end                 
+                elseif project_status == 'opened' then
+                    print(" Reiniciando cámaras... ")
+                    local cam_status = self:init_cams_or_retry()
+                    -- cam_status == 'no_init_select' or cam_status == true --> continue
+                    if cam_status == 'exit' or cam_status == false then
+                        exit = true
+                        break
+                    end
+                    if defaults.mode_enable_qm_daemon then
+                        self:init_daemons()
+                    end                    
+                end
+            else                  
+                if p:delete_running_project() then
+                    print(" proyecto fallido cerrado")
+                    print()
+                end
+                sys.sleep(500)
+
+                print(" Se restaurará el proyecto previo")
+                local restoring_fail = false
+                local options = { settings_path = previous_settings_path }
+
+				if not p:init(defaults) then
+				    exit = true
+				    break
+				end
+				local load_status, project_status = p:load(previous_settings_path)
+				if load_status then
+					if project_status == 'opened' then
+					    running_project_loaded = true
+					    if p:update_running_project(previous_settings_path) then
+					        -- success!!
+					    end
+					else
+						print(" No se pudo restaurar correctamente el proyecto")
+						sys.sleep(2000)
+				        restoring_fail = true
+					end
+				else
+					print(" Ha ocurrido un error mientras se intentaba restaurar el proyecto")
+					sys.sleep(2000)
+				    restoring_fail = true
+				end
+				if restoring_fail then
+					if not self:start_options({ [disable_restore_option] = true }) then
+						exit = true
+						break
+					end
+				end
+            end
+        elseif key == "w" then
+            if p:write() then
+                loopmsg = " Proyecto guardado con éxito."
+            else
+                loopmsg = " ERROR: El proyecto no pudo guardarse!"
+            end
+        elseif key == "rec2" then
+            -- set to rec mode without waiting (only for testing)
+            mc:switch_mode_all('rec')
+        elseif key == "play2" then
+            -- set to play mode without waiting (only for testing)
+            mc:switch_mode_all('play')
+        elseif key == "v" then
+            if type(p.state.saved_files) == 'table' then
+                if next(p.state.saved_files) then
+                    -- print("1) p.state.saved_files: "..util.serialize(p.state.saved_files))
+                    local status, previews, filenames = p:make_preview(p.state.saved_files)
+                    if status then
+                        -- print("2) previews: "..util.serialize(previews))
+                        p:show_capts( 'view_last_capture', previews, filenames )
+                    end
+                 else
+                    loopmsg = " El registro de la última captura esta vacío."
+                 end
+            else
+                loopmsg = " No hay registro de última captura."
+            end
+        elseif key == "e" then
+            if next(p.session.counter_max) then
+                p:show_capts( "explorer" )
+            end
+        elseif key == "s" then
+            if not p:save_state() then
+                print(" error: no se pudieron guardar las variables de estado en el disco")
+                -- print("debug: zoom_pos: "..tostring(p.state.zoom_pos))
+            end
+            if not mc:shutdown_all() then
+                print("alguna de las cámaras deberá ser apagada manualmente")
+            end
+            sys.sleep(3000)
+            print(" saliendo...")
+            exit = true
+            break
+        elseif key == "c" then
+            if p:delete_running_project() then
+                print("\n\n\n Proyecto '"..p.settings.title.."' cerrado.")
+            end
+            sys.sleep(2000)
+            if not self:start_options() then
+                exit = true
+                break
+            end
+        elseif key == "h" then
+            if not self:start_options() then
+                exit = true
+                break
+            end
+        elseif key == "x" or key == "xx"  then
+            local new_project_options = { zoom = p.state.zoom_pos }
+            local status, msg
+            if key == "xx" then
+                -- quiet, default options 
+                status, msg = p:send_post_proc_actions({ batch_processing = true })
+            else
+                status, msg = p:send_post_proc_actions()
+            end
+            if status then
+                print("\n Proyecto "..p.session.regnum.. ": '"..p.settings.title.."' enviado.")
+                if p:delete_running_project() then
+                    print(" Cerrando proyecto..OK")
+                end
+                sys.sleep(2000)
+                
+                if not self:start_options(new_project_options) then
+                    exit = true
+                    break
+                end
+            end
+            if type(msg) == 'string' and msg  ~= "" then loopmsg = " "..tostring(msg) end
+        elseif key == "l" or key == "ll" or key == "cl" then
+            local clone_project = true
+            if key == "ll" or key == "l" then
+               local status, msg
+               if key == "ll" then
+                   status, msg = p:send_post_proc_actions({ batch_processing = true })
+               elseif key == "l" then
+                   status, msg = p:send_post_proc_actions()
+               end
+               if status then
+                   print("\n Proyecto "..p.session.regnum.. ": '"..p.settings.title.."' enviado.")
+               else
+                   print("\n ERROR: Proyecto "..p.session.regnum.. ": '"..p.settings.title.."' no pudo enviarse.")
+                   clone_project = false
+               end
+            end
+            if clone_project then
+                print(" Iniciando clonar proyecto")
+                local regnum, title = get_project_newname()
+
+                if regnum ~= nil then
+                   local pzoom = p.state.zoom_pos
+                   local pmode = p.settings.mode
+                   if p:delete_running_project() then
+                       print(" Cerrando proyecto previo..OK")
+                   end
+                   sys.sleep(2000)
+
+                   if not p:init(defaults) then
+                       exit = true
+                       break
+                   else
+                      local clone_options = { regnum = regnum, title = title, root_path = defaults.root_project_path, 
+                                              zoom = pzoom, mode = pmode }
+                      if p:create( clone_options ) then
+                         print(" Proyecto clonado como '"..title.."'..OK")
+                      else
+                         exit = true
+                         break
+                      end
+                   end
+                else
+                   print(" Eligió cancelar!")
+                   msg = "El proyecto no ha sido clonado. Se sigue en: '"..p.settings.title.."'."
+                end
+            end
+            if type(msg) == 'string' and msg  ~= "" then loopmsg = " "..tostring(msg) end
+        elseif key == "a" then
+            print(" Activando cámaras... ")
+            local cam_status = self:init_cams_or_retry()
+            -- cam_status == 'no_init_select' or cam_status == true --> continue
+            if cam_status == 'exit' or cam_status == false then
+                exit = true
+                break
+            end
+            if defaults.mode_enable_qm_daemon then
+                self:init_daemons()
+            end
+        elseif key == "i" then 
+              state.show_cam_status_info = true
+        elseif key == "ins" then
+           if p.session.noc_mode == 'odd-even' then
+               print(" Insertando espacio vacio en "..string.format("%04d", p.state.counter.even).."-"..string.format("%04d", p.state.counter.odd))
+           else -- p.session.noc_mode == 'single'
+               print(" Insertando espacio vacio en "..string.format("%04d", p.state.counter.single))
+           end
+            p:insert_empty_in_counter()
+                print()
+                print(" Presione <enter> para continuar...")
+                local key = io.stdin:read'*l'
+        elseif key == "desde" then
+            if type(p.state.counter) == 'table' then
+               if p.session.noc_mode == 'odd-even' then
+                  if p.state.counter.even and p.session.counter_max.even then
+                     if p.state.counter.even <= p.session.counter_max.even then 
+                        p.session.include_list.from = p.state.counter.even
+                        loopmsg = " Valor 'desde' actualizado ("..tostring(p.session.include_list.from)..")"
+                     else
+                        loopmsg = " No puede marcarse esta posición (aun no se realizó la captura)"
+                     end
+                  else
+                     loopmsg = " ERROR: el contador no registra valores o no esta establecido counter_max"
+                  end
+               else -- p.session.noc_mode == 'single'
+                  if p.state.counter.single and p.session.counter_max.single then
+                     if p.state.counter.single <= p.session.counter_max.single then 
+                        p.session.include_list.from = p.state.counter.single
+                        loopmsg = " Valor 'desde' actualizado ("..tostring(p.session.include_list.from)..")"
+                     else
+                        loopmsg = " No puede marcarse esta posición (aun no se realizó la captura)"
+                     end
+                  else
+                     loopmsg = " ERROR: el contador no registra valores o no esta establecido counter_max"
+                  end
+               end
+            end
+        elseif key == "hasta" then
+            if type(p.state.counter) == 'table' then
+               if p.session.noc_mode == 'odd-even' then
+                  if p.state.counter.odd and p.session.counter_max.odd then 
+                     if p.state.counter.odd <= p.session.counter_max.odd then 
+                        p.session.include_list.to = p.state.counter.odd
+                        loopmsg = " Valor 'hasta' actualizado ("..tostring(p.session.include_list.to)..")"
+                     else
+                        loopmsg = " No puede marcarse esta posición (aun no se realizó la captura)"
+                     end
+                  else
+                     loopmsg = " ERROR: el contador no registra valores o no esta establecido counter_max"
+                  end
+               else -- p.session.noc_mode == 'single'
+                  if p.state.counter.single and p.session.counter_max.single then
+                     if p.state.counter.single <= p.session.counter_max.single then 
+                        p.session.include_list.to = p.state.counter.single
+                        loopmsg = " Valor 'desde' actualizado ("..tostring(p.session.include_list.to)..")"
+                     else
+                        loopmsg = " No puede marcarse esta posición (aun no se realizó la captura)"
+                     end
+                  else
+                     loopmsg = " ERROR: el contador no registra valores o no esta establecido counter_max"
+                  end
+               end
+            end
+        elseif key == "reparar" then
+            local status, no_errors, log = p:reparar() 
+            if status then
+                if no_errors == true then
+                    loopmsg = " Reparacion del proyecto exitosa."
+                elseif no_errors == 'warning' then
+                    loopmsg = " Reparacion del proyecto exitosa, pero con observaciones."
+                elseif no_errors == false then
+                    loopmsg = " Hubo errores al intentar reparar el proyecto."
+                else
+                    loopmsg = " Hubo errores al intentar reparar el proyecto."
+                end
+            else
+                    loopmsg = " No se pudo reparar el proyecto."
+            end
+            sys.sleep(1000)
+        elseif key == "ifocus" then
+            if state.cameras_status then
+                mc:get_cam_info('focus')
+                print()
+                print(" Presione <enter> para continuar...")
+                local key = io.stdin:read'*l'
+            else
+                loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
+            end
+        elseif key == "iexpo" then
+            if state.cameras_status then
+                mc:get_cam_info('expo')
+                print()
+                print(" Presione <enter> para continuar...")
+                local key = io.stdin:read'*l'
+            else
+                loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
+            end
+        elseif key == "dir" then
+            open_thunar(p.session.base_path)
+        elseif key == "pdf abrir" then
+            if p.state.last_pdf_generated then
+                local pdf_path = p.session.base_path.."/"..p.paths.doc_dir.."/"..p.state.last_pdf_generated
+                if dcutls.localfs:file_exists( pdf_path ) then
+                   print(" abriendo.. '"..pdf_path.."'")
+                   open_evince( pdf_path )
+                else
+                   loopmsg = " No existe '"..p.state.last_pdf_generated.."'\n"
+                           .."   El archivo PDF no se ha terminado de generar o ha sido eliminado.\n"
+                           .."   Para más opciones use 'pdf listar' (verá una lista de los PDFs)"
+                end
+            else
+                loopmsg = " Todavía no se ha creado ningún PDF en este proyecto.\n"
+                        .."   Para más opciones use 'pdf listar' (verá una lista de los PDFs)"
+            end
+        elseif key == "pdf listar" then                
+            local status, pdf_filename, result, msg = p:list_pdfs_and_select()
+            if status == true then
+                local pdf_path = p.session.base_path.."/"..p.paths.doc_dir.."/"..pdf_filename
+                if dcutls.localfs:file_exists( pdf_path ) then
+                   print(" abriendo.. '"..pdf_path.."'")
+                   open_evince( pdf_path )
+                else
+                end
+            elseif status == nil then
+                loopmsg = " "..tostring(msg)
+            else
+                
+                loopmsg = " Ha ocurrido un error inesperado."
+            end
+        elseif key == "pdf borrar" then
+            local status, pdf_filename, result, msg = p:list_pdfs_and_select()
+            if status == true then
+                print()
+                print(" Borrar '"..pdf_filename.."'? [S/n]")
+                local confirmar = io.stdin:read'*l'
+                if confirmar == "S" or confirmar == "s" then
+                    if p:delete_pdf(pdf_filename) then
+                        loopmsg = " El archivo '"..tostring(pdf_filename).."' fue borrado"
+                    else
+                        loopmsg = " El archivo '"..tostring(pdf_filename).."' no pudo borrarse"
+                    end
+                end
+            elseif status == nil then
+                loopmsg = " "..tostring(msg)
+            else
+                loopmsg = " Ha ocurrido un error inesperado."
+            end
+        elseif key == "scr abrir" or key == "sc abrir" then -- abre sc si existe, de lo contrario lo crea (include)
+            local status, strlist, suffix = p:get_include_strings()
+            if key == "scr abrir" and not status then
+                loopmsg = " Debe seleccionar un rango de páginas primero para seleccionar esta opción."
+            else
+                if key == "sc abrir" then suffix = nil; strlist = nil; end
+                suffix = suffix or ""
+                local sct_name = p.dalclick.doc_filebase..suffix..".scantailor"
+                local sct_path = p.session.base_path.."/"..p.paths.doc_dir.."/"..sct_name
+                if dcutls.localfs:file_exists( sct_path ) then
+                   print(" abriendo.. '"..sct_path.."'")
+                   open_scantailor_gui( sct_path )
+                else
+                    local this_thing = strlist and "este rango seleccionado!" or "este proyecto!"
+                    print()
+                    print(" No existe un proyecto Scantailor para "..this_thing)
+                    print("'"..sct_name.."'")
+                    print()
+                    print(" Importante! a continuación se creará un nuevo proyecto Scantailor para ser")
+                    print(" configurado manualmente desde la interfaz gráfica. Pero si desea que la con-")
+                    print(" figuración se lleve a cabo automáticamente y dejar para la operación manual")
+                    print(" sólo los ajustes y corrección de errores (recomendado), entonces responda no")
+                    print(" y luego use [pp scantailor].")
+                    print()
+                    print(" Crear proyecto nuevo '"..sct_name.."' [S/n]")
+                    local crear = io.stdin:read'*l'
+                    if crear == "S" or crear == "s" then
+                        local include = strlist and true or false
+                        if p:send_post_proc_actions({
+                                scantailor_create_project = true, 
+                                include_list              = include,
+                            }) then
+                            print(" abriendo.. '"..sct_path.."'")
+                            open_scantailor_gui( sct_path )
+                        else
+                            loopmsg = " No pudo crearse un nuevo proyecto Scantailor '"..tostring(sct_path).."'."
+                        end
+                    end
+                end
+            end
+        elseif key == "sc borrar" then
+            local status, sc_filename, result, msg = p:list_scantailors_and_select()
+            if status == true then
+                print()
+                print(" Borrar '"..sc_filename.."'? [S/n]")
+                local confirmar = io.stdin:read'*l'
+                if confirmar == "S" or confirmar == "s" then
+                    if p:delete_scantailor_project(sc_filename) then
+                        loopmsg = " El archivo '"..tostring(sc_filename).."' fue borrado"
+                    else
+                        loopmsg = " El archivo '"..tostring(sc_filename).."' no pudo borrarse"
+                    end
+                end
+            elseif status == nil then
+                loopmsg = " "..tostring(msg)
+            else
+                loopmsg = " Ha ocurrido un error inesperado."
+            end
+        elseif key == "sc listar" then
+            local status, sc_filename, result, msg = p:list_scantailors_and_select()
+            if status == true then
+                local stproject_path = p.session.base_path.."/"..p.paths.doc_dir.."/"..sc_filename
+                if dcutls.localfs:file_exists( stproject_path ) then
+                   print(" abriendo.. '"..stproject_path.."'")
+                   open_scantailor_gui( stproject_path )
+                end
+            elseif status == nil then
+                loopmsg = " "..tostring(msg)
+                if result == false then
+                    print()
+                    print(" Lista vacía!")
+                    print()
+                    print(" Todavía no ha ejecutado ningun paso del postproceso que haya generado")
+                    print(" un archivo Scantailor. Puede crear uno con:")
+                    print(" - 'pp scantailor'")
+                    print()
+                    print(" Presione <enter> para continuar...")
+                    local key = io.stdin:read'*l'
+                end
+            else
+                loopmsg = " Ha ocurrido un error inesperado."
+            end
+        elseif key == "rango" then
+            if p:project_is_not_empty() then
+                print("ingrese un valor para 'desde'")
+                printf(">> ")
+                local continue = false
+                local desde = io.stdin:read'*l'
+                if desde ~= "" and desde ~= nil and tonumber(desde) >= 0 then
+                    p.session.include_list.from = tonumber(desde)
+                    print(" Valor 'desde' ingresado: "..tostring(p.session.include_list.from))
+                    continue = true
+                else
+                    print(" Valor 'desde' ingresado inválido! ("..tostring(p.session.include_list.from)..")")
+                end
+                if continue then
+                    print("ingrese un valor para 'hasta'")
+                    printf(">> ")
+                    local hasta = io.stdin:read'*l'
+                    if hasta ~= "" and hasta ~= nil then
+                        hasta = tonumber(hasta)
+                        if hasta > p.session.include_list.from then
+                            if hasta <= p.session.counter_max.odd then
+                                p.session.include_list.to = hasta
+                                print(" Valor 'desde' ingresado: "..tostring(p.session.include_list.to))
+                            else
+                                print(" El valor de 'hasta' debe ser menor o igual a la ultima imagen capturada")
+                            end
+                        else
+                            print(" El valor de 'hasta' debe ser mayor a 'desde'")
+                        end
+                    else
+                       print(" Valor 'hasta' ingresado inválido! ("..tostring(p.session.include_list.from)..")")
+                    end
+                end
+            end
+        elseif key == "rango borrar" then
+            if p.session.include_list.from and p.session.include_list.to then
+                p.session.include_list = {}
+                loopmsg = " Rango de páginas borrado!"
+            else
+                loopmsg = " Todavia no se seleccionó ningún rango de páginas."
+            end
+        elseif key == "pp" or key == "ppr" or key:sub(0,3) == "pp " or key:sub(0,4) == "ppr " or key == "scantailor" then
+            if key == "scantailor" then key = "pp scantailor" end
+            local include_list_exists = false
+            local suffix
+            if p.session.include_list.from and p.session.include_list.to then
+                include_list_exists = true
+                suffix = "["..string.format("%04d", p.session.include_list.from).."-"
+                            ..string.format("%04d", p.session.include_list.to).."]"
+            end
+            local ppr = false
+            if key:sub(0,4) == "ppr " or key == "ppr" then
+                ppr = true
+            end
+            if ppr and not include_list_exists then
+                loopmsg = " Debe seleccionar un rango 'desde/hasta' primero"
+            else
+                local args
+                if ppr then 
+                    args = key:sub(5) 
+                else 
+                    args = key:sub(4) 
+                    suffix = nil
+                    include_list_exists = false
+                end
+                local status, pp_args, msg = parse_pp_args( args )
+                if status then
+                    print()
+                    print( msg )
+                    print()
+                    if ppr then print(" procesamiento parcial de rango: "..tostring(suffix).."\n") end
+                    print( " ¿Enviar estas acciones a la cola de procesamiento? (S/n)")
+                    printf(">> ")
+                    local confirm = io.stdin:read'*l'
+                    if confirm == "S" or confirm == "s" then
+                        if p:send_post_proc_actions({ 
+                            pp_mode      = true, 
+                            pp           = 'pp='..pp_args, 
+                            include_list = include_list_exists,
+                        }) then
+                            suffix = suffix or ""
+                            loopmsg = 
+                                " Proyecto '"..p.session.regnum
+                              .."' ('"..p.settings.title.."') enviado "
+                              ..suffix..pp_args.." OK."
+                        else
+                            loopmsg = " Hubo errores y el proyecto no pudo ser enviado."
+                        end
+                    end
+                else
+                    loopmsg = msg
+                end
+            end
+        elseif key == "chdk" then
+            if state.cameras_status then
+                print(" recargando chdk scripts...")
+                if not self:load_cam_scripts() then
+                    print(' ERROR falló load_cam_scripts()')
+                    exit = true
+                    break
+                end
+            else
+                loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
+            end
+        elseif key == "load_secure" then
+            if p:load_state_secure() then
+                loopmsg = "load_state_secure: OK"                    
+            else
+                loopmsg = "load_state_secure: no se pudo cargar '.dc_state' correctamente"
+            end
+        else
+            loopmsg = " El texto ingresado no corresponde a ninguna opción del menú! ¯\\_(ツ)_/¯"
         end
-        
+    end -- /while loop 
+    
+    if defaults.mode_enable_qm_daemon then
+        self:kill_daemons()
     end
+        
+    --
     if exit == true then
         self:dalclick_loop(false)
     else

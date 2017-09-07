@@ -24,6 +24,7 @@ function project:init(globalconf)
     self.session.counter_max = {}
     self.session.counter_min = {}
     self.session.include_list = {}
+    self.session.noc_mode = nil
     --
     self.paths = globalconf.paths
     --
@@ -37,7 +38,7 @@ function project:init(globalconf)
     self.settings.ref_cam = nil
     self.settings.rotate = nil
     self.settings.mode = self.settings_default.mode
-    self.settings.noc_mode = nil
+    self.settings.last_noc_mode = nil
     --
     self.state.counter = {}
     self.state.zoom_pos = nil
@@ -47,7 +48,8 @@ function project:init(globalconf)
     -- self.state.resolution = nil
     self.state.rotate = {
         odd = nil,
-        even = nil
+        even = nil,
+        single = nil
     }
     return true
 end
@@ -190,11 +192,12 @@ function project:create( options )
     self.settings.title = options.title
     if options.mode then self.settings.mode = options.mode end
 
-    self.settings.noc_mode = self.dalclick.noc_mode_default
-    if self.settings.noc_mode == 'odd-even' then
+    self.session.noc_mode = self.dalclick.noc_mode_default
+    self.settings.last_noc_mode = self.session.noc_mode
+    if self.session.noc_mode == 'odd-even' then
 	    self.settings.ref_cam = self.dalclick.oddeven_default_ref_cam
 	    self.settings.rotate = self.dalclick.oddeven_default_rotate
-    else -- self.settings.noc_mode == 'single'
+    else -- self.session.noc_mode == 'single'
 	    self.settings.ref_cam = self.dalclick.single_default_ref_cam
 	    self.settings.rotate = self.dalclick.single_default_rotate
     end
@@ -255,10 +258,10 @@ function project:check_settings(opts)
         log = log .. " * Modo sin definir\n" 
         status = false
     end
-    if self.settings.noc_mode and self.settings.noc_mode ~= "" then 
+    if self.settings.last_noc_mode and self.settings.last_noc_mode ~= "" then 
         --
     else
-        self.settings.noc_mode = self.dalclick.noc_mode_undefined 
+        self.settings.last_noc_mode = self.dalclick.noc_mode_undefined 
         -- ojo, si no esta definido en los settings de un proyecto se asume que 
         -- es un formato obsoleto cuando no existia noc_mode (entonces solo puede ser "odd-even")
         log = log .. " * Modo NOC sin definir\n" 
@@ -267,9 +270,9 @@ function project:check_settings(opts)
     if self.settings.ref_cam and self.settings.ref_cam ~= "" then 
         --
     else
-		if self.settings.noc_mode == "odd-even" then
+		if self.session.noc_mode == "odd-even" then
         	self.settings.ref_cam = self.dalclick.oddeven_default_ref_cam
-        else -- self.settings.noc_mode == 'single'
+        else -- self.session.noc_mode == 'single'
         	self.settings.ref_cam = self.dalclick.single_default_ref_cam
         end
         log = log .. " * Cámara de referencia sin definir\n"
@@ -278,9 +281,9 @@ function project:check_settings(opts)
     if self.settings.rotate ~= nil then 
         --
     else
-		if self.settings.noc_mode == "odd-even" then
+		if self.session.noc_mode == "odd-even" then
         	self.settings.rotate = self.dalclick.oddeven_default_rotate
-        else -- self.settings.noc_mode == 'single'
+        else -- self.session.noc_mode == 'single'
         	self.settings.rotate = self.dalclick.single_default_rotate
         end
         log = log .. " * Rotar sin definir\n"
@@ -308,12 +311,12 @@ function project:check_state()
 	    if type(self.state.counter) ~= 'table' then
 	        status = false
 	    else
-            if self.settings.noc_mode == 'odd-even' then
+            if self.session.noc_mode == 'odd-even' then
 	            if type(self.state.counter.even) ~= 'number' or 
 	            type(self.state.counter.odd) ~= 'number' then
 	                status = false
 	            end
-            else -- self.settings.noc_mode == 'single'
+            else -- self.session.noc_mode == 'single'
 	            if type(self.state.counter.single) ~= 'number' then
 	                status = false
 	            end
@@ -345,7 +348,6 @@ function project:load(settings_path, opts)
             self.session.regnum    = regnum_name  -- regnum
             self.session.base_path = base_path    -- /ruta/a/regnum
             self.session.root_path = root_path    -- /ruta/a
-            local status = self:get_counter_max_min()
             
             self.settings = util.unserialize(content)
             local status, log = self:check_settings()
@@ -353,6 +355,9 @@ function project:load(settings_path, opts)
                 print(" Reparado Settings")
                 print( log )
             end
+
+			self.session.noc_mode = self.settings.last_noc_mode
+            local status = self:get_counter_max_min()
             
             print("\n Datos del proyecto cargado:\n")
             print(" ===================================================")
@@ -361,6 +366,7 @@ function project:load(settings_path, opts)
                 print(" = Título: '"..self.settings.title.."'") 
             end
             print(" = Modo: '"..self.settings.mode.."'") 
+            print(" = noc_mode: '"..self.session.noc_mode.."'") 
             print(" = Cámara de referencia: '"..self.settings.ref_cam.."'")     
             print(" = Rotar: '"..tostring(self.settings.rotate).."'") 
             print()
@@ -371,16 +377,16 @@ function project:load(settings_path, opts)
                 check_state = self:check_state()
             end
             if load_state and check_state then
-                if self.settings.noc_mode == 'odd-even' then
+                if self.session.noc_mode == 'odd-even' then
                    print(" = cámara de páginas impares - próxima captura: "..self.state.counter.odd )
                    print(" = cámara de páginas pares - próxima captura: "..  self.state.counter.even)
-                else -- self.settings.noc_mode == 'single'
+                else -- self.session.noc_mode == 'single'
                    print(" = próxima captura: "..  self.state.counter.single)
                 end
 		        if not self.state.rotate then
 		            self.state.rotate = {}
 		        end
-                if self.settings.noc_mode == 'odd-even' then
+                if self.session.noc_mode == 'odd-even' then
 		            if self.state.rotate.odd then
 		                print(" = cámara de páginas impares - rotación: "..self.state.rotate.odd)
 		            else
@@ -393,16 +399,16 @@ function project:load(settings_path, opts)
 		                self.state.rotate.even = self.dalclick.rotate_even
 		                print(" asignada rotación por defecto para cámara de páginas pares: "..self.state.rotate.even)
 		            end
-                else -- self.settings.noc_mode == 'single'
+                else -- self.session.noc_mode == 'single'
 		            if self.state.rotate.single then
-		                print(" = rotación: "..self.state.rotate.single)
+		                print(" = rotación: "..self.state.rotate.single) -- si settings.rotate es false no importaria
 		            else
 		                self.state.rotate.single = self.dalclick.rotate_single
 		                print(" asignada rotación por defecto: "..self.state.rotate.single)
 		            end
                 end                
                  -- check state paths
-                if self.settings.noc_mode == 'odd-even' then
+                if self.session.noc_mode == 'odd-even' then
 		            if type(self.state.saved_files) == 'table' and type(self.state.saved_files.even) == 'table' then
 		                if not dcutls.localfs:file_exists(self.state.saved_files.even.path) or 
 		                   not dcutls.localfs:file_exists(self.state.saved_files.odd.path) then
@@ -414,7 +420,7 @@ function project:load(settings_path, opts)
 		                    self.state.saved_files = nil
 		                end
 		            end
-                else -- self.settings.noc_mode == 'single'
+                else -- self.session.noc_mode == 'single'
 		            if type(self.state.saved_files) == 'table' and type(self.state.saved_files.single) == 'table' then
 		                if not dcutls.localfs:file_exists(self.state.saved_files.single.path) then
 		                    print()
@@ -535,7 +541,7 @@ function project:forward(counter, max)
     local next_counter = {}
     local out_of_range = false
 
-    if self.settings.noc_mode == 'odd-even' then
+    if self.session.noc_mode == 'odd-even' then
 		for idname,count in pairs(counter) do
             if idname ~= 'single' then
 				count = count + 2
@@ -547,7 +553,7 @@ function project:forward(counter, max)
 				end
             end
 		end
-    else -- self.settings.noc_mode == 'single'
+    else -- self.session.noc_mode == 'single'
 		for idname,count in pairs(counter) do
             if idname == 'single' then
 				count = count + 1
@@ -575,7 +581,7 @@ function project:backward(counter, min)
     local prev_counter = {}
     local out_of_range = false
 
-    if self.settings.noc_mode == 'odd-even' then
+    if self.session.noc_mode == 'odd-even' then
 		for idname,count in pairs(counter) do
             if idname ~= 'single' then
 				count = count - 2
@@ -587,7 +593,7 @@ function project:backward(counter, min)
 				end
 			end
 		end
-    else -- self.settings.noc_mode == 'single'
+    else -- self.session.noc_mode == 'single'
 		for idname,count in pairs(counter) do
             if idname == 'single' then
 				count = count - 1
@@ -825,7 +831,7 @@ function project:set_counter(pos)
     pos = tonumber(pos)
     local msg
 
-    if self.settings.noc_mode == 'odd-even' then
+    if self.session.noc_mode == 'odd-even' then
        if (pos % 2 == 0) then
           -- even
           self.state.counter[self.dalclick.even_name] = pos
@@ -837,7 +843,7 @@ function project:set_counter(pos)
           self.state.counter[self.dalclick.odd_name]  = pos
           msg = "contador actualizado -> even: "..tostring(pos - 1).." / odd: "..tostring(pos)
        end
-    else -- self.settings.noc_mode == 'single'
+    else -- self.session.noc_mode == 'single'
        self.state.counter[self.dalclick.single_name] = pos
        msg = "contador actualizado -> "..tostring(pos)
     end
@@ -878,9 +884,9 @@ function project:get_counter_max_min()
 
     local min, max
     local folders = {}
-    if self.settings.noc_mode == 'odd-even' then
+    if self.session.noc_mode == 'odd-even' then
         folders = { self.dalclick.odd_name, self.dalclick.even_name }
-    else -- self.settings.noc_mode == 'single'
+    else -- self.session.noc_mode == 'single'
         folders = { self.dalclick.single_name }
     end    
     for n, idname in pairs(folders) do
@@ -907,7 +913,7 @@ function project:get_counter_max_min()
        min.f = tonumber(min.f:match("^(%d+)%..+$"))
        max.f = tonumber(max.f:match("^(%d+)%..+$"))
 
-       if self.settings.noc_mode == 'odd-even' then
+       if self.session.noc_mode == 'odd-even' then
           if min.idname == self.dalclick.odd_name then
              self.session.counter_min = { [self.dalclick.even_name] = min.f - 1, [self.dalclick.odd_name] = min.f }
           elseif min.idname == self.dalclick.even_name then
@@ -918,7 +924,7 @@ function project:get_counter_max_min()
           elseif max.idname == self.dalclick.even_name then
              self.session.counter_max = { [self.dalclick.even_name] = max.f, [self.dalclick.odd_name] = max.f + 1 }
           end
-       else -- self.settings.noc_mode == 'single'
+       else -- self.session.noc_mode == 'single'
           self.session.counter_min = { [self.dalclick.single_name] = min.f }
           self.session.counter_max = { [self.dalclick.single_name] = max.f }
        end
@@ -1034,7 +1040,7 @@ function project:init_state( options )
    
     self.state.counter = {}
 
-    if self.settings.noc_mode == 'odd-even' then
+    if self.session.noc_mode == 'odd-even' then
 		if type(self.session.counter_max.even) == 'number' and type(self.session.counter_max.odd) == 'number' then
 		    self.state.counter.even = self.session.counter_max.even + 1
 		    print(" iniciado contador en nueva posición par (even) en: "..tostring(self.state.counter.even))
@@ -1046,7 +1052,7 @@ function project:init_state( options )
 		    self.state.counter.odd = 1
 		    print(" iniciado contador impar (odd) en:"..tostring(self.state.counter.odd))
 		end
-    else -- self.settings.noc_mode == 'single'
+    else -- self.session.noc_mode == 'single'
 		if type(self.session.counter_max.single) == 'number' then
 		    self.state.counter.single = self.session.counter_max.single + 1
 		    print(" iniciado contador en nueva posición en: "..tostring(self.state.counter.single))
@@ -1057,12 +1063,12 @@ function project:init_state( options )
     end 
    
     self.state.rotate = {}
-    if self.settings.noc_mode == 'odd-even' then
+    if self.session.noc_mode == 'odd-even' then
 		self.state.rotate.odd = self.dalclick.rotate_odd
 		print(" asignada rotación por defecto para cámara de páginas impares: "..self.state.rotate.odd)
 		self.state.rotate.even = self.dalclick.rotate_even
 		print(" asignada rotación por defecto para cámara de páginas pares: "..self.state.rotate.even)
-    else -- self.settings.noc_mode == 'single'
+    else -- self.session.noc_mode == 'single'
 		self.state.rotate.single = self.dalclick.rotate_single
 		print(" asignada rotación por defecto: "..self.state.rotate.single)
     end
@@ -1107,7 +1113,7 @@ function project:load_state_secure()
             if type(state.rotate) ~= 'table' or type(state.counter) ~= 'table' then
                 return false
             else
-                if self.settings.noc_mode == 'odd-even' then
+                if self.session.noc_mode == 'odd-even' then
                 	if not state.rotate.odd or not state.rotate.even then
                 	    return false
                 	else
@@ -1118,7 +1124,7 @@ function project:load_state_secure()
                 	        return true
                 	    end
                 	end
-    			else -- self.settings.noc_mode == 'single'
+    			else -- self.session.noc_mode == 'single'
                 	if not state.rotate.single then
                 	    return false
                 	else
@@ -1263,11 +1269,19 @@ function project:get_thumb_path(idname, filename)
             if dcutls.localfs:file_exists( thumb_path ) then
                 return thumb_path
             else
-                return self.dalclick.empty_thumb_path_error
+				if self.settings.rotate then
+	                return self.dalclick.empty_thumb_path_error
+				else
+	                return self.dalclick.empty_thumb_path_landscapebig_error
+				end
             end
         end
     else
-        return self.dalclick.empty_thumb_path
+		if self.settings.rotate then
+	        return self.dalclick.empty_thumb_path
+		else
+	        return self.dalclick.empty_thumb_path_landscapebig
+		end
     end
 end
 
@@ -1304,7 +1318,7 @@ function project:show_capts(mode, previews, filenames )
     local right = {}
     local single = {}
 
-    local noc_mode = self.settings.noc_mode
+    local noc_mode = self.session.noc_mode
 
     local gbtn = {}
     local button_prev_init_active = "YES"
