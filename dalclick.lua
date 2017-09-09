@@ -925,21 +925,27 @@ end
 
 function mc:shutdown_all()
 
-    local shutdown_fail = false
-    for i,lcon in ipairs(self.cams) do
+	if type(self.cams) == 'table' and next(self.cams) then
+        print(" Apagando camaras...")
+		local shutdown_fail = false
+		for i,lcon in ipairs(self.cams) do
 
-        local status,err=lcon:exec('sleep(1000); shut_down()',{clobber=true})
-        lcon:disconnect() -- disconnect camera while responding?
-        if not status then
-            shutdown_fail = true
-            printf("[%i] ERROR: no se pudo apagar la cámara\n", i, err)
-        end
-    end
-    if shutdown_fail then
-        return false
+		    local status,err=lcon:exec('sleep(1000); shut_down()',{clobber=true})
+		    lcon:disconnect() -- disconnect camera while responding?
+		    if not status then
+		        shutdown_fail = true
+		        printf("[%i] ERROR: no se pudo apagar la cámara\n", i, err)
+		    end
+		end
+		if shutdown_fail then
+		    return false
+		else
+		    return true
+		end
     else
-        return true
-    end
+		-- las camaras no estan encendida/activas
+        return nil
+	end
 end
 
 function mc:init_cams_all()
@@ -3641,11 +3647,11 @@ function dc:main(
                 print(" error: no se pudieron guardar las variables de estado en el disco")
                 -- print("debug: zoom_pos: "..tostring(p.state.zoom_pos))
             end
-            if not mc:shutdown_all() then
+            if mc:shutdown_all() == false then
                 print("alguna de las cámaras deberá ser apagada manualmente")
             end
-            sys.sleep(3000)
             print(" saliendo...")
+            sys.sleep(1000)
             exit = true
             break
         elseif key == "c" then
