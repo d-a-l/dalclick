@@ -21,6 +21,7 @@ function dc_multicam:shoot_and_download_all(progress, flags, cams, param, dlg)
 
 
 	-- result.status = number
+      -- 0 exito!
 		-- 1 - no se proporciono una conexion
 		-- 2 - los parametros no son consistentes con la conexion
 		-- 3 - fallo disparo en alguna camara
@@ -42,7 +43,7 @@ function dc_multicam:shoot_and_download_all(progress, flags, cams, param, dlg)
 	--	  path remoto que se detecto ya descargado
 
     -- param.delay 1,2,4
-    -- param.local_paths[idname] = {}
+    -- param.device[idname] = {}
 
     if type(cams) == 'table' and next(cams) then
 		-- continue
@@ -58,9 +59,9 @@ function dc_multicam:shoot_and_download_all(progress, flags, cams, param, dlg)
 
     local check_param = false
     if type(param) == 'table' and next(param) then
-		if type(param.local_paths) == 'table' and next(param.local_paths) then
+		if type(param.device) == 'table' and next(param.device) then
 			for i,lcon in ipairs(cams) do
-			   if param.local_paths[lcon.idname] then
+			   if param.device[lcon.idname] then
                    check_param = true				
 			   end
 			end
@@ -207,21 +208,21 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
     result.successful = {}
     for i,lcon in ipairs(cams) do
 
-        if not dcutls.localfs:file_exists( param.local_paths[lcon.idname].dest_tmp_dir ) then
+        if not dcutls.localfs:file_exists( param.device[lcon.idname].dest_tmp_dir ) then
             result.status = 6
             return result
         end
-        local dest_path = param.local_paths[lcon.idname].dest_tmp_dir..param.local_paths[lcon.idname].dest_filemame
+        local dest_path = param.device[lcon.idname].dest_tmp_dir..param.device[lcon.idname].dest_filemame
         --
-        printf(" ["..i.."] descargando... '"..lcon.remote_path.."' -> '"..param.local_paths[lcon.idname].dest_filemame.."' ..")
+        printf(" ["..i.."] descargando... '"..lcon.remote_path.."' -> '"..param.device[lcon.idname].dest_filemame.."' ..")
         --
         local results,err = lcon:download(lcon.remote_path, dest_path)
         --
         if results and dcutls.localfs:file_exists(dest_path) then
             result.successful[lcon.idname] = {
                 path = dest_path,
-                basepath = param.local_paths[lcon.idname].dest_tmp_dir,
-                basename = param.local_paths[lcon.idname].dest_filemame,
+                basepath = param.device[lcon.idname].dest_tmp_dir,
+                basename = param.device[lcon.idname].dest_filemame,
                 remote_path = lcon.remote_path
             }
             print("OK")

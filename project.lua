@@ -543,15 +543,15 @@ function project:forward(counter, max)
 
     if self.session.noc_mode == 'odd-even' then
 		for idname,count in pairs(counter) do
-            if idname ~= 'single' then
-				count = count + 2
-				next_counter[idname] = count
-				if count > max then
-				    out_of_range = true
-				elseif count == max then
-				    if out_of_range ~= true then out_of_range = nil end
-				end
+         if idname ~= 'single' then
+            count = count + 2
+            next_counter[idname] = count
+            if count > max then
+                out_of_range = true
+            elseif count == max then
+                if out_of_range ~= true then out_of_range = nil end
             end
+         end
 		end
     else -- self.session.noc_mode == 'single'
 		for idname,count in pairs(counter) do
@@ -568,11 +568,11 @@ function project:forward(counter, max)
     end
 
 	if out_of_range == false then
-	    return next_counter, true   
+	    return next_counter, true, 'within_range'
 	elseif out_of_range == true then
-	    return counter, false
+	    return counter, false, 'last'
 	elseif out_of_range == nil then
-	    return next_counter, nil
+	    return next_counter, true, 'last'
 	end
 end
 
@@ -608,31 +608,31 @@ function project:backward(counter, min)
     end
 
     if out_of_range == false then
-        return prev_counter, true   
+        return prev_counter, true, 'within_range'
     elseif out_of_range == true then
-        return counter, false
+        return counter, false, 'first'
     elseif out_of_range == nil then
-        return prev_counter, nil
+        return prev_counter, true, 'first'
     end
 end
 
 function project:counter_next(max)
-    self.state.counter, counter_updated = self:forward(self.state.counter, max)
-    return counter_updated
+    self.state.counter, counter_updated, counter_status = self:forward(self.state.counter, max)
+    return counter_updated, counter_status
 end
 
 function project:counter_prev(min)
-    self.state.counter, counter_updated = self:backward(self.state.counter, min)
-    return counter_updated
+    self.state.counter, counter_updated, counter_status = self:backward(self.state.counter, min)
+    return counter_updated, counter_status
 end
 
 function project:preview_counter_next(max)
-    self.session.preview_counter, counter_updated = self:forward(self.session.preview_counter, max)
+    self.session.preview_counter, counter_updated, counter_status = self:forward(self.session.preview_counter, max)
     return counter_updated
 end
 
 function project:preview_counter_prev(min)
-    self.session.preview_counter, counter_updated = self:backward(self.session.preview_counter, min)
+    self.session.preview_counter, counter_updated, counter_status = self:backward(self.session.preview_counter, min)
     return counter_updated
 end
 
@@ -1265,7 +1265,7 @@ function project:get_thumb_path(idname, filename)
             return thumb_path
         else
             print(" creando vista previa para... "..thumb_path)
-            os.execute("econvert -i "..big_path.." --thumbnail ".."0.125".." -o "..thumb_path.." > /dev/null 2>&1")
+            os.execute("econvert -i "..big_path.." --thumbnail "..( self.settings.rotate and "0.125" or "0.167").." -o "..thumb_path.." > /dev/null 2>&1")
             if dcutls.localfs:file_exists( thumb_path ) then
                 return thumb_path
             else
