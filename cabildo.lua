@@ -2,10 +2,10 @@ local cabildo = {}
 
 
 
-function cabildo:test(proyecto,d)
+function cabildo:test(d)
 
 print("-- 1 --")
-    --print(p.session.regnum)
+    --print(current_project.session.regnum)
     --print(defaults.left_cam_id_filename)
 print("-- 2 --")
     print(proyecto.session.regnum)
@@ -13,9 +13,9 @@ print("-- 2 --")
 
 end
 
-function cabildo:gui(p, cams) -- projec, cams
+function cabildo:gui(cams) -- projec, cams
 
-    local noc_mode = p.session.noc_mode
+    local noc_mode = current_project.session.noc_mode
     local ids, idref
     if noc_mode == 'odd-even' then
 	    idref = 'odd'
@@ -24,7 +24,7 @@ function cabildo:gui(p, cams) -- projec, cams
 	    idref = 'single'
        ids = {'single'}
     end
-    local previews, filenames = self:make_preview(p, ids)
+    local previews, filenames = self:make_preview(ids)
     local vcanv = {}
     local gbtn = {}
     local current_cnv_size = {}
@@ -33,20 +33,20 @@ function cabildo:gui(p, cams) -- projec, cams
     local button_next_init_active = "YES"
     local button_shoot_init_active= "YES"
 
-    local max_min_status = p:get_counter_max_min()
+    local max_min_status = current_project:get_counter_max_min()
     if max_min_status == true then
        -- definir estado inicial
-       if p.state.counter[idref] > p.session.counter_max[idref] then
-           p.state.counter = p.session.counter_max
+       if current_project.state.counter[idref] > current_project.session.counter_max[idref] then
+           current_project.state.counter = current_project.session.counter_max
        end
        -- estado inicial botones prev/next
-       if p.state.counter[idref] == p.session.counter_max[idref] then
+       if current_project.state.counter[idref] == current_project.session.counter_max[idref] then
            button_next_init_active = "NO"
        end
-       if p.state.counter[idref] < p.session.counter_max[idref] then
+       if current_project.state.counter[idref] < current_project.session.counter_max[idref] then
            button_shoot_init_active= "NO"
        end
-       if p.state.counter[idref] == p.session.counter_min[idref] then
+       if current_project.state.counter[idref] == current_project.session.counter_min[idref] then
            button_prev_init_active = "NO"
        end
     elseif max_min_status == nil then
@@ -260,14 +260,19 @@ function cabildo:gui(p, cams) -- projec, cams
 
       -- cuando existe img en raw pero no en pre preguntar si generarla on the fly mientras se navega con prev/next
       if shootmode == nil then print("error: 'shootmode == nil'"); return false; end
-      if type(cams) ~= 'table' then return false end
+      if type(cams) == 'table' and next(cams) then
+         --continue
+         print("·cams ="..tostring(cams))
+      else 
+         return false 
+      end
 
       local ok_to_shoot = false
       local back_counter_if_fail = false
       if shootmode == 'normal' then
-         if p.session.counter_max then
-            if p.state.counter[idref] == p.session.counter_max[idref] then
-               if p:counter_next() then
+         if current_project.session.counter_max then
+            if current_project.state.counter[idref] == current_project.session.counter_max[idref] then
+               if current_project:counter_next() then
                   ok_to_shoot = true
                   back_counter_if_fail = true
                end
@@ -288,12 +293,12 @@ function cabildo:gui(p, cams) -- projec, cams
          param.device = {}
          param.rotate_angle = {}
          for i, idname in pairs(ids) do
-            local file_name_we = string.format("%04d", p.state.counter[idname])
+            local file_name_we = string.format("%04d", current_project.state.counter[idname])
             -- param.control_paths[idname].remote_path = -- del saved files anterior o nada
             param.device[idname] = {}
-            param.device[idname].dest_dir = p.session.base_path.."/"..p.paths.raw[idname].."/"
-            param.device[idname].dest_preproc_dir = p.session.base_path.."/"..p.paths.proc[idname].."/"
-            param.device[idname].dest_tmp_dir = p.session.base_path.."/"..p.paths.raw[idname].."/"..p.dalclick.tempfolder_name.."/"
+            param.device[idname].dest_dir = current_project.session.base_path.."/"..current_project.paths.raw[idname].."/"
+            param.device[idname].dest_preproc_dir = current_project.session.base_path.."/"..current_project.paths.proc[idname].."/"
+            param.device[idname].dest_tmp_dir = current_project.session.base_path.."/"..current_project.paths.raw[idname].."/"..current_project.dalclick.tempfolder_name.."/"
             if not dcutls.localfs:file_exists( param.device[idname].dest_tmp_dir ) then
                if not dcutls.localfs:create_folder( param.device[idname].dest_tmp_dir ) then
                   build_param_fail = true
@@ -301,25 +306,25 @@ function cabildo:gui(p, cams) -- projec, cams
             end
             param.device[idname].dest_filemame = file_name_we..".".."jpg"
             param.device[idname].basename_without_ext = file_name_we
-            param.device[idname].thumbpath_dir = p.session.base_path.."/"..p.paths.proc[idname].."/"..p.dalclick.thumbfolder_name.."/"
+            param.device[idname].thumbpath_dir = current_project.session.base_path.."/"..current_project.paths.proc[idname].."/"..current_project.dalclick.thumbfolder_name.."/"
             if not dcutls.localfs:file_exists( param.device[idname].thumbpath_dir ) then
                if not dcutls.localfs:create_folder( param.device[idname].thumbpath_dir ) then
                   build_param_fail = true
                end
             end
-            param.device[idname].rotate_angle = p.state.rotate[idname]
+            param.device[idname].rotate_angle = current_project.state.rotate[idname]
 
-            param.rotate = p.settings.rotate
-            -- param.thumbnail_scale = ( p.settings.rotate and "0.125" or "0.167")
+            param.rotate = current_project.settings.rotate
+            -- param.thumbnail_scale = ( current_project.settings.rotate and "0.125" or "0.167")
          end
          if (not build_param_fail) and cabildo:gui_shoot_download_and_preproc(cams, param) then
-            p.session.counter_max = p.state.counter
-            local previews, filenames = cabildo:make_preview(p, ids)
+            current_project.session.counter_max = current_project.state.counter
+            local previews, filenames = cabildo:make_preview(ids)
             gbtn:gbtn_action_callback('last', previews, filenames) 
          else
             -- no hubo exito
             if back_counter_if_fail == true then
-               p:counter_prev()
+               current_project:counter_prev()
             end
          end
       end
@@ -341,17 +346,17 @@ function cabildo:gui(p, cams) -- projec, cams
 
     function gbtn.gbtn_next:action()
        local counter_updated
-       counter_updated, counter_status = p:counter_next( p.session.counter_max[idref] )
+       counter_updated, counter_status = current_project:counter_next( current_project.session.counter_max[idref] )
        if counter_updated then
-           local previews, filenames = cabildo:make_preview(p, ids)
+           local previews, filenames = cabildo:make_preview(ids)
            gbtn:gbtn_action_callback(counter_status, previews, filenames) 
        end
     end
 
     function gbtn.gbtn_prev:action()
-       local counter_updated, counter_status = p:counter_prev( 0 )
+       local counter_updated, counter_status = current_project:counter_prev( 0 )
        if counter_updated then
-           local previews, filenames = cabildo:make_preview(p, ids)
+           local previews, filenames = cabildo:make_preview(ids)
            gbtn:gbtn_action_callback(counter_status, previews, filenames) 
        end
     end
@@ -400,15 +405,15 @@ function cabildo:gui(p, cams) -- projec, cams
 end
 
 
-function cabildo:make_preview(p,ids)
+function cabildo:make_preview(ids)
 
     -- param = { [idname] => num, ..}
     local previews = {}
     local filenames = {}
     for n, idname in pairs(ids) do
        local filename_we
-       filename_we = string.format("%04d", p.state.counter[idname])..".jpg"
-       previews[idname] = p:get_thumb_path(idname, filename_we)
+       filename_we = string.format("%04d", current_project.state.counter[idname])..".jpg"
+       previews[idname] = current_project:get_thumb_path(idname, filename_we)
        filenames[idname] = filename_we
     end
     return previews, filenames
@@ -521,6 +526,8 @@ function cabildo:gui_shoot_download_and_preproc(cams,param)
             end
          end
       end
+   else
+      shoot_fail = true
    end
    gaugeProgress.value = 1.0; pbdlg.title = "listo"
    iup.LoopStep()
