@@ -1245,11 +1245,21 @@ function mc:rotate_and_resize_all()
                 return false
             end
         end
+        local portrait = false
+        if p.settings.rotate then
+           if p.state.rotate[idname] == 180 or p.state.rotate[idname] == 0 then
+              portrait = false
+           else
+              portrait = true
+           end
+        else
+             portrait = false
+        end
         command = 
             "econvert -i "..saved_file.path
           ..( p.settings.rotate and " --rotate "..p.state.rotate[idname] or "")
           .." -o "..p.session.base_path.."/"..p.paths.proc[idname].."/"..saved_file.basename
-          .." --thumbnail "..( p.settings.rotate and "0.125" or "0.167")
+          .." --thumbnail "..( portrait and "0.125" or "0.167")
           .." -o "..thumbpath.."/"..saved_file.basename
           .." > /dev/null 2>&1"
         if defaults.mode_enable_qm_daemon then
@@ -1452,7 +1462,16 @@ function mc:capt_all_test_and_preview()
                         p.session.base_path.."/"..p.paths.test[idname]
                         .."/"..saved_file.basename_without_ext..defaults.test_low_name..".jpg"
                 }
-                               
+                local portrait = false
+                if p.settings.rotate then
+                  if p.state.rotate[idname] == 180 or p.state.rotate[idname] == 0 then
+                     portrait = false
+                  else
+                     portrait = true
+                  end
+                else
+                     portrait = false
+                end
                 local command = 
                     "econvert"
                   .." -i "..command_paths[idname].src_path
@@ -2836,14 +2855,14 @@ function dc:main(
     
     defaults.ppm_sendcmd_path = defaults.dalclick_pwdir.."/ppm/ppm_sendcmd.sh" -- post process mananager
 
-    defaults.empty_thumb_path = defaults.dalclick_pwdir.."/img/empty_g.jpg"
-    defaults.empty_thumb_path_error = defaults.dalclick_pwdir.."/img/empty.jpg"
+    defaults.empty_thumb_path = defaults.dalclick_pwdir.."/img/empty.jpg"
+    defaults.empty_thumb_path_error = defaults.dalclick_pwdir.."/img/empty_g.jpg"
 
-    defaults.empty_thumb_path_landscape = defaults.dalclick_pwdir.."/img/empty_g-landscape.jpg"
-    defaults.empty_thumb_path_landscape_error = defaults.dalclick_pwdir.."/img/empty-landscape.jpg"
+    defaults.empty_thumb_path_landscape = defaults.dalclick_pwdir.."/img/empty-landscape.jpg"
+    defaults.empty_thumb_path_landscape_error = defaults.dalclick_pwdir.."/img/empty_g-landscape.jpg"
 
-    defaults.empty_thumb_path_landscapebig = defaults.dalclick_pwdir.."/img/empty_g-landscape-big.jpg"
-    defaults.empty_thumb_path_landscapebig_error = defaults.dalclick_pwdir.."/img/empty-landscape-big.jpg"
+    defaults.empty_thumb_path_landscapebig = defaults.dalclick_pwdir.."/img/empty-landscape-big.jpg"
+    defaults.empty_thumb_path_landscapebig_error = defaults.dalclick_pwdir.."/img/empty_g-landscape-big.jpg"
 
     -- --
     if not self:load_cam_scripts() then

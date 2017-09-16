@@ -1260,24 +1260,35 @@ function project:get_thumb_path(idname, filename)
     local thumb_path = preview_folder.."/"..filename
     local big_path = self.session.base_path.."/"..self.paths.proc[idname].."/"..filename
 
+    local portrait = false
+    if self.settings.rotate then
+       if self.state.rotate[idname] == 180 or self.state.rotate[idname] == 0 then
+          portrait = false
+       else
+          portrait = true
+       end
+    else
+       portrait = false
+    end
+
     if dcutls.localfs:file_exists( big_path ) then
         if dcutls.localfs:file_exists( thumb_path ) then
             return thumb_path
         else
             print(" creando vista previa para... "..thumb_path)
-            os.execute("econvert -i "..big_path.." --thumbnail "..( self.settings.rotate and "0.125" or "0.167").." -o "..thumb_path.." > /dev/null 2>&1")
+            os.execute("econvert -i "..big_path.." --thumbnail "..( portrait and "0.125" or "0.167").." -o "..thumb_path.." > /dev/null 2>&1")
             if dcutls.localfs:file_exists( thumb_path ) then
                 return thumb_path
             else
-				if self.settings.rotate then
-	                return self.dalclick.empty_thumb_path_error
-				else
-	                return self.dalclick.empty_thumb_path_landscapebig_error
-				end
+               if portrait then
+                  return self.dalclick.empty_thumb_path_error
+               else
+                  return self.dalclick.empty_thumb_path_landscapebig_error
+               end
             end
         end
     else
-		if self.settings.rotate then
+		if portrait then
 	        return self.dalclick.empty_thumb_path
 		else
 	        return self.dalclick.empty_thumb_path_landscapebig

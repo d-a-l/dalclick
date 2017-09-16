@@ -23,34 +23,39 @@ function cabildo:gui(p, cams) -- projec, cams
     else
 	    idref = 'single'
        ids = {'single'}
-    end 
+    end
     local previews, filenames = self:make_preview(p, ids)
     local vcanv = {}
     local gbtn = {}
+    local current_cnv_size = {}
+    local prev_cnv_size = {}
     local button_prev_init_active = "YES"
     local button_next_init_active = "YES"
     local button_shoot_init_active= "YES"
 
-    if next(p.session.counter_max) == nil then
-        -- no hay capturas
+    local max_min_status = p:get_counter_max_min()
+    if max_min_status == true then
+       -- definir estado inicial
+       if p.state.counter[idref] > p.session.counter_max[idref] then
+           p.state.counter = p.session.counter_max
+       end
+       -- estado inicial botones prev/next
+       if p.state.counter[idref] == p.session.counter_max[idref] then
+           button_next_init_active = "NO"
+       end
+       if p.state.counter[idref] < p.session.counter_max[idref] then
+           button_shoot_init_active= "NO"
+       end
+       if p.state.counter[idref] == p.session.counter_min[idref] then
+           button_prev_init_active = "NO"
+       end
+    elseif max_min_status == nil then
+           button_prev_init_active = "NO"
+           button_next_init_active = "NO"
+    else 
+      -- error
+        print("error: max_min_status == '"..tostring(max_min_status).."'")
         return false
-    end
-
- 
-
-    -- definir estado inicial
-    if p.state.counter[idref] > p.session.counter_max[idref] then
-        p.state.counter = p.session.counter_max
-    end
-    -- estado inicial botones prev/next
-    if p.state.counter[idref] == p.session.counter_max[idref] then
-        button_next_init_active = "NO"
-    end
-    if p.state.counter[idref] < p.session.counter_max[idref] then
-        button_shoot_init_active= "NO"
-    end
-    if p.state.counter[idref] == p.session.counter_min[idref] then
-        button_prev_init_active = "NO"
     end
 
     require("imlua")
@@ -67,7 +72,8 @@ function cabildo:gui(p, cams) -- projec, cams
 
     for idname, obj in pairs(vcanv) do
        obj.image = im.FileImageLoad( previews[idname] )
-       obj.cnv = iup.canvas{rastersize = obj.image:Width().."x"..obj.image:Height(), border = "YES"}
+       current_cnv_size[idname] = obj.image:Width().."x"..obj.image:Height()
+       obj.cnv = iup.canvas{rastersize = current_cnv_size[idname], border = "YES"}
 
        obj.label = iup.label{
            title = filenames[idname] --, expand = "HORIZONTAL", padding = "10x5"
@@ -88,14 +94,7 @@ function cabildo:gui(p, cams) -- projec, cams
     gbtn.gbtn_prev = iup.button {
         image = "IUP_ArrowLeft", 
         flat = "Yes", 
-        action = 
-            function() 
-                local counter_updated, counter_status = p:counter_prev( 0 )
-                if counter_updated then
-                    local previews, filenames = self:make_preview(p, ids)
-                    gbtn:gbtn_action_callback(counter_status, previews, filenames) 
-                end
-            end,
+        action = function() end,
         canfocus="No", 
         tip = "Previous",
         padding = '5x5',
@@ -105,40 +104,32 @@ function cabildo:gui(p, cams) -- projec, cams
     gbtn.gbtn_next = iup.button{
         image = "IUP_ArrowRight", 
         flat = "Yes", 
-        action = 
-            function() 
-                local counter_updated
-                counter_updated, counter_status = p:counter_next( p.session.counter_max[idref] )
-                if counter_updated then
-                    local previews, filenames = self:make_preview(p, ids)
-                    gbtn:gbtn_action_callback(counter_status, previews, filenames) 
-                end
-            end,  
+        action = function() end,  
         canfocus="No", 
         tip = "Next",
         padding = '5x5',
         active = button_next_init_active
     }
     
-    gbtn.gbtn_go = iup.button{
-        title = "Ir",
-        flat = "No", 
-        padding = "15x2",
-        action = function()  end,  
-        canfocus="No", 
-        tip = "",
-    }
+    -- gbtn.gbtn_go = iup.button{
+    --     title = "Ir",
+    --     flat = "No", 
+    --     padding = "15x2",
+    --     action = function()  end,  
+    --     canfocus="No", 
+    --     tip = "",
+    -- }
 
-    gbtn.gbtn_cancel = iup.button{
-        title = "Cancelar",
-        flat = "No", 
-        padding = "15x2",
-        canfocus="No", 
-        tip = "Cancelar",
-    }
+    -- gbtn.gbtn_cancel = iup.button{
+    --     title = "Cancelar",
+    --     flat = "No", 
+    --     padding = "15x2",
+    --     canfocus="No", 
+    --     tip = "Cancelar",
+    --}
     
-    gbtn.gbtn_from = iup.button {
-        image = "IUP_MediaGotoBegin",
+    gbtn.gbtn_shoot = iup.button {
+        image = "IUP_MediaRecord",
         flat = "No", 
         padding = "15x2",
         canfocus="No",
@@ -147,37 +138,15 @@ function cabildo:gui(p, cams) -- projec, cams
         active = button_shoot_init_active
     }
     
-    gbtn.gbtn_to = iup.button {
-        image = "IUP_MediaGoToEnd",
+    gbtn.gbtn_shoot_overw = iup.button {
+        image = "IUP_NavigateRefresh",
         flat = "No", 
         padding = "15x2",
         canfocus="No", 
         padding = '5x5',
-        tip = "Seleccionar hasta aquí",
+        tip = "Capturar sobreescribiendo",
     }
     
-    function gbtn:gbtn_action_callback(counter_status, previews, filenames)
-       for i, idname in ipairs(ids) do
-          vcanv[idname].image = im.FileImageLoad( previews[idname] ); vcanv[idname].cnv:action()
-          vcanv[idname].label.title = filenames[idname]
-       -- gbtn_go.tip = "Go to "..filenames.even.." | "..filenames.odd
-       end
-       
-       if counter_status == "last" then
-           gbtn.gbtn_next.active = "NO"
-           gbtn.gbtn_prev.active = "YES"
-           gbtn.gbtn_from.active = "YES"
-       elseif counter_status == "first" then
-           gbtn.gbtn_prev.active = "NO"
-           gbtn.gbtn_next.active = "YES"
-           gbtn.gbtn_from.active = "NO"
-       else -- 'within_range'
-           gbtn.gbtn_next.active = "YES"
-           gbtn.gbtn_prev.active = "YES"
-           gbtn.gbtn_from.active = "NO"
-       end
-    end
-
     -- print("DEBUG: odd "..tostring(p.state.counter.odd)..".."..tostring(p.session.counter_max.odd))
     -- print("DEBUG: even "..tostring(p.state.counter.even)..".."..tostring(p.session.counter_max.even))
 
@@ -222,11 +191,11 @@ function cabildo:gui(p, cams) -- projec, cams
     --
     
     local gcenter_buttons = iup.hbox{
-        gbtn.gbtn_go,
-        gbtn.gbtn_cancel,
-        iup.label{separator="VERTICAL"},
-        gbtn.gbtn_from,
-        gbtn.gbtn_to,
+        -- gbtn.gbtn_go,
+        -- gbtn.gbtn_cancel,
+        -- iup.label{separator="VERTICAL"},
+        gbtn.gbtn_shoot,
+        gbtn.gbtn_shoot_overw,
     }
     
     local bottombar_guest = iup.hbox{
@@ -259,11 +228,25 @@ function cabildo:gui(p, cams) -- projec, cams
     }
 
 
+    local function update_dlg_size()
+       --iup.RefreshChildren(dlg)
+       local update = false
+       for i, idname in ipairs(ids) do
+          if current_cnv_size[idname] ~= prev_cnv_size[idname] then
+             update = true; -- print("update size! "..prev_cnv_size[idname].." -> "..current_cnv_size[idname])
+          end
+       end
+       if update then
+          iup.SetAttribute(dlg, "SIZE", NULL) --  if the new size is NULL the dialog will be resized to the Natural size that include all the elements.
+          iup.Refresh(dlg)
+       end
+    end
+
     local function destroy_dialog() 
         -- print(" cerrando  ...")
        for i, obj in pairs(vcanv) do
            obj.image:Destroy()
-		   obj.cnv.canvas:Kill()
+           obj.cnv.canvas:Kill()
        end
        iup.ExitLoop() -- should be removed if used inside a bigger application
        dlg:destroy()
@@ -272,65 +255,138 @@ function cabildo:gui(p, cams) -- projec, cams
     local function set_counter()
         -- como no usamos mas preview_counter es ineecesario
     end
-    
-    function gbtn.gbtn_go:action() 
-        set_counter()
-        destroy_dialog()
-        return iup.IGNORE -- because we destroy the dialog
+
+    local function shoot(shootmode)
+
+      -- cuando existe img en raw pero no en pre preguntar si generarla on the fly mientras se navega con prev/next
+      if shootmode == nil then print("error: 'shootmode == nil'"); return false; end
+      if type(cams) ~= 'table' then return false end
+
+      local ok_to_shoot = false
+      local back_counter_if_fail = false
+      if shootmode == 'normal' then
+         if p.session.counter_max then
+            if p.state.counter[idref] == p.session.counter_max[idref] then
+               if p:counter_next() then
+                  ok_to_shoot = true
+                  back_counter_if_fail = true
+               end
+            end
+         else
+            -- primera captura, no avanzar el contador
+            ok_to_shoot = true
+            back_counter_if_fail = false
+         end
+      elseif shootmode == 'overwrite' then
+         ok_to_shoot = true
+         back_counter_if_fail = false
+      end
+
+      if ok_to_shoot then
+         local param = {}
+         build_param_fail = false
+         param.device = {}
+         param.rotate_angle = {}
+         for i, idname in pairs(ids) do
+            local file_name_we = string.format("%04d", p.state.counter[idname])
+            -- param.control_paths[idname].remote_path = -- del saved files anterior o nada
+            param.device[idname] = {}
+            param.device[idname].dest_dir = p.session.base_path.."/"..p.paths.raw[idname].."/"
+            param.device[idname].dest_preproc_dir = p.session.base_path.."/"..p.paths.proc[idname].."/"
+            param.device[idname].dest_tmp_dir = p.session.base_path.."/"..p.paths.raw[idname].."/"..p.dalclick.tempfolder_name.."/"
+            if not dcutls.localfs:file_exists( param.device[idname].dest_tmp_dir ) then
+               if not dcutls.localfs:create_folder( param.device[idname].dest_tmp_dir ) then
+                  build_param_fail = true
+               end
+            end
+            param.device[idname].dest_filemame = file_name_we..".".."jpg"
+            param.device[idname].basename_without_ext = file_name_we
+            param.device[idname].thumbpath_dir = p.session.base_path.."/"..p.paths.proc[idname].."/"..p.dalclick.thumbfolder_name.."/"
+            if not dcutls.localfs:file_exists( param.device[idname].thumbpath_dir ) then
+               if not dcutls.localfs:create_folder( param.device[idname].thumbpath_dir ) then
+                  build_param_fail = true
+               end
+            end
+            param.device[idname].rotate_angle = p.state.rotate[idname]
+
+            param.rotate = p.settings.rotate
+            -- param.thumbnail_scale = ( p.settings.rotate and "0.125" or "0.167")
+         end
+         if (not build_param_fail) and cabildo:gui_shoot_download_and_preproc(cams, param) then
+            p.session.counter_max = p.state.counter
+            local previews, filenames = cabildo:make_preview(p, ids)
+            gbtn:gbtn_action_callback('last', previews, filenames) 
+         else
+            -- no hubo exito
+            if back_counter_if_fail == true then
+               p:counter_prev()
+            end
+         end
+      end
     end
 
-    function gbtn.gbtn_from:action()
+    -- function gbtn.gbtn_go:action() 
+    --    set_counter()
+    --    destroy_dialog()
+    --    return iup.IGNORE -- because we destroy the dialog
+    -- end
 
-      -- todo: crear otro boton para sobreescribir captura
-      -- cuando existe img en raw pero no en pre preguntar si generarla on the fly mientras se navega con prev/next
-      if p.state.counter[idref] == p.session.counter_max[idref] then
-          if p:counter_next() then
-             local param = {}
-             build_param_fail = false
-             param.device = {}
-             param.rotate_angle = {}
-             for i, idname in pairs(ids) do
-                local file_name_we = string.format("%04d", p.state.counter[idname])
-                -- param.control_paths[idname].remote_path = -- del saved files anterior o nada
-                param.device[idname] = {}
-                param.device[idname].dest_dir = p.session.base_path.."/"..p.paths.raw[idname].."/"
-                param.device[idname].dest_preproc_dir = p.session.base_path.."/"..p.paths.proc[idname].."/"
-                param.device[idname].dest_tmp_dir = p.session.base_path.."/"..p.paths.raw[idname].."/"..p.dalclick.tempfolder_name.."/"
-                if not dcutls.localfs:file_exists( param.device[idname].dest_tmp_dir ) then
-                    if not dcutls.localfs:create_folder( param.device[idname].dest_tmp_dir ) then
-                        build_param_fail = true
-                    end
-                end
-                param.device[idname].dest_filemame = file_name_we..".".."jpg"
-                param.device[idname].basename_without_ext = file_name_we
-                param.device[idname].thumbpath_dir = p.session.base_path.."/"..p.paths.proc[idname].."/"..p.dalclick.thumbfolder_name.."/"
-                if not dcutls.localfs:file_exists( param.device[idname].thumbpath_dir ) then
-                    if not dcutls.localfs:create_folder( param.device[idname].thumbpath_dir ) then
-                        build_param_fail = true
-                    end
-                end
-                param.device[idname].rotate_angle = p.state.rotate[idname]
+    function gbtn.gbtn_shoot:action()
+       shoot('normal')
+    end
 
-                param.rotate = p.settings.rotate
-                param.thumbnail_scale = ( p.settings.rotate and "0.125" or "0.167")
-             end
-             if (not build_param_fail) and cabildo:gui_shoot_download_and_preproc(cams, param) then
-                p.session.counter_max = p.state.counter
-                local previews, filenames = cabildo:make_preview(p, ids)
-                gbtn:gbtn_action_callback('last', previews, filenames) 
-             else
-                -- no hubo exito y se vuelve para atras
-                p:counter_prev()
-             end
-          end
+    function gbtn.gbtn_shoot_overw:action()
+       shoot('overwrite')
+    end
+
+    function gbtn.gbtn_next:action()
+       local counter_updated
+       counter_updated, counter_status = p:counter_next( p.session.counter_max[idref] )
+       if counter_updated then
+           local previews, filenames = cabildo:make_preview(p, ids)
+           gbtn:gbtn_action_callback(counter_status, previews, filenames) 
        end
     end
 
-    function gbtn.gbtn_cancel:action()
-        destroy_dialog()
-        return iup.IGNORE -- because we destroy the dialog
+    function gbtn.gbtn_prev:action()
+       local counter_updated, counter_status = p:counter_prev( 0 )
+       if counter_updated then
+           local previews, filenames = cabildo:make_preview(p, ids)
+           gbtn:gbtn_action_callback(counter_status, previews, filenames) 
+       end
     end
-    
+
+    -- function gbtn.gbtn_cancel:action()
+    --    destroy_dialog()
+    --    return iup.IGNORE -- because we destroy the dialog
+    -- end
+
+    function gbtn:gbtn_action_callback(counter_status, previews, filenames)
+       for i, idname in ipairs(ids) do
+          vcanv[idname].image = im.FileImageLoad( previews[idname] )
+          prev_cnv_size[idname] = current_cnv_size[idname]
+          current_cnv_size[idname] = vcanv[idname].image:Width().."x"..vcanv[idname].image:Height()
+          vcanv[idname].cnv.rastersize = current_cnv_size[idname]
+          vcanv[idname].cnv:action()
+          vcanv[idname].label.title = filenames[idname]
+       -- gbtn_go.tip = "Go to "..filenames.even.." | "..filenames.odd
+       end
+       
+       if counter_status == "last" then
+           gbtn.gbtn_next.active = "NO"
+           gbtn.gbtn_prev.active = "YES"
+           gbtn.gbtn_shoot.active = "YES"
+       elseif counter_status == "first" then
+           gbtn.gbtn_prev.active = "NO"
+           gbtn.gbtn_next.active = "YES"
+           gbtn.gbtn_shoot.active = "NO"
+       else -- 'within_range'
+           gbtn.gbtn_next.active = "YES"
+           gbtn.gbtn_prev.active = "YES"
+           gbtn.gbtn_shoot.active = "NO"
+       end
+       update_dlg_size()
+    end
     function dlg:close_cb() -- si se cierra desde la ventana
         destroy_dialog()
         return iup.IGNORE -- because we destroy the dialog
@@ -400,20 +456,23 @@ function cabildo:gui_shoot_download_and_preproc(cams,param)
    gaugeProgress.value = 0.9; pbdlg.title = "moviendo archivos"
    iup.LoopStep()
 
+   local shoot_fail = false
+   local command_fail = false
    if shoot_result.status == 7 then
-     -- remove captures from temporal folder if any
-     if type(result.successful) == 'table' and next(result.successful) then
-       for idname, paths in pairs(result.successful) do
+      -- remove captures from temporal folder if any
+      if type(result.successful) == 'table' and next(result.successful) then
+        for idname, paths in pairs(result.successful) do
            if type(paths) == 'table' then
-                local tmppath = paths.basepath..paths.basename
-                if dcutls.localfs:delete_file(tmppath) then
-                    print(" eliminando descarga carpeta temporal..OK")
-                else
-                    print(" ATENCION: no se pudo eliminar '"..tostring(tmppath).."'")
-                end
+              local tmppath = paths.basepath..paths.basename
+              if dcutls.localfs:delete_file(tmppath) then
+                 print(" eliminando descarga carpeta temporal..OK")
+              else
+                 print(" ATENCION: no se pudo eliminar '"..tostring(tmppath).."'")
+              end
            end
-       end
+        end
      end
+     shoot_fail = true
    elseif shoot_result.status == 0 then
 
       for idname, paths in pairs(shoot_result.successful) do
@@ -432,6 +491,16 @@ function cabildo:gui_shoot_download_and_preproc(cams,param)
          end
          if not command_fail then
             -- generate thmbnail and rotate
+            local portrait = false
+            if param.rotate then
+               if param.device[idname].rotate_angle == 180 or param.device[idname].rotate_angle == 0 then
+                  portrait = false
+               else
+                  portrait = true
+               end
+            else
+                  portrait = false
+            end
             pbdlg.title = "generando thumbnails ["..paths.basename.."]"
             iup.LoopStep()
             command_fail = false
@@ -439,7 +508,7 @@ function cabildo:gui_shoot_download_and_preproc(cams,param)
                "econvert -i "..param.device[idname].dest_dir..param.device[idname].dest_filemame
              ..( param.rotate and " --rotate "..param.device[idname].rotate_angle or "")
              .." -o "..param.device[idname].dest_preproc_dir..param.device[idname].dest_filemame
-             .." --thumbnail "..( param.rotate and "0.125" or "0.167")
+             .." --thumbnail "..( portrait and "0.125" or "0.167")
              .." -o "..param.device[idname].thumbpath_dir.."/"..param.device[idname].dest_filemame
              .." > /dev/null 2>&1"
             printf(" ["..idname.."] "..(param.rotate and "rotando y " or "").."generando vista previa ("..param.device[idname].dest_filemame..")...") 
@@ -460,10 +529,11 @@ function cabildo:gui_shoot_download_and_preproc(cams,param)
    print("canceled:", flags.cancelflag)
     --iup.ExitLoop() -- should be removed if used insgaugeProgress.value = 1.0; pbdlg.title = "listo"ide a bigger application
    pbdlg:destroy()
-   if not command_fail then
-      return true
-   else
+   if command_fail or shoot_fail then
       return false
+   else
+      return true
    end
 end
+
 return cabildo
