@@ -227,6 +227,19 @@ function cabildo:gui(cams) -- projec, cams
         gap=10
     }
 
+    function dlg:k_any(c)
+       if (c == iup.K_CR) then
+          shoot('normal')
+       elseif (c == iup.K_plus) then
+	      shoot('overwrite')
+       elseif (c == iup.K_RIGHT) then
+	      go_next(ids, idref)
+       elseif (c == iup.K_LEFT) then
+          go_prev(ids)
+       end
+    end
+-- Keyboard Codes https://webserver2.tecgraf.puc-rio.br/iup/en/attrib/key.html
+-- Defining Hot Keys http://webserver2.tecgraf.puc-rio.br/iup/en/tutorial/tutorial3.html#Hot_Keys
 
     local function update_dlg_size()
        --iup.RefreshChildren(dlg)
@@ -254,6 +267,23 @@ function cabildo:gui(cams) -- projec, cams
     
     local function set_counter()
         -- como no usamos mas preview_counter es ineecesario
+    end
+
+    local function go_prev(ids)
+       local counter_updated, counter_status = current_project:counter_prev( 0 )
+       if counter_updated then
+           local previews, filenames = cabildo:make_preview(ids)
+           gbtn:gbtn_action_callback(counter_status, previews, filenames) 
+       end
+    end
+
+    local function go_next(ids, idref) -- zzzz
+       local counter_updated, counter_status = current_project:counter_next( current_project.session.counter_max[idref] )
+
+       if counter_updated then
+           local previews, filenames = cabildo:make_preview(ids)
+           gbtn:gbtn_action_callback(counter_status, previews, filenames) 
+       end
     end
 
     local function shoot(shootmode)
@@ -345,21 +375,13 @@ function cabildo:gui(cams) -- projec, cams
     end
 
     function gbtn.gbtn_next:action()
-       local counter_updated
-       counter_updated, counter_status = current_project:counter_next( current_project.session.counter_max[idref] )
-       if counter_updated then
-           local previews, filenames = cabildo:make_preview(ids)
-           gbtn:gbtn_action_callback(counter_status, previews, filenames) 
-       end
+       go_next(ids, idref)
     end
 
     function gbtn.gbtn_prev:action()
-       local counter_updated, counter_status = current_project:counter_prev( 0 )
-       if counter_updated then
-           local previews, filenames = cabildo:make_preview(ids)
-           gbtn:gbtn_action_callback(counter_status, previews, filenames) 
-       end
+        go_prev(ids)
     end
+
 
     -- function gbtn.gbtn_cancel:action()
     --    destroy_dialog()
