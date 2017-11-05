@@ -213,58 +213,7 @@ function cabildo:gui(cams) -- projec, cams
     }
 
     -- -- -- --
-    
-    local dlg    
 
-    dlg = iup.dialog{
-        iup.vbox{
-            viewers,
-            labelbar,
-            bottombar_guest
-        },
-        title="DALclick",
-        margin="5x5",
-        gap=10
-    }
-
-    function dlg:k_any(c)
-       if (c == iup.K_CR) then
-          shoot('normal')
-       elseif (c == iup.K_plus) then
-	      shoot('overwrite')
-       elseif (c == iup.K_RIGHT) then
-	      go_next(ids, idref)
-       elseif (c == iup.K_LEFT) then
-          go_prev(ids)
-       end
-    end
--- Keyboard Codes https://webserver2.tecgraf.puc-rio.br/iup/en/attrib/key.html
--- Defining Hot Keys http://webserver2.tecgraf.puc-rio.br/iup/en/tutorial/tutorial3.html#Hot_Keys
-
-    local function update_dlg_size()
-       --iup.RefreshChildren(dlg)
-       local update = false
-       for i, idname in ipairs(ids) do
-          if current_cnv_size[idname] ~= prev_cnv_size[idname] then
-             update = true; -- print("update size! "..prev_cnv_size[idname].." -> "..current_cnv_size[idname])
-          end
-       end
-       if update then
-          iup.SetAttribute(dlg, "SIZE", NULL) --  if the new size is NULL the dialog will be resized to the Natural size that include all the elements.
-          iup.Refresh(dlg)
-       end
-    end
-
-    local function destroy_dialog() 
-        -- print(" cerrando  ...")
-       for i, obj in pairs(vcanv) do
-           obj.image:Destroy()
-           obj.cnv.canvas:Kill()
-       end
-       iup.ExitLoop() -- should be removed if used inside a bigger application
-       dlg:destroy()
-    end
-    
     local function set_counter()
         -- como no usamos mas preview_counter es ineecesario
     end
@@ -359,6 +308,60 @@ function cabildo:gui(cams) -- projec, cams
          end
       end
     end
+
+    -- -- -- --
+    
+    local dlg    
+
+    dlg = iup.dialog{
+        iup.vbox{
+            viewers,
+            labelbar,
+            bottombar_guest
+        },
+        title="DALclick",
+        margin="5x5",
+        gap=10
+    }
+
+    function dlg:k_any(c)
+       if (c == iup.K_CR) then
+          shoot('normal')
+       elseif (c == iup.K_plus) then
+	      shoot('overwrite')
+       elseif (c == iup.K_RIGHT) then
+	      go_next(ids, idref)
+       elseif (c == iup.K_LEFT) then
+          go_prev(ids)
+       end
+    end
+-- Keyboard Codes https://webserver2.tecgraf.puc-rio.br/iup/en/attrib/key.html
+-- Defining Hot Keys http://webserver2.tecgraf.puc-rio.br/iup/en/tutorial/tutorial3.html#Hot_Keys
+
+    local function update_dlg_size()
+       --iup.RefreshChildren(dlg)
+       local update = false
+       for i, idname in ipairs(ids) do
+          if current_cnv_size[idname] ~= prev_cnv_size[idname] then
+             update = true; -- print("update size! "..prev_cnv_size[idname].." -> "..current_cnv_size[idname])
+          end
+       end
+       if update then
+          iup.SetAttribute(dlg, "SIZE", NULL) --  if the new size is NULL the dialog will be resized to the Natural size that include all the elements.
+          iup.Refresh(dlg)
+       end
+    end
+
+    local function destroy_dialog() 
+        -- print(" cerrando  ...")
+       for i, obj in pairs(vcanv) do
+           obj.image:Destroy()
+           obj.cnv.canvas:Kill()
+       end
+       iup.ExitLoop() -- should be removed if used inside a bigger application
+       dlg:destroy()
+    end
+    
 
     -- function gbtn.gbtn_go:action() 
     --    set_counter()
