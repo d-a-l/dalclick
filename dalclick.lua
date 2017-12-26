@@ -65,7 +65,7 @@ local defaults={
     oddeven_default_ref_cam = "even",
     single_default_ref_cam = "single",
     oddeven_default_rotate = true,
-    single_default_rotate = false, --false,
+    single_default_rotate = true, --false,
     --rotate_default = true,
     --ref_cam_default = "even",
     odd_name = "odd",
@@ -85,7 +85,7 @@ local defaults={
     capt_type = 'S', -- D=direct shoot S=standart
     rotate_odd = '-90',
     rotate_even = '90',
-    rotate_single = '0',
+    rotate_single = '180',
     tempfolder_name = '.tmp',
     thumbfolder_name = '.previews',
     test_high_name = '_high',
@@ -1247,7 +1247,7 @@ function mc:rotate_and_resize_all()
         end
         local portrait = false
         if current_project.settings.rotate then
-           if current_project.state.rotate[idname] == 180 or current_project.state.rotate[idname] == 0 then
+           if tonumber(current_project.state.rotate[idname]) == 180 or tonumber(current_project.state.rotate[idname]) == 0 then
               portrait = false
            else
               portrait = true

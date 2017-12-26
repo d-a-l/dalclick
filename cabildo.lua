@@ -523,7 +523,7 @@ function cabildo:gui_shoot_download_and_preproc(cams,param)
             -- generate thmbnail and rotate
             local portrait = false
             if param.rotate then
-               if param.device[idname].rotate_angle == 180 or param.device[idname].rotate_angle == 0 then
+               if tonumber(param.device[idname].rotate_angle) == 180 or tonumber(param.device[idname].rotate_angle) == 0 then
                   portrait = false
                else
                   portrait = true
