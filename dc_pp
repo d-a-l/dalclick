@@ -24,7 +24,7 @@ PDFBEADS_LAYOUT=''
 
 SEND_QUEUE="Yes"
 
-INIT_QUIET_OPTION=""     # 
+INIT_QUIET_OPTION=""     #
 QUIET_OPTION_1_MODE=1    # Generar PDF (sobrescribir anterior)
 QUIET_OPTION_2_PROFILE=1 # Blanco y negro (1bit)
 QUIET_OPTION_3_CONTDET=1 # No detectar contenido
@@ -48,7 +48,7 @@ while [ $# -ne 0 ]
   do
     arg="$1"
     case "$arg" in
-        project=*) 
+        project=*)
             PROJECT_PATH="${arg#*=}"
             PROJECT_PATH="${PROJECT_PATH%/}" #remove last slash if any
             ;;
@@ -59,6 +59,10 @@ while [ $# -ne 0 ]
         odd=*)
             ODDPATH="${arg#*=}"
             ODDPATH="${ODDPATH%/}"
+            ;;
+        single=*)
+            SINGLEPATH="${arg#*=}"
+            SINGLEPATH="${SINGLEPATH%/}"
             ;;
         all=*)
             ALLPATH="${arg#*=}"
@@ -103,6 +107,9 @@ while [ $# -ne 0 ]
             PP_COMMAND='Yes'
             pp_command_args="${arg#*=}"
             ;;
+        noc-mode=*)
+            NOCMODE="${arg#*=}"
+            ;;
         quiet)
             INTERACTIVE='No'
             PARAM='pdfbeads-force'
@@ -112,16 +119,21 @@ while [ $# -ne 0 ]
             ;;
     esac
     shift
-  done  
+  done
 
 
-if [ "$PP_COMMAND" == "Yes" ] 
+[[ "$NOCMODE" =~ ^(odd-even|single)$ ]] || {
+  echo " ERROR: debug: \$NOCMODE='$NOCMODE'"
+  exit 1
+}
+
+if [ "$PP_COMMAND" == "Yes" ]
  then
-   [[ "$CLEAR_COMMAND" == "Yes" ]] && 
+   [[ "$CLEAR_COMMAND" == "Yes" ]] &&
       { CLEAR_COMMAND="No"; echo " anulado parámetro 'clear=', no compatible con 'pdf='"; }
-   [[ "$INIT_QUIET_OPTION" == "create-new-scantailor-project" ]] && 
+   [[ "$INIT_QUIET_OPTION" == "create-new-scantailor-project" ]] &&
       echo " anulado parámetro 'create-new-scantailor-project', no compatible con 'pdf='"
-      
+
    INTERACTIVE="Yes"
    ASK_FOR_MODE="No"
    ASK_FOR_OCR="No"
@@ -132,14 +144,14 @@ if [ "$PP_COMMAND" == "Yes" ]
    QUIET_OPTION_2_PROFILE="i"
    QUIET_OPTION_3_CONTDET="i"
    QUIET_OPTION_4_OCR="i"
-   
+
    case "$pp_command_args" in
 
         +scantailor|-ocr-compile)
 	        INIT_QUIET_OPTION='scantailor-auto-options'
 	        PARAM="no-ocr no-compile-pdf"
 	        ;;
-        +scantailor+ocr|+scantailor+ocr_lazy|-compile) #[ocr-lazy] 
+        +scantailor+ocr|+scantailor+ocr_lazy|-compile) #[ocr-lazy]
             INIT_QUIET_OPTION='scantailor-auto-options'
 	        PARAM="no-compile-pdf"
             [[ "$pp_command_args" == "-scantailor-ocr_lazy" ]] && PARAM="$PARAM no-overwrite-ocr"
@@ -154,10 +166,10 @@ if [ "$PP_COMMAND" == "Yes" ]
 	        PARAM="no-ocr pdfbeads-force"
 	        ;;
         +ocr+compile|+ocr_lazy+compile|-scantailor) #[ocr-lazy] compile-lazy
-	        PARAM="no-scantailor" 
+	        PARAM="no-scantailor"
             [[ "$pp_command_args" == "-ocr_lazy-compile" ]] && PARAM="$PARAM no-overwrite-ocr"
 	        ;;
-        +ocr|+ocr_lazy|-scantailor-compile) #[ocr-lazy] 
+        +ocr|+ocr_lazy|-scantailor-compile) #[ocr-lazy]
 	        PARAM="no-scantailor no-compile-pdf"
             [[ "$pp_command_args" == "-ocr_lazy" ]] && PARAM="$PARAM no-overwrite-ocr"
 	        ;;
@@ -176,6 +188,7 @@ fi
 check_dirs "$PROJECT_PATH" 'proyecto'
 check_dirs "$EVENPATH" 'even'
 check_dirs "$ODDPATH" 'odd'
+check_dirs "$SINGLEPATH" 'sinlge'
 check_dirs "$ALLPATH" 'all'
 check_dirs "$DONEPATH" 'done'
 
@@ -198,16 +211,16 @@ echo ""
 echo -n " Checkeando scripts de procesamiento"
 
 PROFILE_PROCESSOR="/opt/src/fcen-tesis/fcen-postprocessing/scripts/profile-processor"
-[[ -f "$PROFILE_PROCESSOR" ]] && echo -n "..OK(1)" || { echo "profile-processor FILE NOT FOUND"; exit 1;} 
+[[ -f "$PROFILE_PROCESSOR" ]] && echo -n "..OK(1)" || { echo "profile-processor FILE NOT FOUND"; exit 1;}
 
 SEND_CMD="$PWDIR/ppm/ppm_sendcmd.sh"
-[[ -f "$SEND_CMD" ]] && echo -n "..OK(2)" || { echo "ppm_sendcmd.sh FILE NOT FOUND"; exit 1;} 
+[[ -f "$SEND_CMD" ]] && echo -n "..OK(2)" || { echo "ppm_sendcmd.sh FILE NOT FOUND"; exit 1;}
 
 POST_ACTIONS_SCRIPT="$PWDIR/dc_pp_post_actions"
-[[ -f "$POST_ACTIONS_SCRIPT" ]] && echo -n "..OK(3)" || { echo "dc_pp_post_action FILE NOT FOUND"; exit 1;} 
+[[ -f "$POST_ACTIONS_SCRIPT" ]] && echo -n "..OK(3)" || { echo "dc_pp_post_action FILE NOT FOUND"; exit 1;}
 
 PRE_ACTIONS_SCRIPT="$PWDIR/dc_pp_pre_actions"
-[[ -f "$PRE_ACTIONS_SCRIPT" ]] && echo "..OK(4)" || { echo "dc_pp_pre_actions FILE NOT FOUND"; exit 1;} 
+[[ -f "$PRE_ACTIONS_SCRIPT" ]] && echo "..OK(4)" || { echo "dc_pp_pre_actions FILE NOT FOUND"; exit 1;}
 
 # --- check include list
 
@@ -261,9 +274,9 @@ if [ "$PREV_MSG" != "" ]
    echo -e "$PREV_MSG"
 fi
 
-# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
-if [ "$CLEAR_COMMAND" == "Yes" ] 
+if [ "$CLEAR_COMMAND" == "Yes" ]
  then
    INTERACTIVE="No"
    SEND_QUEUE="No"
@@ -271,7 +284,7 @@ if [ "$CLEAR_COMMAND" == "Yes" ]
    QUIET_OPTION_2_PROFILE="i"
    QUIET_OPTION_3_CONTDET="i"
    QUIET_OPTION_4_OCR="i"
-   
+
    case "$clear_command_args" in
         all)
             if [ "$PREV_SC" == "Yes" ] || [ "$PREV_OCR" == "Yes" ] || [ "$PREV_PDF" == "Yes" ] || [ "$PREV_SCPROJ" == "Yes" ]
@@ -319,19 +332,19 @@ if [ "$CLEAR_COMMAND" == "Yes" ]
    esac
 fi
 
-# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
 case "$INIT_QUIET_OPTION" in
   ''|i)
      ;;
-  create-new-scantailor-project) 
+  create-new-scantailor-project)
      if [ "$PREV_SCPROJ" == "Yes" ]
       then
-         echo " Se sobrescribe proyecto scantailor previo "; 
+         echo " Se sobrescribe proyecto scantailor previo ";
      fi
      CREATE_SYMLINKS="Yes"
      PARAM="scantailor-process-and-exit scantailor-save-project scantailor-filters=1,1 follow-symbolic-links no-ocr"
-     if [ "$SCANTAILOR_EXPLICIT_NAME" != "" ] # ojo usamos SCANTAILOR_EXPLICIT_NAME porque solo se pasa este valor 
+     if [ "$SCANTAILOR_EXPLICIT_NAME" != "" ] # ojo usamos SCANTAILOR_EXPLICIT_NAME porque solo se pasa este valor
       then                                    # si fue explicitamente declarado
        PARAM="$PARAM 'sct=$SCANTAILOR_EXPLICIT_NAME'"
      fi
@@ -355,8 +368,8 @@ case "$INIT_QUIET_OPTION" in
      ;;
 esac
 
-# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
-     
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
 PREV_WARNING_MSG="\n"
 PREV_WARNING_MSG+=" +---------------------------------------------------------------------+ \n"
 PREV_WARNING_MSG+=" | ATENCION: Este proyecto ya contiene un documento PDF producido en   |\n"
@@ -397,7 +410,7 @@ if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_MODE" == "Yes" ]
        echo "             la interfaz gráfica de scantailor y dejó sin procesar"
     fi
 
-    echo ""   
+    echo ""
     echo " <enter> para salir sin hacer nada"
     echo ""
 
@@ -463,7 +476,7 @@ case "$option" in
      ;;
 esac
 
-# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
 if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_PROFILE" == "Yes" ]
   then
@@ -473,11 +486,11 @@ if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_PROFILE" == "Yes" ]
     echo "  2) Autodetectar imagenes en color o blanco y negro"
     echo "  3) Color o escala de grises"
     echo "  4) Color o escala de grises con contraste"
-    
-    echo ""   
+
+    echo ""
     echo " <enter> para salir sin hacer nada"
     echo ""
-    
+
     echo -n ">> "
     read pr_option
     echo ""
@@ -506,7 +519,7 @@ case "$pr_option" in
         ;;
 esac
 
-# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
 if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_CONTDET" == "Yes" ]
   then
@@ -514,11 +527,11 @@ if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_CONTDET" == "Yes" ]
     echo ""
     echo "  1) No detectar contenido (sólo borde de página)"
     echo "  2) Detectar contenido (limpiar márgenes)"
-    
-    echo ""   
+
+    echo ""
     echo " <enter> para salir sin hacer nada"
     echo ""
-    
+
     echo -n ">> "
     read cd_option
     echo ""
@@ -541,7 +554,7 @@ case "$cd_option" in
         ;;
 esac
 
-# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
 if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_OCR" == "Yes" ]
   then
@@ -559,10 +572,10 @@ if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_OCR" == "Yes" ]
        echo "  2) No aplicar OCR"
     fi
 
-    echo ""   
+    echo ""
     echo " <enter> para salir sin hacer nada"
     echo ""
-    
+
     echo -n ">> "
     read ocr_option
     echo ""
@@ -610,31 +623,46 @@ if [ "$CREATE_SYMLINKS" == "Yes" ] || [ "$CREATE_SYMLINKS" == "Clear" ]
 fi
 
 if [ "$CREATE_SYMLINKS" == "Yes" ]
- then  
+ then
   # create symlinks from 'odd' and 'even' in 'all'
   # delete "test.jpg" (depreciated!)
-  if find "$EVENPATH" -mindepth 1 -maxdepth 1 -name "test.jpg" | grep -q .
-   then
-    rm "$EVENPATH/test.jpg" && 
-        echo " - se eliminó el archivo de prueba 'test.jpg' de '$EVENPATH'" ||
-        { echo "Error: Debug 01"; exit 1; }
+  if [ "$NOCMODE" == 'odd-even' ]; then
+    if find "$EVENPATH" -mindepth 1 -maxdepth 1 -name "test.jpg" | grep -q .
+     then
+      rm "$EVENPATH/test.jpg" &&
+          echo " - se eliminó el archivo de prueba 'test.jpg' de '$EVENPATH'" ||
+          { echo "Error: Debug 01"; exit 1; }
+    fi
+    if find "$ODDPATH" -mindepth 1 -maxdepth 1 -name "test.jpg" | grep -q .
+     then
+      rm "$ODDPATH/test.jpg" &&
+          echo " - se eliminó el archivo de prueba 'test.jpg' de '$ODDPATH'" ||
+          { echo "Error: Debug 02"; exit 1; }
+    fi
+  else # nocmode == 'single'
+    if find "$SINGLEPATH" -mindepth 1 -maxdepth 1 -name "test.jpg" | grep -q .
+     then
+      rm "$SINGLEPATH/test.jpg" &&
+          echo " - se eliminó el archivo de prueba 'test.jpg' de '$ODDPATH'" ||
+          { echo "Error: Debug 02"; exit 1; }
+    fi
   fi
-  if find "$ODDPATH" -mindepth 1 -maxdepth 1 -name "test.jpg" | grep -q .  
-   then
-    rm "$ODDPATH/test.jpg" && 
-        echo " - se eliminó el archivo de prueba 'test.jpg' de '$ODDPATH'" ||
-        { echo "Error: Debug 02"; exit 1; }
-  fi
-  
   # create symlinks
-  echo -n " Creando symlinks en '$ALLPATH'.."
-  find "$EVENPATH" -mindepth 1 -maxdepth 1 -type f -exec ln -s {} "$ALLPATH" \; && 
-    echo -n "OK .." || 
-    { echo " ERROR al intentar crear symlinks desde '$EVENPATH'"; exit 1; }
-  find "$ODDPATH" -mindepth 1 -maxdepth 1 -type f -exec ln -s {} "$ALLPATH" \; &&  
-    echo " OK" || 
-    { echo " ERROR al intentar crear symlinks desde '$ODDPATH'"; exit 1; }
-fi  
+  if  [ "$NOCMODE" == 'odd-even' ]; then
+    echo -n " Creando symlinks en '$ALLPATH'.."
+    find "$EVENPATH" -mindepth 1 -maxdepth 1 -type f -exec ln -s {} "$ALLPATH" \; &&
+      echo -n "OK .." ||
+      { echo " ERROR al intentar crear symlinks desde '$EVENPATH'"; exit 1; }
+    find "$ODDPATH" -mindepth 1 -maxdepth 1 -type f -exec ln -s {} "$ALLPATH" \; &&
+      echo " OK" ||
+      { echo " ERROR al intentar crear symlinks desde '$ODDPATH'"; exit 1; }
+  else # nocmode == 'single'
+    echo -n " Creando symlinks en '$ALLPATH'.."
+    find "$SINGLEPATH" -mindepth 1 -maxdepth 1 -type f -exec ln -s {} "$ALLPATH" \; &&
+      echo -n "OK .." ||
+      { echo " ERROR al intentar crear symlinks desde '$SINGLEPATH'"; exit 1; }
+  fi
+fi
 
 if [ "$INCLUDE_LIST" != "" ]
   then
@@ -653,14 +681,18 @@ if [ "$PDFBEADS_LAYOUT" != "" ]
     fi
 fi
 
-PROFILE="profile=a3$PROFILE_OPTIONS"
+if  [ "$NOCMODE" == 'odd-even' ]; then
+  PROFILE="profile=a3$PROFILE_OPTIONS" # layout-oneandhalf
+else
+  PROFILE="profile=a2$PROFILE_OPTIONS" # layout-onepage
+fi
 
 # --- profile-processor
 
 echo " Enviar acción a la cola de procesamiento..."
 echo ""
 
-if [ "$SEND_QUEUE" == "Yes" ] 
+if [ "$SEND_QUEUE" == "Yes" ]
  then
    if [ "$POST_ACTIONS_ENABLED" == "Yes" ]
     then
@@ -719,7 +751,7 @@ pretty-format \
      fi
 
    fi
-   
+
 else
 
 
@@ -760,4 +792,3 @@ fi
 
 
 exit 0
-

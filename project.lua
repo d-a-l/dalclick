@@ -11,7 +11,7 @@ project = {
     settings = {},
     settings_default = {},
     -- dalclick globals vars
-    dalclick = {}, 
+    dalclick = {},
 }
 
 function project:init(globalconf)
@@ -57,7 +57,7 @@ end
 function project:delete_running_project()
     -- delete reference to existing running project (close)
     if dcutls.localfs:delete_file(self.dalclick.dc_config_path.."/running_project") then
-        return true    
+        return true
     else
         print("no se pudo eliminar: "..self.dalclick.dc_config_path.."/running_project")
         return false
@@ -77,7 +77,7 @@ function project:update_running_project(settings_path)
     else
         print(" Error: No se pudo crear: '"..self.dalclick.dc_config_path.."/running_project'.")
         return false
-    end    
+    end
 end
 
 function project:write()
@@ -87,7 +87,7 @@ function project:write()
 
     if dcutls.localfs:create_file(self.session.base_path.."/.dc_state", state) and dcutls.localfs:create_file(self.session.base_path.."/.dc_settings", settings) then
         -- print(" '"..self.session.regnum.."' guardado")
-        return true    
+        return true
     else
         -- print("no se pudo guardar la configuracion del proyecto actual en:  "..self.session.base_path.."/")
         return false
@@ -97,52 +97,52 @@ end
 function project:open(defaults, options)
     local options = options or {}
     if type(options) ~= 'table' then return false end
-    
+
     -- return true, 'opened':   proyecto abierto exitosamente
     -- return true, 'canceled': se cancelo la operacion o la seleccion no es valida -> continua el proyecto anterior
     -- return true, 'modified': proyecto abierto exitosamente pero con modificaciones -> guardar proyecto inmediatamente
     --                          si se desean guardar los cambios
     ---
     -- return false: no se pudo abrir el proyecto o contiene errores -> salir de dalclick o dar opcion de volver a abrior o crear
-    -- 
+    --
     require( "iuplua" )
     local regnum_dir, status, folder, load_dir_error, a
 
     -- Creates a file dialog and sets its type, title, filter and filter info
-    local fd = iup.filedlg{ dialogtype = "DIR", 
-                            title = "Seleccionar carpeta de proyecto", 
+    local fd = iup.filedlg{ dialogtype = "DIR",
+                            title = "Seleccionar carpeta de proyecto",
                             directory = options.root_path,
                             -- parentdialog = iup.GetDialog(self)
                             }
-  
+
     -- Shows file dialog in the center of the screen
     fd:popup(iup.ANYWHERE, iup.ANYWHERE)
-    
+
     -- Gets file dialog status
     status = fd.status
     folder = fd.value
-    
-    fd:destroy()    
+
+    fd:destroy()
     -- iup.Destroy(od)
-    
+
     -- Check status
     load_dir_error = true
-    if status == "0" then 
+    if status == "0" then
       if type(folder) ~= 'string' then
           -- nota: solo con Alarm se pudo corregir el problema de que no se podia cerrar filedlg
           iup.Alarm("Cargando proyecto", "Error: Hubo un problema al intentar cargar '"..tostring(folder).."'" ,"Continuar")
       else
           if folder == self.session.regnum then
               iup.Alarm("Cargando proyecto", "El proyecto seleccionado es el proyecto abierto actualmente" ,"Continuar")
-          else              
+          else
               a = iup.Alarm("Cargando proyecto", "Carpeta seleccionada:\n"..folder ,"OK", "Cancelar")
-              if a == 1 then 
+              if a == 1 then
                   load_dir_error = false
                   regnum_dir = folder
               end
           end
       end
-    elseif status == "-1" then 
+    elseif status == "-1" then
           iup.Alarm("Cargando proyecto", "Operación cancelada" , "Continuar")
     else
           iup.Alarm("Cargando proyecto", "Se produjo un error" ,"Continuar")
@@ -155,7 +155,7 @@ function project:open(defaults, options)
     end
 
     -- All ok, load project
-    
+
     if dcutls.localfs:file_exists(regnum_dir.."/.dc_settings") then
         if not self:init(defaults) then
             return false
@@ -184,11 +184,11 @@ end
 function project:create( options )
     local options = options or {}
     if type(options) ~= 'table' then return false end
-    
+
     self.session.regnum = options.regnum
     self.session.root_path = options.root_path
     self.session.base_path = self.session.root_path.."/"..self.session.regnum
-    
+
     self.settings.title = options.title
     if options.mode then self.settings.mode = options.mode end
 
@@ -212,7 +212,7 @@ function project:create( options )
 
         -- serialize table to save
         local content = util.serialize(self.settings)
-        
+
         -- create dir tree
         if not self.mkdir_tree(self.dalclick, self.session, self.paths) then
             return false
@@ -227,7 +227,7 @@ function project:create( options )
         if not self:save_state() then
             return false
         end
-        -- create running_project 
+        -- create running_project
         if not self:update_running_project(settings_path) then
             print(" [Crear proyecto] Error: no se pudo actualizar la configuración interna de DALclick" )
             return false
@@ -241,33 +241,33 @@ end
 
 function project:check_settings(opts)
     local opts = type(opts) == 'table' and opts or {}
-    
+
     local log = ""
     local status = true
-    
-    if type(self.settings) ~= 'table' then 
+
+    if type(self.settings) ~= 'table' then
         self.settings = {}
         log = " * settings estaba sin definir\n"
         status = false
-    end   
-    
-    if self.settings.mode and self.settings.mode ~= "" then 
+    end
+
+    if self.settings.mode and self.settings.mode ~= "" then
         --
     else
         self.settings.mode = self.settings_default.mode
-        log = log .. " * Modo sin definir\n" 
+        log = log .. " * Modo sin definir\n"
         status = false
     end
-    if self.settings.last_noc_mode and self.settings.last_noc_mode ~= "" then 
+    if self.settings.last_noc_mode and self.settings.last_noc_mode ~= "" then
         --
     else
-        self.settings.last_noc_mode = self.dalclick.noc_mode_undefined 
-        -- ojo, si no esta definido en los settings de un proyecto se asume que 
+        self.settings.last_noc_mode = self.dalclick.noc_mode_undefined
+        -- ojo, si no esta definido en los settings de un proyecto se asume que
         -- es un formato obsoleto cuando no existia noc_mode (entonces solo puede ser "odd-even")
-        log = log .. " * Modo NOC sin definir\n" 
+        log = log .. " * Modo NOC sin definir\n"
         status = false
     end
-    if self.settings.ref_cam and self.settings.ref_cam ~= "" then 
+    if self.settings.ref_cam and self.settings.ref_cam ~= "" then
         --
     else
 		if self.session.noc_mode == "odd-even" then
@@ -278,7 +278,7 @@ function project:check_settings(opts)
         log = log .. " * Cámara de referencia sin definir\n"
         status = false
     end
-    if self.settings.rotate ~= nil then 
+    if self.settings.rotate ~= nil then
         --
     else
 		if self.session.noc_mode == "odd-even" then
@@ -312,7 +312,7 @@ function project:check_state()
 	        status = false
 	    else
             if self.session.noc_mode == 'odd-even' then
-	            if type(self.state.counter.even) ~= 'number' or 
+	            if type(self.state.counter.even) ~= 'number' or
 	            type(self.state.counter.odd) ~= 'number' then
 	                status = false
 	            end
@@ -328,14 +328,14 @@ end
 
 function project:load(settings_path, opts)
     local opts = type(opts) == 'table' and opts or {}
-    
+
     local base_path, settings_name, ext = string.match(settings_path, "(.-)([^\\/]-%.?([^%.\\/]*))$")
     if base_path ~= nil and base_path:sub(-1) == "/" then base_path = base_path:sub(1, -2) end -- remove trailing slash if any
     -- base_path = string.match(base_path, "(.*)/$") -- remove trailing slash if any
     local root_path, regnum_name, ext = string.match(base_path, "(.-)([^\\/]-%.?([^%.\\/]*))$")
     if root_path ~= nil and root_path:sub(-1) == "/" then root_path = root_path:sub(1, -2) end -- remove trailing slash if any
     -- root_path = string.match(root_path, "(.*)/$") -- remove trailing slash if any
-    
+
     -- if settings_name ~= ".dc_settings" then
     --     return false
     -- end
@@ -348,7 +348,7 @@ function project:load(settings_path, opts)
             self.session.regnum    = regnum_name  -- regnum
             self.session.base_path = base_path    -- /ruta/a/regnum
             self.session.root_path = root_path    -- /ruta/a
-            
+
             self.settings = util.unserialize(content)
             local status, log = self:check_settings()
             if not status then
@@ -358,17 +358,17 @@ function project:load(settings_path, opts)
 
 			self.session.noc_mode = self.settings.last_noc_mode
             local status = self:get_counter_max_min()
-            
+
             print("\n Datos del proyecto cargado:\n")
             print(" ===================================================")
             print(" = ID:     "..self.session.regnum)
-            if self.settings.title and self.settings.title ~= "" then 
-                print(" = Título: '"..self.settings.title.."'") 
+            if self.settings.title and self.settings.title ~= "" then
+                print(" = Título: '"..self.settings.title.."'")
             end
-            print(" = Modo: '"..self.settings.mode.."'") 
-            print(" = noc_mode: '"..self.session.noc_mode.."'") 
-            print(" = Cámara de referencia: '"..self.settings.ref_cam.."'")     
-            print(" = Rotar: '"..tostring(self.settings.rotate).."'") 
+            print(" = Modo: '"..self.settings.mode.."'")
+            print(" = noc_mode: '"..self.session.noc_mode.."'")
+            print(" = Cámara de referencia: '"..self.settings.ref_cam.."'")
+            print(" = Rotar: '"..tostring(self.settings.rotate).."'")
             print()
 
             local load_state, check_state
@@ -406,11 +406,11 @@ function project:load(settings_path, opts)
 		                self.state.rotate.single = self.dalclick.rotate_single
 		                print(" asignada rotación por defecto: "..self.state.rotate.single)
 		            end
-                end                
+                end
                  -- check state paths
                 if self.session.noc_mode == 'odd-even' then
 		            if type(self.state.saved_files) == 'table' and type(self.state.saved_files.even) == 'table' then
-		                if not dcutls.localfs:file_exists(self.state.saved_files.even.path) or 
+		                if not dcutls.localfs:file_exists(self.state.saved_files.even.path) or
 		                   not dcutls.localfs:file_exists(self.state.saved_files.odd.path) then
 		                    print()
 		                    print(" ATENCION: alguna de las rutas temporales apuntan a archivos que no existen")
@@ -442,7 +442,7 @@ function project:load(settings_path, opts)
 
             print(" ===================================================")
             print()
-            
+
             -- verificar integridad de directorios
             local check_project_paths_status, check_status = self:check_project_paths()
             --
@@ -466,7 +466,7 @@ function project:check_project_paths()
     local msg
     local log = ""
     local repared = false
-    
+
     local paths_to_check = {}
     table.insert( paths_to_check, self.paths.raw_dir  )
     table.insert( paths_to_check, self.paths.proc_dir )
@@ -484,7 +484,7 @@ function project:check_project_paths()
     table.insert( paths_to_check, self.paths.test.odd )
     table.insert( paths_to_check, self.paths.test.all )
     table.insert( paths_to_check, self.paths.test.single )
-    
+
     for index, path in pairs( paths_to_check ) do
         if not dcutls.localfs:file_exists( self.session.base_path.."/"..path ) then
             msg = " ATENCION: no existe '"..tostring(self.session.base_path.."/"..path).."'"
@@ -499,13 +499,13 @@ function project:check_project_paths()
             repared = true
         end
     end
-   
+
     if repared == true then
         return true, 'repared', log -- 'modified'
     else
         return true --, 'opened'
     end
-    
+
 end
 
 function project.mkdir_tree(dalclick,session,paths)
@@ -642,7 +642,7 @@ function project:reparar()
     local log = ''
     local msg
 
-    printf("verificando archivos de configuracion...")       
+    printf("verificando archivos de configuracion...")
 
     local status, check_settings_log = self:check_settings()
     if not status then
@@ -664,7 +664,7 @@ function project:reparar()
     else
         return false
     end
-        
+
     ----
 
     printf("verificando integridad del arbol de directorios del proyecto...")
@@ -688,7 +688,7 @@ function project:reparar()
     end
 
     ----
-    
+
     local status = self:get_counter_max_min()
     local no_errors = true
     if status ~= true then
@@ -724,30 +724,30 @@ function project:reparar()
             end
             --
             local raw_path, pre_path, preview_path, filename_we, command
-            
+
             while true do
             for idname,count in pairs(self.state.counter) do
                 msg = " - captura "..tostring(count).." - ("..idname..")"
                 print(msg)
                 log = log.."\n"..msg
-                if type(count) ~= 'number' then 
+                if type(count) ~= 'number' then
                     msg = " Error: count"
                     print(msg)
                     log = log.."\n"..msg
                     return false, false, log
                 end
-                
+
                 filename_we = string.format("%04d", count)..".jpg"
                 raw_path = self.session.base_path.."/"..self.paths.raw[idname].."/"..filename_we
                 pre_path = self.session.base_path.."/"..self.paths.proc[idname].."/"..filename_we
                 preview_path = self.session.base_path.."/"..self.paths.proc[idname].."/"..self.dalclick.thumbfolder_name.."/"..filename_we
-                
+
                 if dcutls.localfs:file_exists( raw_path ) then
                     if not dcutls.localfs:file_exists( pre_path ) then
                         msg = " creando imagen preprocesada para... "..tostring(raw_path)
                         print(msg)
                         log = log.."\n"..msg
-                        command = 
+                        command =
                             "econvert -i "..raw_path
                           .." --rotate "..self.state.rotate[idname]
                           .." -o "..pre_path
@@ -796,7 +796,7 @@ function project:reparar()
                             else
                                 msg = " ERROR preview_path "..tostring(preview_path)
                                 print(msg)
-                                log = log.."\n"..msg 
+                                log = log.."\n"..msg
                                 no_errors = false
                             end
                         end
@@ -860,8 +860,8 @@ function project:insert_empty_in_counter() -- p.state.counter
             if lfs.attributes( self.session.base_path.."/"..self.paths.raw[idname].."/"..f, "mode") == "file" then
                 if f:match("^(%d+)%.jpg$") or f:match("^(%d+)%.JPG$" ) then
                     local pos = tonumber(f:match("^(%d+)"))
-                    if pos > self.state.counter[idname] then 
-                        table.insert( files_to_rename[idname], pos ) 
+                    if pos > self.state.counter[idname] then
+                        table.insert( files_to_rename[idname], pos )
                     end
                 end
             end
@@ -888,7 +888,7 @@ function project:get_counter_max_min()
         folders = { self.dalclick.odd_name, self.dalclick.even_name }
     else -- self.session.noc_mode == 'single'
         folders = { self.dalclick.single_name }
-    end    
+    end
     for n, idname in pairs(folders) do
         for f in lfs.dir(self.session.base_path.."/"..self.paths.raw[idname]) do
             if lfs.attributes( self.session.base_path.."/"..self.paths.raw[idname].."/"..f, "mode") == "file" then
@@ -943,12 +943,12 @@ end
 function project:list_and_select(opts)
     if type(opts) ~= 'table' then opts = {} end
     if opts.ext == nil then opts.ext = {".*"} end
-    if opts.desc == nil then 
+    if opts.desc == nil then
         opts.desc = {}
         opts.desc.plural = "archivos"
         opts.desc.singular = "archivo"
     end
-    
+
     local file_list = {}
     for f in lfs.dir(self.session.base_path.."/"..self.paths.doc_dir) do
         if lfs.attributes( self.session.base_path.."/"..self.paths.doc_dir.."/"..f, "mode") == "file" then
@@ -971,7 +971,7 @@ function project:list_and_select(opts)
         print()
         print( topbotline )
         print_dformat("")
-        for index,pdf_file in pairs(file_list) do 
+        for index,pdf_file in pairs(file_list) do
             print_dformat( tostring(index)..") "..pdf_file )
         end
         print_dformat("")
@@ -984,7 +984,7 @@ function project:list_and_select(opts)
         if key == "" then
            return nil, nil, true, "Eligió no abrir ningún "..opts.desc.singular.."."
         end
-        
+
         if file_list[tonumber(key)] ~= nil then
             return true, file_list[tonumber(key)], nil
         else
@@ -1010,8 +1010,8 @@ function project:list_scantailors_and_select()
 end
 
 function project:delete_scantailor_project(sct_name)
-    if type(sct_name) ~= 'string' or sct_name == '' then return false end    
-        
+    if type(sct_name) ~= 'string' or sct_name == '' then return false end
+
     local sct_path = self.session.base_path.."/"..self.paths.doc_dir.."/"..sct_name
     if dcutls.localfs:delete_file( sct_path ) then
        return true
@@ -1021,8 +1021,8 @@ function project:delete_scantailor_project(sct_name)
 end
 
 function project:delete_pdf(pdf_name)
-    if type(pdf_name) ~= 'string' or pdf_name == '' then return false end    
-        
+    if type(pdf_name) ~= 'string' or pdf_name == '' then return false end
+
     local pdf_path = self.session.base_path.."/"..self.paths.doc_dir.."/"..pdf_name
     if dcutls.localfs:delete_file( pdf_path ) then
        return true
@@ -1034,10 +1034,10 @@ end
 
 function project:init_state( options )
     local options = options or {}
-    if type(options) ~= 'table' then return false end    
+    if type(options) ~= 'table' then return false end
 
     self.state = {} -- asegurarse que no queda cargado un estado de un proyecto anterior
-   
+
     self.state.counter = {}
 
     if self.session.noc_mode == 'odd-even' then
@@ -1060,8 +1060,8 @@ function project:init_state( options )
 		    self.state.counter.single = 1
 		    print(" iniciado contador en:"..tostring(self.state.counter.single))
 		end
-    end 
-   
+    end
+
     self.state.rotate = {}
     if self.session.noc_mode == 'odd-even' then
 		self.state.rotate.odd = self.dalclick.rotate_odd
@@ -1072,12 +1072,12 @@ function project:init_state( options )
 		self.state.rotate.single = self.dalclick.rotate_single
 		print(" asignada rotación por defecto: "..self.state.rotate.single)
     end
-    
+
     if type(options.zoom) == 'number' then
         self.state.zoom_pos = options.zoom
         print(" asignado valor de zoom previo: "..tostring(options.zoom))
     end
-    
+
     return true
 end
 
@@ -1139,17 +1139,17 @@ function project:load_state_secure()
             end
         end
     end
-    
+
 end
 
 function project:get_include_strings(opts)
-    if type(opts) ~= 'table' then opts = {} end    
-    
+    if type(opts) ~= 'table' then opts = {} end
+
     if type(self.session.include_list) ~= 'table' or
         self.session.include_list.from == nil or self.session.include_list.to == nil then
         return false, nil, nil
     end
-    
+
     local strlist = ""; local c = ""
     for i = self.session.include_list.from, self.session.include_list.to, 1 do
         strlist = strlist..c..string.format("%04d", i)
@@ -1160,29 +1160,31 @@ function project:get_include_strings(opts)
         .."-"
         ..string.format("%04d", self.session.include_list.to)
         .."]"
-     return true, strlist, suffix
+    return true, strlist, suffix
 end
 
 function project:send_post_proc_actions(opts)
-    if type(opts) ~= 'table' then opts = {} end    
-    
+    if type(opts) ~= 'table' then opts = {} end
+
     local dc_pp = self.dalclick.dalclick_pwdir.."/".."dc_pp"
-    if dcutls.localfs:file_exists( dc_pp ) then		
+    if dcutls.localfs:file_exists( dc_pp ) then
         local last_pdf_generated
         local status = self:get_counter_max_min()
         if status == nil then
             return false, "Aún no hay capturas para procesar en el proyecto"
         end
-        
-        local dcpp_command = 
+
+        local dcpp_command =
             dc_pp
             .." 'project="..self.session.base_path.."'"
             .." 'even="..   self.session.base_path.."/"..self.paths.proc.even.."'"
             .." 'odd="..    self.session.base_path.."/"..self.paths.proc.odd.."'"
+            .." 'single=".. self.session.base_path.."/"..self.paths.proc.single.."'"
             .." 'all="..    self.session.base_path.."/"..self.paths.proc.all.."'"
             .." 'done="..   self.session.base_path.."/"..self.paths.doc_dir .."'"
             .." 'title="..self.settings.title.."'"
-            .." 'pdf-layout=TwoPageRight'" -- TwoPageRight(PDF 1.5) Display the pages two at a time, 
+            .." 'noc-mode="..opts.noc_mode.."'"
+            .." 'pdf-layout=TwoPageRight'" -- TwoPageRight(PDF 1.5) Display the pages two at a time,
                                            -- with odd-numbered pages on the right
         local last_pdf_generated
         if opts.include_list then
@@ -1199,16 +1201,16 @@ function project:send_post_proc_actions(opts)
             end
         else
             dcpp_command = dcpp_command.." 'output_name=".. self.dalclick.doc_filename.."'"
-            
+
             last_pdf_generated = self.dalclick.doc_filename
             local sct_filename = self.dalclick.doc_filebase..".".."scantailor"
             dcpp_command = dcpp_command.." 'scantailor_name="..sct_filename.."'"
         end
-        
+
         if opts.batch_processing then
             dcpp_command = dcpp_command.." quiet"
         end
-       
+
         -- dcpp special modes
         if opts.scantailor_create_project then
             dcpp_command = dcpp_command.." create-new-scantailor-project"
@@ -1221,7 +1223,7 @@ function project:send_post_proc_actions(opts)
                 dcpp_command = dcpp_command.." post-actions-enabled"
             end
         end
-                
+
         print()
         print( "DEBUG: dcpp_command: "..tostring(dcpp_command) )
         print()
@@ -1241,7 +1243,7 @@ function project:send_post_proc_actions(opts)
                 local key = io.stdin:read'*l'
             end
             return false, "El proyecto no pudo ser enviado a la cola de postprocesamiento"
-        end       
+        end
     else
         return false, "ERROR: La ruta al script de post-procesamiento no esta correctamente configurada:\n '"..tostring(dc_pp).."'"
     end
@@ -1334,7 +1336,7 @@ function project:show_capts(mode, previews, filenames )
     local gbtn = {}
     local button_prev_init_active = "YES"
     local button_next_init_active = "YES"
-    
+
     if mode == "explorer" then
         if next(self.session.counter_max) == nil then
             -- no hay capturas
@@ -1350,7 +1352,7 @@ function project:show_capts(mode, previews, filenames )
                self.session.preview_counter = self.session.counter_max
            end
         end
-        
+
         local status
         status, previews, filenames = self:make_preview()
 
@@ -1377,7 +1379,7 @@ function project:show_capts(mode, previews, filenames )
     require("iuplua")
     require("iupluacd")
     require("iupluaimglib")
-        
+
     if noc_mode == 'odd-even' then
        left.image = im.FileImageLoad( previews.even )
        left.cnv = iup.canvas{rastersize = left.image:Width().."x"..left.image:Height(), border = "YES"}
@@ -1391,7 +1393,7 @@ function project:show_capts(mode, previews, filenames )
          left.image:cdCanvasPutImageRect(self.canvas, 0, 0, 0, 0, 0, 0, 0, 0) -- use default values
        end
 
-       right.image = im.FileImageLoad( previews.odd )    
+       right.image = im.FileImageLoad( previews.odd )
        right.cnv = iup.canvas{rastersize = right.image:Width().."x"..right.image:Height(), border = "YES"}
 
        function right.cnv:map_cb()       -- the CD canvas can only be created when the IUP canvas is mapped
@@ -1401,7 +1403,7 @@ function project:show_capts(mode, previews, filenames )
          self.canvas:Activate()
          self.canvas:Clear()
          right.image:cdCanvasPutImageRect(self.canvas, 0, 0, 0, 0, 0, 0, 0, 0) -- use default values
-       end 
+       end
     else
        single.image = im.FileImageLoad( previews.single )
        single.cnv = iup.canvas{rastersize = single.image:Width().."x"..single.image:Height(), border = "YES"}
@@ -1418,12 +1420,12 @@ function project:show_capts(mode, previews, filenames )
 
     -- left.cnv:action(); right.cnv:action()
     -------
-    
+
     if noc_mode == 'odd-even' then
        left.label = iup.label{
            title = filenames.even --, expand = "HORIZONTAL", padding = "10x5"
        }
-       
+
        right.label = iup.label{
            title = filenames.odd --, expand = "HORIZONTAL", padding = "10x5"
        }
@@ -1432,31 +1434,31 @@ function project:show_capts(mode, previews, filenames )
            title = filenames.single --, expand = "HORIZONTAL", padding = "10x5"
        }
     end
-    
+
     -- with 'guest' counter mode (contador "interno" solo actualiza state.counter al hacer click en return)
 
     gbtn.gbtn_prev = iup.button {
-        image = "IUP_ArrowLeft", 
-        flat = "Yes", 
-        action = 
-            function() 
+        image = "IUP_ArrowLeft",
+        flat = "Yes",
+        action =
+            function()
                 local counter_updated = self:preview_counter_prev( 0 )
                 if counter_updated ~= false then
                     local status, previews, filenames = self:make_preview()
-                    gbtn:gbtn_action_callback(counter_updated, previews, filenames, 'prev') 
+                    gbtn:gbtn_action_callback(counter_updated, previews, filenames, 'prev')
                 end
             end,
-        canfocus="No", 
+        canfocus="No",
         tip = "Previous",
         padding = '5x5',
         active = button_prev_init_active
     }
-        
+
     gbtn.gbtn_next = iup.button{
-        image = "IUP_ArrowRight", 
-        flat = "Yes", 
-        action = 
-            function() 
+        image = "IUP_ArrowRight",
+        flat = "Yes",
+        action =
+            function()
                 local counter_updated
                 if noc_mode == 'odd-even' then
                    counter_updated = self:preview_counter_next( self.session.counter_max.odd )
@@ -1465,50 +1467,50 @@ function project:show_capts(mode, previews, filenames )
                 end
                 if counter_updated ~= false then
                     local status, previews, filenames = self:make_preview()
-                    gbtn:gbtn_action_callback(counter_updated, previews, filenames, 'next') 
+                    gbtn:gbtn_action_callback(counter_updated, previews, filenames, 'next')
                 end
-            end,  
-        canfocus="No", 
+            end,
+        canfocus="No",
         tip = "Next",
         padding = '5x5',
         active = button_next_init_active
     }
-    
+
     gbtn.gbtn_go = iup.button{
         title = "Ir",
-        flat = "No", 
+        flat = "No",
         padding = "15x2",
-        action = function()  end,  
-        canfocus="No", 
+        action = function()  end,
+        canfocus="No",
         tip = "",
     }
 
     gbtn.gbtn_cancel = iup.button{
         title = "Cancelar",
-        flat = "No", 
+        flat = "No",
         padding = "15x2",
-        canfocus="No", 
+        canfocus="No",
         tip = "Cancelar",
     }
-    
+
     gbtn.gbtn_from = iup.button {
         image = "IUP_MediaGotoBegin",
-        flat = "No", 
+        flat = "No",
         padding = "15x2",
         canfocus="No",
         padding = '5x5',
         tip = "Seleccionar desde aqui",
     }
-    
+
     gbtn.gbtn_to = iup.button {
         image = "IUP_MediaGoToEnd",
-        flat = "No", 
+        flat = "No",
         padding = "15x2",
-        canfocus="No", 
+        canfocus="No",
         padding = '5x5',
         tip = "Seleccionar hasta aquí",
     }
-    
+
     function gbtn:gbtn_action_callback(counter_updated, previews, filenames, action)
        if noc_mode == 'odd-even' then
           left.image =  im.FileImageLoad( previews.even ); left.cnv:action()
@@ -1520,7 +1522,7 @@ function project:show_capts(mode, previews, filenames )
           single.image =  im.FileImageLoad( previews.single ); single.cnv:action()
           single.label.title = filenames.single
        end
-       
+
        if counter_updated == nil then
           if action == 'next' then
               gbtn.gbtn_next.active = "NO"
@@ -1541,13 +1543,13 @@ function project:show_capts(mode, previews, filenames )
     -------
     local viewers, labelbar
     if noc_mode == 'odd-even' then
-       viewers = iup.hbox{ 
+       viewers = iup.hbox{
            left.cnv,
-           right.cnv 
+           right.cnv
        }
 
-       labelbar = iup.hbox{ 
-           left.label, 
+       labelbar = iup.hbox{
+           left.label,
            iup.fill {
                expand="HORIZONTAL"
            },
@@ -1556,11 +1558,11 @@ function project:show_capts(mode, previews, filenames )
            -- gap = 2,
        }
     else
-       viewers = iup.hbox{ 
+       viewers = iup.hbox{
            single.cnv
        }
 
-       labelbar = iup.hbox{ 
+       labelbar = iup.hbox{
            single.label
        }
     end
@@ -1568,7 +1570,7 @@ function project:show_capts(mode, previews, filenames )
 
 
     local bottombar = iup.hbox{
-        btn_previous, 
+        btn_previous,
         iup.fill {
             expand="HORIZONTAL"
         },
@@ -1576,9 +1578,9 @@ function project:show_capts(mode, previews, filenames )
         margin = "10x10",
         gap = 2,
     }
-    
+
     --
-    
+
     local gcenter_buttons = iup.hbox{
         gbtn.gbtn_go,
         gbtn.gbtn_cancel,
@@ -1586,9 +1588,9 @@ function project:show_capts(mode, previews, filenames )
         gbtn.gbtn_from,
         gbtn.gbtn_to,
     }
-    
+
     local bottombar_guest = iup.hbox{
-        gbtn.gbtn_prev, 
+        gbtn.gbtn_prev,
         iup.fill {
             expand="HORIZONTAL"
         },
@@ -1602,8 +1604,8 @@ function project:show_capts(mode, previews, filenames )
     }
 
     -- -- -- --
-    
-    local dlg    
+
+    local dlg
     if mode == "explorer" then
         dlg = iup.dialog{
             iup.vbox{
@@ -1628,7 +1630,7 @@ function project:show_capts(mode, previews, filenames )
     end
 
 
-    local function destroy_dialog() 
+    local function destroy_dialog()
         -- print(" cerrando  ...")
         if noc_mode == 'odd-even' then
            right.image:Destroy()
@@ -1642,7 +1644,7 @@ function project:show_capts(mode, previews, filenames )
         iup.ExitLoop() -- should be removed if used inside a bigger application
         dlg:destroy()
     end
-    
+
     local function set_counter()
         self.state.counter = self.session.preview_counter
         self:save_state()
@@ -1652,8 +1654,8 @@ function project:show_capts(mode, previews, filenames )
            print(" Se actualizó el contador a: "..tostring(self.state.counter.single))
         end
     end
-    
-    function gbtn.gbtn_go:action() 
+
+    function gbtn.gbtn_go:action()
         set_counter()
         destroy_dialog()
         return iup.IGNORE -- because we destroy the dialog
@@ -1663,7 +1665,7 @@ function project:show_capts(mode, previews, filenames )
         destroy_dialog()
         return iup.IGNORE -- because we destroy the dialog
     end
-    
+
     function dlg:close_cb() -- si se cierra desde la ventana
         destroy_dialog()
         return iup.IGNORE -- because we destroy the dialog

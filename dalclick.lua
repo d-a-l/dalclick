@@ -36,7 +36,7 @@ enable
 gsettings set org.gnome.desktop.media-handling automount "true"
 gsettings set org.gnome.desktop.media-handling automount-open "true"
 
-= chdkptp command 
+= chdkptp command
 
 # en chdkptp
 export LUA_PATH="./lua/?.lua;../dalclick/?.lua"
@@ -95,7 +95,7 @@ local defaults={
     -- regnum = '',
 }
 
-defaults.doc_filename = defaults.doc_filebase.."."..defaults.doc_fileext 
+defaults.doc_filename = defaults.doc_filebase.."."..defaults.doc_fileext
 
 defaults.paths = {}
 
@@ -145,10 +145,10 @@ local loopmsg = ""
 
 -- ### Gnome automount ###
 
--- # # # # # # # # # # # # # # # # # # # # # SINGLE CAM # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+-- # # # # # # # # # # # # # # # # # # # # # SINGLE CAM # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 function cam:switch_mode(lcon,mode)
-    if mode == "play" or mode == "rec" then   
+    if mode == "play" or mode == "rec" then
         local opts = {
             to_mode = mode,
             log_format = "serialized"
@@ -211,19 +211,19 @@ function cam:get_zoom(lcon)
     end
 end
 
-function cam:set_zoom(lcon) 
+function cam:set_zoom(lcon)
     if type(current_project.state.zoom_pos) ~= 'number' then
         return false, "error: current_project.state.zoom_pos is not number!\n"
     end
     print("  fijando zoom a '"..current_project.state.zoom_pos.."' en la cámara '"..lcon.idname.."'...")
     -- status, var1 = lcon:execwait('return set_zoom('..current_project.state.zoom_pos..')')
-    local opts = { 
+    local opts = {
 	    zoom_pos = current_project.state.zoom_pos,
 	    -- zoom_sleep = 1000
 	    log_format = "serialized"
     }
     local status, data = lcon:execwait('return dc_set_zoom('..util.serialize(opts)..')',{libs={'dalclick_utils', 'serialize'}})
-    
+
     if status then
         return true, data
     else
@@ -252,11 +252,11 @@ function cam:init_cam(lcon, zoom)
     end
     sys.sleep(300)
     local status, var = lcon:execwait('return dc_init_cam_alt('..util.serialize(opts)..')',{libs={'dalclick_utils', 'serialize'}})
-    return status, var            
+    return status, var
 end
 
 function cam:get_cam_info(lcon, option)
-       
+
     if not lcon:is_connected() then return false end
 
     if option == "focus" then
@@ -280,7 +280,7 @@ function cam:get_cam_info(lcon, option)
 
 end
 
--- # # # # # # # # # # # # # # # # # # # # # SINGLE CAM # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+-- # # # # # # # # # # # # # # # # # # # # # SINGLE CAM # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 -- local funtions fro multicam
 
@@ -294,7 +294,7 @@ function print_cam_info(data, depth, item, opts)
         print(" -WTF?- ")
         return
     end
-    
+
     for i,k in ipairs(data) do
         if type(k) == 'table' then
             -- recursion
@@ -303,7 +303,7 @@ function print_cam_info(data, depth, item, opts)
             print(tab..tostring(k))
         end
     end
-    
+
     local value_descriptor = ""
     if data.value then
         if type(data.desc) == 'table' then
@@ -326,7 +326,7 @@ function print_cam_info(data, depth, item, opts)
                         end
                     end
                 end
-            end    
+            end
         end
 
         data.funcn = data.funcn or item
@@ -334,7 +334,7 @@ function print_cam_info(data, depth, item, opts)
         data.units = data.units or ""
         data.alt_value = data.alt_value or ""
         data.alt_units = data.alt_units or ""
-        
+
         --
         if value_descriptor ~= "" then
             printf (tab..tostring(data.label)..": "..value_descriptor.." ("..tostring(data.value)..")")
@@ -350,7 +350,7 @@ function print_cam_info(data, depth, item, opts)
         if data.help then
             print (tab..tostring(data.help))
         end
-    end 
+    end
 end
 
 -- multicam functions
@@ -434,7 +434,7 @@ function mc:camsound_plip()
                 end
              end
           end
-          if not duplicated then 
+          if not duplicated then
              usb_conected[i] = {}
              usb_conected[i].status = 1
           end
@@ -493,7 +493,7 @@ function mc:check_errors_all()
         end
     end
 end
-    
+
 function mc:switch_mode_all(mode)
     local setmode_fail = false
     for i,lcon in ipairs(self.cams) do
@@ -516,7 +516,7 @@ function mc:switch_mode_all(mode)
     if setmode_fail then
         return false
     else
-        return true        
+        return true
     end
 end
 
@@ -568,7 +568,7 @@ function mc:set_zoom_other()
             else
                 print(" error: no se pudo enfocar luego de ajustar el zoom")
                 return false
-            end            
+            end
         end
     end
     return false
@@ -579,7 +579,7 @@ function mc:get_cam_info(option)
         print(" ERROR: mc:get_cam_info() no option param")
         return false
     end
-    
+
     for i,lcon in ipairs(self.cams) do
         local status, data = cam:get_cam_info(lcon, option)
         if status then
@@ -594,7 +594,7 @@ function mc:get_cam_info(option)
             local err = data
             print(" ["..i.."] ERROR! mensaje recibido desde la cámara:")
             print(" "..tostring(err))
-        end 
+        end
         print()
     end
     return true
@@ -626,7 +626,7 @@ function mc:refocus_cam_all()
         self:get_cam_info('focus')
         print(" Presione <enter> para continuar...")
         local key = io.stdin:read'*l'
-        return true, info        
+        return true, info
     end
 end
 
@@ -659,7 +659,7 @@ end
 
 function mc:get_cam_status()
 -- detected
---     dev type: string, bus type: string, vendor_id type: number, product_id type: number 
+--     dev type: string, bus type: string, vendor_id type: number, product_id type: number
 -- connected
 --
 -- inconcluso1!!!
@@ -672,7 +672,7 @@ function mc:get_cam_status()
              if lconnection:is_connected() then
                 --lconnection:update_connection_info()
                 print("camara conectada en self.cams ["..i.."]")
-             else 
+             else
                 print("camara NO conectada en self.cams ["..i.."]")
              end
              if type(lconnection) == 'table' then
@@ -784,7 +784,7 @@ function mc:camera_status(dalclick_detected, usb_conected)
       local unnamed = false; local oddname = false; local evenname = false; local evenrepeat = false; local oddrepeat = false
       local oddstatus; local evenstatus
       for i, cam_item in ipairs(dalclick_detected) do
-         if cam_item.idname == "odd" then 
+         if cam_item.idname == "odd" then
             if oddname then oddrepeat = true else oddname = true; oddstatus = cam_item.status end
          elseif cam_item.idname == "even" then
             if evenname then evenrepeat = true else evenname = true; evenstatus = cam_item.status end
@@ -817,8 +817,8 @@ function mc:camera_status(dalclick_detected, usb_conected)
       local singlename = false
       local singlestatus; local extracam = false
       for i, cam_item in ipairs(dalclick_detected) do
-         if cam_item.idname == "single" then 
-            singlename = true; singlestatus = cam_item.status 
+         if cam_item.idname == "single" then
+            singlename = true; singlestatus = cam_item.status
          end
          if i > 1 then extracam = true end
       end
@@ -951,12 +951,12 @@ function mc:shutdown_all()
 end
 
 function mc:init_cams_all()
-   
+
     -- print("mc:init_cams_all()")
     -- local key = io.stdin:read'*l'
 
     -- comprueba que haya conexion
-    
+
     print("\n Verificando conexión cámaras:")
     local status = self:check_cam_connection()
     if not status then
@@ -970,7 +970,7 @@ function mc:init_cams_all()
             return false
         end
     end
-    
+
     -- comprueba que haya una o dos camaras, segun noc_mode
 
     local init_fail = false
@@ -1006,14 +1006,14 @@ function mc:init_cams_all()
 		    end
 		end
 
-		if type(idnames[1]) == 'string' and type(idnames[2]) == string then    
+		if type(idnames[1]) == 'string' and type(idnames[2]) == string then
 		    if idnames[1] == idnames[2] then
 		        print(" ATENCION: las dos cámaras estan identificadas con el mismo nombre: '"
 		        ..idnames[1].."' y '"..idnames[2].."'")
 		        init_fail = true
 		    end
 		end
-		
+
 		if count_cams == 1 then
 		    print()
 		    print(" Atención! Solo hay una cámara conectada")
@@ -1058,15 +1058,15 @@ function mc:init_cams_all()
 
     -- check SD
     print()
-    local check_status = mc:check_sdcams_options() 
+    local check_status = mc:check_sdcams_options()
     if check_status == false then
         print(" debug: check_sdcams_options() = false")
         return false
     end
-    
+
     -- set cams
     --
-    print()   
+    print()
     if type(current_project.state.zoom_pos) ~= "number" then
         current_project.state.zoom_pos = nil
         if not current_project:save_state() then
@@ -1074,7 +1074,7 @@ function mc:init_cams_all()
             return false
         end
     end
-    
+
     for i,lcon in ipairs(self.cams) do
         print(" ["..i.."] preparando cámara:")
         local status, var = cam:init_cam(lcon, current_project.state.zoom_pos)
@@ -1092,7 +1092,7 @@ function mc:init_cams_all()
             init_fail_err = var
             break
         end
-    end    
+    end
     print()
     --
     if init_fail then
@@ -1116,7 +1116,7 @@ function mc:check_sdcams_options()
     if current_project.session.noc_mode == 'odd-even' then
        local menu = [[
  ====================================================================
- ATENCION: Se recomienda borrar todas las imágenes contenidas en las 
+ ATENCION: Se recomienda borrar todas las imágenes contenidas en las
  tarjetas SD de las cámaras antes de comenzar.
  ====================================================================
 
@@ -1124,12 +1124,12 @@ function mc:check_sdcams_options()
 
  [enter] para borrar todas las imágenes
  [c] para continuar sin borrar
- 
+
 ]]
     else -- current_project.session.noc_mode == 'single'
        local menu = [[
  ====================================================================
- ATENCION: Se recomienda borrar todas las imágenes contenidas en la 
+ ATENCION: Se recomienda borrar todas las imágenes contenidas en la
  tarjeta SD de la cámara antes de comenzar.
  ====================================================================
 
@@ -1137,7 +1137,7 @@ function mc:check_sdcams_options()
 
  [enter] para borrar todas las imágenes
  [c] para continuar sin borrar
- 
+
 ]]
     end
 
@@ -1189,12 +1189,12 @@ function mc:check_sdcams_options()
             elseif key == "c" then
                 -- NO borrar
                 return true
-            end            
+            end
             print(" no ha seleccionado ninguna opción válida!")
             print()
         end
     end
-    
+
     -- print(" OK")
     return true
 end
@@ -1209,9 +1209,9 @@ function mc:rotate_all()
         -- basepath = local_path
         -- basename = file_name
         command = "econvert -i "..saved_file.path.." --rotate "..current_project.state.rotate[idname].." -o "..current_project.session.base_path.."/"..current_project.paths.proc[idname].."/"..saved_file.basename.." > /dev/null 2>&1"
-        
+
         if defaults.mode_enable_qm_daemon then
-            print(" ["..idname.."] enviando comando (rotar) a la cola de acciones") 
+            print(" ["..idname.."] enviando comando (rotar) a la cola de acciones")
             if not os.execute(current_project.dalclick.qm_sendcmd_path..' '..current_project.session.base_path.."/"..current_project.paths.raw[idname]..' "'..command..'"') then
                print(" error: falló: "..current_project.dalclick.qm_sendcmd_path..' '..current_project.session.base_path.."/"..current_project.paths.raw[idname]..' "'..command..'"')
                command_fail = true
@@ -1255,7 +1255,7 @@ function mc:rotate_and_resize_all()
         else
              portrait = false
         end
-        command = 
+        command =
             "econvert -i "..saved_file.path
           ..( current_project.settings.rotate and " --rotate "..current_project.state.rotate[idname] or "")
           .." -o "..current_project.session.base_path.."/"..current_project.paths.proc[idname].."/"..saved_file.basename
@@ -1263,13 +1263,13 @@ function mc:rotate_and_resize_all()
           .." -o "..thumbpath.."/"..saved_file.basename
           .." > /dev/null 2>&1"
         if defaults.mode_enable_qm_daemon then
-            print(" ["..idname.."] enviando de comando de procesamiento a la cola de acciones ("..saved_file.basename..").") 
+            print(" ["..idname.."] enviando de comando de procesamiento a la cola de acciones ("..saved_file.basename..").")
             if not os.execute(current_project.dalclick.qm_sendcmd_path..' '..current_project.session.base_path.."/"..current_project.paths.raw[idname]..' "'..command..'"') then
                 print(" error: falló: "..current_project.dalclick.qm_sendcmd_path..' '..current_project.session.base_path.."/"..current_project.paths.raw[idname]..' "'..command..'"')
                 command_fail = true
             end
         else
-            printf(" ["..idname.."] "..(current_project.settings.rotate and "rotando y " or "").."generando vista previa ("..saved_file.basename..")...") 
+            printf(" ["..idname.."] "..(current_project.settings.rotate and "rotando y " or "").."generando vista previa ("..saved_file.basename..")...")
             if not os.execute(command) then
                 print("ERROR")
                 print("    falló: '"..command.."'")
@@ -1455,7 +1455,7 @@ function mc:capt_all_test_and_preview()
                     src_path  =
                         current_project.session.base_path.."/"..current_project.paths.test[idname]
                         .."/"..saved_file.basename_without_ext..".jpg",
-                    high_path =  
+                    high_path =
                         current_project.session.base_path.."/"..current_project.paths.test[idname]
                         .."/"..saved_file.basename_without_ext..defaults.test_high_name..".jpg",
                     low_path  =
@@ -1472,7 +1472,7 @@ function mc:capt_all_test_and_preview()
                 else
                      portrait = false
                 end
-                local command = 
+                local command =
                     "econvert"
                   .." -i "..command_paths[idname].src_path
                   ..( current_project.settings.rotate and " --rotate "..current_project.state.rotate[idname] or "")
@@ -1492,7 +1492,7 @@ function mc:capt_all_test_and_preview()
                 end
             end
             -- show preview
-            
+
             if not command_fail then
                 -- preview
                if current_project.session.noc_mode == 'odd-even' then
@@ -1506,7 +1506,7 @@ function mc:capt_all_test_and_preview()
                 dcutls.localfs:delete_file(paths.src_path)
                 dcutls.localfs:delete_file(paths.high_path)
                 dcutls.localfs:delete_file(paths.low_path)
-            end      
+            end
         else
             print("se produjeron errores en la captura en alguna de las cámaras")
             if break_main_loop then
@@ -1517,7 +1517,7 @@ function mc:capt_all_test_and_preview()
         print("error de lectura: no se pudieron guardar las variables de estado en el disco (2)")
         return false
     end
-    
+
     return true
 end
 
@@ -1591,7 +1591,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
                     end
                 end
             end
-            lastcapt = lastname 
+            lastcapt = lastname
         end
     end
 
@@ -1614,7 +1614,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
             end
         else
             print()
-            print(" ATENCION: no se puedo obtener el nombre de la última captura") 
+            print(" ATENCION: no se puedo obtener el nombre de la última captura")
             print(" Vuelva a intentarlo...")
             print(" Si el problema persiste pruebe en modo 'seguro' ó 'normal'.")
             print()
@@ -1626,7 +1626,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
     --
     sys.sleep(300)
     --
-   
+
     local download_fail = false
     local saved_files = {}
     for i,lcon in ipairs(self.cams) do
@@ -1634,7 +1634,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
         local local_path, file_name_we, file_name
         file_name_we = string.format("%04d", current_project.state.counter[lcon.idname])
         file_name = file_name_we..".".."jpg"
-        
+
         if mode == 'test' then -- yyyy
             local_path = current_project.session.base_path.."/"..current_project.paths.test[lcon.idname].."/"
         else
@@ -1705,7 +1705,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
             if saved_file.basepath ~= nil then
                 local tmppath = saved_file.basepath..defaults.tempfolder_name.."/"..saved_file.basename
                 local permpath = saved_file.basepath..saved_file.basename
-                
+
                 if os.rename(tmppath, permpath) then
                     print(" ["..idname.."] moviendo '"..saved_file.basename.."' desde carpeta temporal..OK")
                 else
@@ -1737,7 +1737,7 @@ function mc:preprocess_raw()
     end
 end
 
--- # # # # # # # # # # # # # # # # # # # # # BATCH # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+-- # # # # # # # # # # # # # # # # # # # # # BATCH # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 local function count_files(folder)
     if dcutls.localfs:file_exists( folder ) then
@@ -1751,16 +1751,16 @@ local function count_files(folder)
     end
     return false
 end
-    
+
 function batch:show_projects( projects )
 
     local paths = defaults.paths
-    for index, project in pairs(projects) do    
+    for index, project in pairs(projects) do
         local content = dcutls.localfs:read_file(project.settings_path)
         if content then
             local settings = util.unserialize(content)
             settings = type(settings) == 'table' and settings or {}
-            
+
             local stat_raw = 'raw: '
             if type(paths.raw) == 'table' then
                 if paths.raw.even then
@@ -1775,10 +1775,10 @@ function batch:show_projects( projects )
                         stat_raw = stat_raw.."/"..tostring(c).." "
                     end
                 end
-            end        
-            local margin = 16 - string.len(string.sub(stat_raw, 0, 16))             
+            end
+            local margin = 16 - string.len(string.sub(stat_raw, 0, 16))
             stat_raw = stat_raw..string.rep(".", margin)
-            
+
             local stat_pre = "pre: "
             if type(paths.proc) == 'table' then
                 if paths.proc.even then
@@ -1794,32 +1794,32 @@ function batch:show_projects( projects )
                     end
                 end
             end
-            local margin = 16 - string.len(string.sub(stat_pre, 0, 16))             
+            local margin = 16 - string.len(string.sub(stat_pre, 0, 16))
             stat_pre = stat_pre..string.rep(".", margin)
-            
+
             local stat_done = 'done: '
             if dcutls.localfs:file_exists( project.path.."/"..defaults.doc_name.."/"..defaults.doc_filename ) then
                 stat_done = stat_done.."PDF"
             else
                 stat_done = stat_done.."..."
             end
-            
+
             local stat_line = ' '..stat_raw..' '..stat_pre..' '..stat_done
-            
-            -- 
+
+            --
             local mindex = 4 - string.len(index)
             local findex = string.rep(" ", mindex)..tostring(index)
             print(findex.." ["..tostring(project.id).."] '"..tostring(settings.title).."'")
             print("     ..."..stat_line)
             -- print()
         end
-    end    
+    end
 end
 
 function batch:list_projects(projects)
     if type(projects) ~= 'table' then return false end
     print()
-    for index,pdata in pairs(projects) do 
+    for index,pdata in pairs(projects) do
         print( tostring(index).." ["..pdata.id.."] " .. pdata.path )
     end
     print()
@@ -1827,9 +1827,9 @@ end
 
 function batch:load_projects_list_from_path(opts)
     if type(opts) ~= 'table' then opts = {} end
-    
+
     if type(opts.path) ~= 'string' then return false end
-    if dcutls.localfs:file_exists( opts.path ) then		
+    if dcutls.localfs:file_exists( opts.path ) then
         if lfs.attributes(opts.path,"mode") ~= "directory" then
             print(" Error: la ruta '"..tostring(opts.path).."' no es un directorio")
             return false
@@ -1838,14 +1838,14 @@ function batch:load_projects_list_from_path(opts)
         print(" Error: la ruta '"..tostring(opts.path).."' no existe")
         return false
     end
-    
+
     print(" Buscando proyectos en '"..tostring(opts.path).."'")
     local pl = {}
     for f in lfs.dir(opts.path) do
         if lfs.attributes(opts.path.."/"..f,"mode") == "directory" then
             if dcutls.localfs:file_exists( opts.path.."/"..f..'/.dc_settings' ) then
                 -- it's dalclick project
-                local insert_project = true              
+                local insert_project = true
                 if dcutls.localfs:file_exists( opts.path.."/"..f..'/'..defaults.doc_name.."/"..defaults.doc_filename ) then
                     -- it's proc
            	        if opts.hide_proc == true then
@@ -1855,10 +1855,10 @@ function batch:load_projects_list_from_path(opts)
                     -- it's noproc
                     if opts.hide_noproc == true then
            	            insert_project = false
-           	        end           	    
+           	        end
                 end
                 if insert_project then
-	                table.insert( pl, 
+	                table.insert( pl,
 	                    { id = f,
 	                      path = opts.path.."/"..f,
 	                      settings_path = opts.path.."/"..f..'/.dc_settings'
@@ -1868,7 +1868,7 @@ function batch:load_projects_list_from_path(opts)
             end
         end
     end
-    
+
     if next(pl) then
        return true, pl
     else
@@ -1878,7 +1878,7 @@ end
 
 function batch:load_projects_list_from_file(opts)
     if type(opts) ~= 'table' then opts = {} end
-    
+
     if type(opts.file) ~= 'string' then return false end
     if dcutls.localfs:file_exists( opts.file ) then
         if lfs.attributes(opts.file,"mode") ~= "file" then
@@ -1889,9 +1889,9 @@ function batch:load_projects_list_from_file(opts)
         print(" Error: la ruta '"..tostring(opts.file).."' no existe")
         return false
     end
-    
+
     local content = dcutls.localfs:read_file_as_table(opts.file)
-    
+
     local pl = {}
     if type(content) == 'table' then
         for id, line in pairs(content) do
@@ -1903,9 +1903,9 @@ function batch:load_projects_list_from_file(opts)
                if dcutls.localfs:file_exists( line..'/.dc_settings' ) then
                    local filepath, filename, fileext = string.match(line, "(.-)([^\\/]-%.?([^%.\\/]*))$")
                    if filename ~= "" then
-     	               table.insert( pl, 
+     	               table.insert( pl,
                           { id = filename,
-                            path = line, 
+                            path = line,
                             settings_path = line..'/.dc_settings'
                           })
                    end
@@ -1919,7 +1919,7 @@ function batch:load_projects_list_from_file(opts)
         print(" ¿Desea seleccionar los archivos listados? [s/n]")
         printf(">> ")
         local key = io.stdin:read'*l'
-        if key == "S" or key == "s" then  
+        if key == "S" or key == "s" then
             return true, pl
         else
             return false, pl
@@ -1931,14 +1931,14 @@ end
 
 function batch:postprocess(projects)
     if type(projects) ~= 'table' then return false end
-    
+
     local c_ok = 0
     local c_fail = 0
     local l_fail = ""
     local c_failload = 0
     local l_failload = ""
     for index,pdata in pairs(projects) do
-        
+
         if not current_project:init(defaults) then
             print(" ERROR: no se pueden inicializar proyectos!")
             break
@@ -1948,8 +1948,8 @@ function batch:postprocess(projects)
         local load_status, project_status = current_project:load(pdata.settings_path)
         if load_status then
             print(" Procesando: '"..tostring(pdata.settings_path).."'")
-            print(" Proyecto abierto con exito. Estado: "..tostring(project_status)) 
-            local status, msgs = current_project:send_post_proc_actions({ batch_processing = true }) 
+            print(" Proyecto abierto con exito. Estado: "..tostring(project_status))
+            local status, msgs = current_project:send_post_proc_actions({ batch_processing = true })
             if status then
                 print(" Proyecto enviado con éxito a la cola de post-procesamiento para generar pdf")
                 c_ok = c_ok + 1
@@ -1981,18 +1981,18 @@ function batch:repair_projects(projects)
             io.output(file); io.write(string.."\n"); io.close(file)
         end
     end
-       
+
     -- -- --
     if type(projects) ~= 'table' then return false end
     local fail = {}
     local success = {}
     for _,pdata in pairs(projects) do
-        
+
         if not current_project:init(defaults) then
             print(" ERROR: no se pueden inicializar proyectos!")
             return false
         end
-        
+
         -- create log file in project folder
         local log
         local continue = true
@@ -2007,7 +2007,7 @@ function batch:repair_projects(projects)
                 end
             else
                 print(" Ya existe un registro en '"..tostring(log).."'. Se continua ingresando información a continuación." )
-            end                 
+            end
             rplog(" --------------- "..os.date().." --------------- ", log, false)
         else
             print(" ATENCION no se pudo crear un archivo de registro, no existe: "..tostring(pdata.path))
@@ -2020,7 +2020,7 @@ function batch:repair_projects(projects)
             if load_status then
                 rplog(" Procesando: '"..tostring(pdata.settings_path).."'", log, true)
                 rplog(" Proyecto abierto con exito. Estado: "..tostring(project_status), log, true)
-                local status, no_errors, received_log = current_project:reparar() 
+                local status, no_errors, received_log = current_project:reparar()
                 if status == true then
                     if no_errors == true then
                         table.insert(success, pdata.path)
@@ -2050,7 +2050,7 @@ function batch:repair_projects(projects)
 end
 
 
--- # # # # # # # # # # # # # # # # # # # # # MAIN # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+-- # # # # # # # # # # # # # # # # # # # # # MAIN # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 -- local functions for main
 
@@ -2058,7 +2058,7 @@ local function check_overwrite(idname)
     local local_path, file_name_we, file_name
     file_name_we = string.format("%04d", current_project.state.counter[idname])
     file_name = file_name_we..".".."jpg"
-    
+
     if dcutls.localfs:file_exists( current_project.session.base_path.."/"..current_project.paths.raw[idname].."/"..file_name ) then
         return true
     else
@@ -2082,10 +2082,10 @@ local function get_project_newname()
     local format = "Iniciar Proyecto\nNúmero de registro: %100.30%s\nTítulo:%300.30%s\n"
     repeat
         scanf_regnum, scanf_title = iup.Scanf(format, regnum, title)
-        if scanf_regnum == nil then 
+        if scanf_regnum == nil then
             return nil, nil
         end
-        if scanf_regnum == "" then 
+        if scanf_regnum == "" then
             iup.Message("Iniciar Proyecto", "El campo 'Número de registro' es obligatorio para iniciar un proyecto")
         else
             if string.match(scanf_regnum, "^[%w-_]+$") then
@@ -2108,36 +2108,36 @@ local function select_file(dir)
     local regnum_dir, status, file, list, a
 
     -- Creates a file dialog and sets its type, title, filter and filter info
-    local fd = iup.filedlg{ dialogtype = "FILE", 
-                            title = "Seleccionar archivo", 
+    local fd = iup.filedlg{ dialogtype = "FILE",
+                            title = "Seleccionar archivo",
                             directory = dir,
                             -- parentdialog = iup.GetDialog(self)
                             }
-  
+
     -- Shows file dialog in the center of the screen
     fd:popup(iup.ANYWHERE, iup.ANYWHERE)
-    
+
     -- Gets file dialog status
     status = fd.status
     file = fd.value
-    
-    fd:destroy()    
+
+    fd:destroy()
     -- iup.Destroy(od)
-    
+
     -- Check status
     local success = false
-    if status == "0" then 
+    if status == "0" then
       if type(file) ~= 'string' then
           -- nota: solo con Alarm se pudo corregir el problema de que no se podia cerrar filedlg
           iup.Alarm("Seleccionando lista", "Error: Hubo un problema al intentar seleccionar '"..tostring(file).."'" ,"Continuar")
       else
           a = iup.Alarm("Seleccionando lista", "Archivo seleccionado:\n"..file ,"OK", "Cancelar")
-          if a == 1 then 
+          if a == 1 then
               success = true
               list = file
           end
       end
-    elseif status == "-1" then 
+    elseif status == "-1" then
           iup.Alarm("Seleccionando lista", "Operación cancelada" , "Continuar")
     else
           iup.Alarm("Seleccionando lista", "Se produjo un error" ,"Continuar")
@@ -2148,7 +2148,7 @@ local function select_file(dir)
         print(" [Abrir proyecto] Error: no se pudo seleccionar una carpeta de proyecto válida.")
         return nil
     end
-    
+
     return true, list
 end
 
@@ -2181,19 +2181,19 @@ end
 local function open_scantailor_gui(path_to_scproject)
   if defaults.scantailor_available then
       if type(path_to_scproject) == 'string' and dcutls.localfs:file_exists( path_to_scproject ) then
-          os.execute(defaults.scantailor_path.." "..path_to_scproject.." &") 
+          os.execute(defaults.scantailor_path.." "..path_to_scproject.." &")
       end
   end
 end
 
 local function parse_pp_args(items)
     if items == nil or items == '' then return true, '+all', ' Acciones seleccionadas: postprocesado completo' end
-    
+
     local errmsg = ""
     local wrong = false
     local scantailor = false; local ocr = false; local compile = false
     local sign
-    
+
     for c in string.gmatch(items, "[^%s]+") do
         if c:sub(1,1) ~= "-" and c:sub(1,1) ~= "+" then
             c='+'..c
@@ -2208,20 +2208,20 @@ local function parse_pp_args(items)
         elseif sign ~= c:sub(1,1) then
             errmsg = " no puede mezclar inclusiones y exclusiones (-) en los argumentos"
             wrong = true; break
-        end                     
+        end
         if c:sub(2) == "scantailor" or c:sub(2) == "sc" then
             if not scantailor then
                 scantailor = true
-            else 
+            else
                 errmsg = " 'scantailor' repetido"
-                wrong = true; break 
+                wrong = true; break
             end
         elseif c:sub(2) == "ocr" then
             if not ocr then
                 ocr = true
-            else 
+            else
                 errmsg = " 'ocr' repetido"
-                wrong = true; break 
+                wrong = true; break
             end
         elseif c:sub(2) == "pdf" then
             if not compile then
@@ -2239,9 +2239,9 @@ local function parse_pp_args(items)
     if wrong then
        return false, false, " pp: argumento con errores.\n  "..tostring(errmsg)
     end
-    
+
     if not sign then sign = '+' end -- prevent '  ' args string
-    
+
     local args = ""
     local msg = ""
     if scantailor then
@@ -2252,7 +2252,7 @@ local function parse_pp_args(items)
         args = args..sign..'ocr'
         msg = msg.."   "..sign.." realizar OCR (reconocimiento de caracteres)\n"
     end
-    if compile then                         
+    if compile then
         args = args..sign..'compile'
         msg = msg.."   "..sign.." compilar PDF\n"
     end
@@ -2260,7 +2260,7 @@ local function parse_pp_args(items)
         args = 'all'
         msg = msg.."   "..sign.." postprocesamiento completo\n"
     end
-    
+
     if sign == "+" then
        return true, args, " Acciones seleccionadas:".."\n".. msg
     elseif sign == "-" then
@@ -2282,7 +2282,7 @@ function dc:init_daemons()
 
     print(" iniciando procesos en segundo plano...")
     os.execute("killall qm_daemon.sh 2>&1") -- TODO: q & d!!!! hay un bug y qm_daemon se inicia aunque haya otro daemos funcioando!
-    
+
     if not dcutls.localfs:file_exists(current_project.session.base_path.."/"..current_project.paths.raw.odd) or not dcutls.localfs:file_exists(current_project.session.base_path.."/"..current_project.paths.raw.even) then
         print(" error: init_daemons: no existen path_raw... \n  "..current_project.session.base_path.."/"..current_project.paths.raw.odd.."\n  "..current_project.session.base_path.."/"..current_project.paths.raw.even)
         return false
@@ -2310,7 +2310,7 @@ function dc:start_options(options)
     local saved_project  = false
     local ppath, pname, pext
     if not options.disable_restore_option then
-		saved_project  = self:check_running_project() 
+		saved_project  = self:check_running_project()
 		if saved_project  then
 		  ppath, pname, pext = string.match(saved_project , "(.-)([^\\/]-%.?([^%.\\/]*))$")
 		end
@@ -2339,11 +2339,11 @@ function dc:start_options(options)
   ---- Selección multiple de proyectos -------------------------------------
 
   [s]     seleccionar todos
-  [s-pdf] seleccionar pendientes sin pdf 
+  [s-pdf] seleccionar pendientes sin pdf
   [s+pdf] seleccionar finalizados con pdf
   [a]     cargar una lista desde un archivo]]
-  
-    local start_menu_lote =[[   
+
+    local start_menu_lote =[[
   [pp] generar pdf   [reparar] reparar  [list] lista detallada
 
   [q] para salir]]
@@ -2351,12 +2351,12 @@ function dc:start_options(options)
     local start_menu_footer =[[
 
  ==============================================================================]]
-    
+
     local more = false
     local key
     local empty_list_msg = " Primero debe seleccionar una lista de proyectos!"
     local loopmsg = ""
-    
+
     local function get_options()
         print(" - Seleccionados "..tostring(table.getn(state.projects_selection)).." proyectos.")
         print()
@@ -2371,7 +2371,7 @@ function dc:start_options(options)
             return key
         end
     end
-    
+
     local function list_projects_and_get_options(status, projects)
         if status == nil then
             print(" La carpeta no contiene proyectos")
@@ -2384,18 +2384,18 @@ function dc:start_options(options)
             print()
             print(" - Fin de la lista")
             return get_options()
-        end 
+        end
     end
-    
+
     repeat
-        if not more then 
-           print(dalclick_logo) 
+        if not more then
+           print(dalclick_logo)
         else
            print("================================ DALclick ===================================")
         end
         print()
         print(start_menu)
-        if more then 
+        if more then
            print(start_menu_advanced)
            print()
            print("  ---- acciones en lote para "..tostring(table.getn(state.projects_selection)).." proyectos seleccionados --------------------")
@@ -2416,7 +2416,7 @@ function dc:start_options(options)
         if not key then key = io.stdin:read'*l' end
         local moption = key
         key = nil
-        
+
         -- ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
         if moption == "" then
 			if saved_project  then
@@ -2485,35 +2485,35 @@ function dc:start_options(options)
             -- back to start options
         elseif moption == "s" then
             print(" Eligió seleccionar todos los proyectos...")
-            local status, projects = 
-                batch:load_projects_list_from_path({ 
+            local status, projects =
+                batch:load_projects_list_from_path({
                     path = defaults.root_project_path,
-                    -- hide_proc = true 
-                })            
+                    -- hide_proc = true
+                })
              key = list_projects_and_get_options(status, projects)
         elseif moption == "s-pdf" then
             print(" Eligió seleccionar todos los proyectos sin pdf...")
-            local status, projects = 
-                batch:load_projects_list_from_path({ 
+            local status, projects =
+                batch:load_projects_list_from_path({
                     path = defaults.root_project_path,
-                    hide_proc = true 
-                })            
+                    hide_proc = true
+                })
              key = list_projects_and_get_options(status, projects)
         elseif moption == "s+pdf" then
             print(" Eligió seleccionar todos los proyectos que ya tienen pdf generado...")
-            local status, projects = 
-                batch:load_projects_list_from_path({ 
+            local status, projects =
+                batch:load_projects_list_from_path({
                     path = defaults.root_project_path,
-                    hide_noproc = true 
-                })            
+                    hide_noproc = true
+                })
              key = list_projects_and_get_options(status, projects)
         elseif moption == "a" then
             print(" Eligió seleccionar proyectos desde una lista en un archivo...")
             local select_file_status, selected_file = select_file(defaults.root_project_path)
             if select_file_status == true then
                 print(" Archivo seleccionado: '"..selected_file.."'")
-                local status, projects = 
-                    batch:load_projects_list_from_file({ 
+                local status, projects =
+                    batch:load_projects_list_from_file({
                         file = selected_file
                     })
                 if status == nil then
@@ -2524,7 +2524,7 @@ function dc:start_options(options)
                     state.projects_selection = projects
                     print()
                     key = get_options()
-                end 
+                end
             end
         elseif moption == "list" then
             print(" Seleccionó mostrar lista detallada:")
@@ -2569,7 +2569,7 @@ function dc:start_options(options)
                     print(" Procesando proyectos seleccionados...")
                     local repair_status, success, fail = batch:repair_projects( state.projects_selection )
                     if repair_status then
-                        print(); 
+                        print();
                         print(" Proyectos reparados existosamente:")
                         print(" ----------------------------------")
                         print()
@@ -2604,7 +2604,7 @@ function dc:start_options(options)
                         local settings_path = state.projects_selection[tonumber(moption)].settings_path
                         local load_status, project_status = current_project:load(settings_path)
                         if load_status == true then
-                            
+
                             print(" Proyecto cargado con éxito" )
                             -- guardar referencia al proyecto cargado como "running project"
                             if project_status == 'modified' then
@@ -2654,8 +2654,8 @@ function dc:init_cams_or_retry()
     local menu
     if current_project.session.noc_mode == 'odd-even' then
        menu = [[
-    
-+ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + 
+
++ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + +
 
  No se ha podido activar correctamente alguna de las cámaras.
  Posibles problemas y soluciones:
@@ -2665,7 +2665,7 @@ function dc:init_cams_or_retry()
 
   - Alguna de las cámaras (o ambas) todavía está inicializando.
     Espere unos segundos y vuelva a intentarlo.
-    
+
   - Alguna de las cámaras (o ambas) dejo de responder.
     Enciéndala nuevamente y vuelva a intentarlo.
 
@@ -2677,15 +2677,15 @@ function dc:init_cams_or_retry()
 ==============================================================================]]
     else -- current_project.session.noc_mode == 'single'
        menu = [[
-    
-+ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + 
+
++ + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + + +
 
  No se ha podido configurar correctamente las cámara.
  Posibles problemas y soluciones:
 
   - La cámara todavía está inicializando.
     Espere unos segundos y vuelva a intentarlo.
-    
+
   - La cámara se apagó o dejo de responder.
     Enciéndala nuevamente y vuelva a intentarlo.
 
@@ -2697,7 +2697,7 @@ function dc:init_cams_or_retry()
 ==============================================================================]]
     end
     while true do
-        status = mc:init_cams_all() -- true: ok, seguir - false: error, reintentar - 
+        status = mc:init_cams_all() -- true: ok, seguir - false: error, reintentar -
         if status == true then
             break
         elseif status == false then
@@ -2715,7 +2715,7 @@ function dc:init_cams_or_retry()
         end
     end
     return true
-    
+
 end
 
 function dc:load_cam_scripts()
@@ -2725,7 +2725,7 @@ function dc:load_cam_scripts()
 		local lib_code = file:read("*all")
 		file:close()
 
-		if lib_code == nil then 
+		if lib_code == nil then
 		    return false
 		else
 		    chdku.rlibs:register({
@@ -2740,7 +2740,7 @@ end
 function dc:check_running_project()
     local running_project_fileinfo = defaults.dc_config_path.."/running_project"
     local running_project_path
-    
+
     if dcutls.localfs:file_exists( running_project_fileinfo ) then
         running_project_path = dcutls.localfs:read_file( running_project_fileinfo )
         if dcutls.localfs:file_exists( running_project_path ) then
@@ -2751,7 +2751,7 @@ function dc:check_running_project()
             print(" Eliminando referencia...")
             dcutls.localfs:delete_file( running_project_info )
         end
-    end    
+    end
     return false
 end
 
@@ -2813,7 +2813,7 @@ function dc:main(
     end
     -- /debug
 
-    if not DALCLICK_HOME or not DALCLICK_PROJECTS then 
+    if not DALCLICK_HOME or not DALCLICK_PROJECTS then
         return false
     else
         defaults.dc_config_path = DALCLICK_HOME
@@ -2822,37 +2822,37 @@ function dc:main(
         print(" * dalclick projects: '"..tostring(defaults.root_project_path).."'")
     end
 
-    if DALCLICK_PWDIR then 
+    if DALCLICK_PWDIR then
         defaults.dalclick_pwdir = DALCLICK_PWDIR
         print(" * dalclick pwdir: '"..tostring(defaults.dalclick_pwdir).."'")
     else
         defaults.dalclick_pwdir = '/opt/src/dalclick'
     end
 
-    if THUNAR == "Yes" then 
+    if THUNAR == "Yes" then
         defaults.thunar_available = true
         print(" * thunar available")
     end
-       
-    if EVINCE == "Yes" then 
+
+    if EVINCE == "Yes" then
        defaults.evince_available = true
        print(" * evince available")
     end
 
-    if SCANTAILOR_PATH ~= "" then 
+    if SCANTAILOR_PATH ~= "" then
        defaults.scantailor_available = true
        print(" * scantailor available")
        defaults.scantailor_path = SCANTAILOR_PATH
     end
 
-    if NOC_MODE then 
+    if NOC_MODE then
         defaults.noc_mode_default = NOC_MODE
         print(" * NOC_MODE: '"..tostring(defaults.noc_mode_default).."'")
     end
 
     defaults.qm_sendcmd_path = defaults.dalclick_pwdir.."/qm/qm_sendcmd.sh"
     defaults.qm_daemon_path = defaults.dalclick_pwdir.."/qm/qm_daemon.sh"
-    
+
     defaults.ppm_sendcmd_path = defaults.dalclick_pwdir.."/ppm/ppm_sendcmd.sh" -- post process mananager
 
     defaults.empty_thumb_path = defaults.dalclick_pwdir.."/img/empty.jpg"
@@ -2872,23 +2872,23 @@ function dc:main(
     -- --
 
     -- Todo: ojo, comprobar si da true con ROTATE_ODD_DEFAULT=""
-    if ROTATE_ODD_DEFAULT then 
+    if ROTATE_ODD_DEFAULT then
         defaults.rotate_odd = ROTATE_ODD_DEFAULT
     end
-    if ROTATE_EVEN_DEFAULT then 
+    if ROTATE_EVEN_DEFAULT then
         defaults.rotate_even = ROTATE_EVEN_DEFAULT
     end
-    
+
     self:dalclick_loop(false)
 
     local exit = false
 
-    -- el objetivo de este bloque es que las camaras esten apagadas 
+    -- el objetivo de este bloque es que las camaras esten apagadas
     -- o dalclick no inicie hasta que el usuairo las apague
 
     local cameras_turned_off
     local running_project = self:check_running_project()
-    
+
     print("\n\n\n\n\n")
     while true do
        if mc:detect_all() then
@@ -2902,7 +2902,7 @@ function dc:main(
            print()
            print(" [enter] Continuar luego de apagar las cámaras")
            print("\n\n\n\n\n")
-           printf(">> ") 
+           printf(">> ")
            cameras_turned_off = false
            local key = io.stdin:read'*l'
 
@@ -2936,12 +2936,12 @@ function dc:main(
        cameras_turned_off = true
     end
 
-	-- Todo: sacar las variables    
+	-- Todo: sacar las variables
     local menu = {}
     menu.standart = [[
  [enter] capturar                                    [s] salir  [h] inicio
 
- [t] test de captura       [n] nuevo proyecto...     [z] sincronizar zoom 
+ [t] test de captura       [n] nuevo proyecto...     [z] sincronizar zoom
  [v] ver ultima captura    [o] abrir proyecto...         desde la camara de
  [e] explorador            [w] guardar proyecto          referencia
                            [c] cerrar proyecto      [zz] ingresar valor de
@@ -2955,30 +2955,30 @@ function dc:main(
  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
  [1] opciones avanzadas     [2] opciones scantailor [3] opciones generar PDF
 ]]
--- [xx] ídem, pdf modo auto 
+-- [xx] ídem, pdf modo auto
 
     local thunar_option = ""
-    if defaults.thunar_available then 
+    if defaults.thunar_available then
         thunar_option = "  [dir]     abrir el proyecto en el explorador de archivos\n"
     end
     local evince_option = ""
-    if defaults.evince_available then 
+    if defaults.evince_available then
         evince_option = "  [pdf abrir]    ver último pdf generado\n"
     end
-    
+
     menu.advanced = [[
  [enter] volver a opciones
- 
+
  Reparación de proyectos:
   [reparar] reparar y checkear integridad del proyecto
 
  Rango o subselección de páginas:
   [rango]         ingresar valores "desde/hasta" manualmente
   [rango borrar]  eliminar rango
- 
+
  Explorar archivos:
 ]]..thunar_option..
-[[ 
+[[
  Funciones avanzadas de cámaras
   [ifocus]  mostrar info de foco
   [iexpo]   mostrar info de exposición
@@ -2995,11 +2995,11 @@ function dc:main(
 
  Opciones Scantailor para rango de páginas
   [scr abrir]    ídem para rango de páginas seleccionadas
-  
+
  Opciones generales
   [sc listar]    listar los proyectos Scantailor generados
   [sc ayuda]     Ver ayuda para scantailor
-  
+
 ]]
 
     menu.scantailor_help = [[
@@ -3010,28 +3010,28 @@ function dc:main(
  final. El resultado intermedio producido por Scantailor es una colección de ar-
  chivos 'tif'. Para llegar al PDF final estos 'tifs' deben continuar siendo pro-
  cesados por otros componentes del sistema de postproceso. Si bien Scantailor se
- ejecuta de modo automático dentro de nuestro postproceso, de ser necesario es 
+ ejecuta de modo automático dentro de nuestro postproceso, de ser necesario es
  posible abrir el proyecto en su interfaz gráfica para realizar ajustes manuales
  y luego recompilar el PDF con las correcciones realizadas.
 
    El método usual para realizar un ajuste manual a través de la interfaz gráfi-
- ca de Scantailor consiste en enviar normalmente a la cola de procesamiento el 
- proyecto por medio de la opción [pp], que luego de procesado habrá generado 
+ ca de Scantailor consiste en enviar normalmente a la cola de procesamiento el
+ proyecto por medio de la opción [pp], que luego de procesado habrá generado
  automáticamente, además del PDF, un "proyecto Scantailor" que podrá ser abierto
  en modo interfaz gráfica usando la opción [sc abrir].
- 
+
   [.] seguir...
 ]]
 
     menu.pdf_help = [[
  [enter]   volver a opciones
- 
- La opción [pp] se puede combinar con tres componentes: 
+
+ La opción [pp] se puede combinar con tres componentes:
   - scantailor (también se puede usar 'sc')
   - ocr
-  - pdf 
+  - pdf
  Si explicita uno o más sólo se ejecutaran los explicitados, por ejemplo:
- 
+
   [pp ocr pdf]               -> ejecuta 'ocr' y 'compilar'
   [pp scantailor] ó [pp sc]  -> ejecuta sólo 'scantailor'
 
@@ -3040,34 +3040,34 @@ function dc:main(
 
   [pp -scantailor]      -> ejecuta todo menos 'scantailor'
   [pp -scantailor -ocr] -> ejecuta todo menos 'scantailor' y 'ocr'
-  
+
  Si usa [pp] sin argumentos se ejecuta todo el proceso.
 ]]
 
-    menu.scantailor_help_01 = [[ 
+    menu.scantailor_help_01 = [[
  [enter]   volver a opciones
 
- Luego de corregir lo necesario en el modo gráfico existen dos opciones para 
- continuar: 1) terminar el procesamiento correspondiente a Scantailor dentro de 
+ Luego de corregir lo necesario en el modo gráfico existen dos opciones para
+ continuar: 1) terminar el procesamiento correspondiente a Scantailor dentro de
  la interfaz gráfica de Scantailor o 2) guardar el proyecto y repetir la ejecu-
  ción en modo automático desde Dalclick, incluyendo la parte de Scantailor.
- 
- Para el caso 1) presione el botón play del filtro '6' (dentro de la interfaz 
- grafica de Scantailor) para actualizar todas las páginas, o si sólo necesita 
+
+ Para el caso 1) presione el botón play del filtro '6' (dentro de la interfaz
+ grafica de Scantailor) para actualizar todas las páginas, o si sólo necesita
  modificar unas pocas puede ejecutar el filtro 6 en cada página individualmente.
  El "filtro 6" es el que actualiza los 'tif' de salida de Scantailor con las co-
  rreciones realizadas. Finalizado este paso, guarde, cierre Scantailor y desde
- Dalclick ejecute [pp ocr pdf], que realizará el resto de los pasos necesarios 
+ Dalclick ejecute [pp ocr pdf], que realizará el resto de los pasos necesarios
  para actualizar los cambios en el PDF. Si no necesita el OCR use [pp pdf].
- 
+
  Para el caso 2) deberá usar [pp scantailor ocr pdf], ya que necesita volver a
  generar los 'tif' de salida de Scantailor con las correcciones realizadas. Pue-
  de excluir OCR como el caso anterior con [pp scantailor pdf].
- 
- [.] seguir...
-]] 
 
-    menu.scantailor_help_02 = [[ 
+ [.] seguir...
+]]
+
+    menu.scantailor_help_02 = [[
  [enter]   volver a opciones
 
  Nota importante sobre [sc abrir]: Tenga en cuenta que si abre el proyecto en la
@@ -3076,13 +3076,13 @@ function dc:main(
  habrá ningun ajuste automático realizado sobre el documento, y deberá realizar
  este paso desde la interfaz de usuario.
 
-   También puede ser útil -para no tener que abrir todo el documento- realizar 
- una selección de las páginas a retocar con la opción [rango] y trabajar sólo 
+   También puede ser útil -para no tener que abrir todo el documento- realizar
+ una selección de las páginas a retocar con la opción [rango] y trabajar sólo
  con esa selección. Para esto use [ppr scantailor] para aplicarle los ajustes
  automáticos al rango de páginas elegido y luego [scr abrir] para editar en la
  interfaz grafica de Scantailor. Las imagenes 'tif' generadas por este "minipro-
  yecto" sobrescribirán las imágenes del procesamiento anterior y podrán ser com-
- piladas nuevamente en el pdf usando [pp pdf]. Tenga en cuenta que los ajustes 
+ piladas nuevamente en el pdf usando [pp pdf]. Tenga en cuenta que los ajustes
  manuales que realize con este método quedarán guardados solo en este "minipro-
  yecto" parcial y no en el general.
 ]]
@@ -3094,15 +3094,15 @@ function dc:main(
   [pp]                           generar pdf (postproceso completo)
   [pp scantailor ocr pdf]   realiza sólo las opciones explicitadas.
   [pp -scantailor -ocr -pdf]     con el prefijo '-', omitir el componenete.
-  
+
   [pp ocr-p]   realizar OCR 'perezoso' sin sobrescribir OCR previo
   [pp pdf-p]   compilar PDF en modo 'perezoso' sin reprocesar imágenes
-  
+
  Opciones PDF para rango de páginas
   [ppr]   generar pdf parcial sólo del rango de páginas seleccionado,
           también se puede usar [ppr -scantailor], [ppr ocr] etc.
 
- Opciones generales 
+ Opciones generales
   [pdf listar]   abrir pdf desde una lista de los pdfs generados
 ]]..evince_option..
 [[  [pdf ayuda]   ver una ayuda para el comando 'pp'
@@ -3119,9 +3119,9 @@ function dc:main(
     local e_overwt, o_overwt, s_overwt, margin, top_bar, the_title
     local loopmsg = ""
     while true do
-        
+
         o_overwt = false; e_overwt = false; s_overwt = false
-   
+
         local dalclick_detected, usb_conected = mc:camsound_plip()
         local iconline_t, iconline_b, iconline_f = dc:get_cam_icons(dalclick_detected, usb_conected)
         state.cameras_status, state.cameras_status_msg = mc:camera_status(dalclick_detected, usb_conected)
@@ -3173,7 +3173,7 @@ function dc:main(
                capt_line = " Capturas realizadas: "
                    ..string.format("%04d", current_project.session.counter_min.single)
                if current_project.session.counter_min.single ~= current_project.session.counter_max.single then
-                   capt_line = capt_line 
+                   capt_line = capt_line
                    .." a "
                    ..string.format("%04d", current_project.session.counter_max.single)
                    .." (single mode)"
@@ -3198,10 +3198,10 @@ function dc:main(
         print(   zoom_line.." "..string.rep(" ", 65 - string.len(zoom_line))
               ..string.rep(" ", 12 - string.len(iconline_f))..iconline_f
         )
-        if string.match(state.menu_mode, "pdf_help") then 
-            the_title = "Ayuda postproceso (PDF)" 
-        elseif string.match(state.menu_mode, "scantailor_help") then 
-            the_title = "Ayuda Scantailor" 
+        if string.match(state.menu_mode, "pdf_help") then
+            the_title = "Ayuda postproceso (PDF)"
+        elseif string.match(state.menu_mode, "scantailor_help") then
+            the_title = "Ayuda Scantailor"
         else the_title = current_project.settings.title..( current_project:project_is_not_empty() and "" or " [vacio]") end
         margin = math.floor( ( 76 - string.len(string.sub(the_title, 0, 50)) ) / 2 )
         top_bar = string.rep("=", margin).." "..string.sub(the_title, 0, 50).." "..string.rep("=", margin)
@@ -3238,14 +3238,14 @@ function dc:main(
            loopmsg = " "..state.cameras_status_msg
            state.show_cam_status_info = false
         end
-        if loopmsg ~= "" then 
+        if loopmsg ~= "" then
             -- print()
             print(">>"..loopmsg)
             loopmsg = ""
         end
         printf(">> ")
         local key = io.stdin:read'*l'
-        
+
         -- ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
         if key == "" then
@@ -3377,7 +3377,7 @@ function dc:main(
             if state.cameras_status then
                 local status, zoom_pos, err = mc:get_zoom_from_ref_cam()
                 if status and zoom_pos then
-                    current_project.state.zoom_pos = zoom_pos 
+                    current_project.state.zoom_pos = zoom_pos
                     loopmsg = "Valor zoom leído de cámara de referencia: "..zoom_pos.."\n"
                     if current_project:save_state() then
                         print(" nuevo valor de zoom guardado")
@@ -3397,7 +3397,7 @@ function dc:main(
             else
                 loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
             end
-        elseif key == "zz" then 
+        elseif key == "zz" then
             if state.cameras_status then
                 print("ingrese un valor para el zoom:")
                 printf(">> ")
@@ -3457,7 +3457,7 @@ function dc:main(
         elseif key == "n" then
             local previous_zoom = current_project.state.zoom_pos
             local regnum, title = get_project_newname()
-            if regnum ~= nil then                
+            if regnum ~= nil then
                 printf(" Guardando proyecto anterior... ")
                 if not current_project:write() then
                     print(" ERROR\n    no se pudo guardar el proyecto actual.")
@@ -3465,12 +3465,12 @@ function dc:main(
                 else
                     print("OK")
                 end
-                
+
                 if not current_project:init(defaults) then
                     print(" ERROR: no se puedo iniciar el proyecto")
                     exit = true; break
                 end
-                
+
                 local create_options = { regnum = regnum, title = title, root_path = defaults.root_project_path }
                 if config.zoom_persistent then
                     create_options.zoom = previous_zoom
@@ -3508,7 +3508,7 @@ function dc:main(
                     end
                     if defaults.mode_enable_qm_daemon then
                         self:init_daemons()
-                    end                 
+                    end
                 elseif project_status == 'opened' then
                     print(" Reiniciando cámaras... ")
                     local cam_status = self:init_cams_or_retry()
@@ -3519,9 +3519,9 @@ function dc:main(
                     end
                     if defaults.mode_enable_qm_daemon then
                         self:init_daemons()
-                    end                    
+                    end
                 end
-            else                  
+            else
                 if current_project:delete_running_project() then
                     print(" proyecto fallido cerrado")
                     print()
@@ -3621,7 +3621,7 @@ function dc:main(
             local new_project_options = { zoom = current_project.state.zoom_pos }
             local status, msg
             if key == "xx" then
-                -- quiet, default options 
+                -- quiet, default options
                 status, msg = current_project:send_post_proc_actions({ batch_processing = true })
             else
                 status, msg = current_project:send_post_proc_actions()
@@ -3632,7 +3632,7 @@ function dc:main(
                     print(" Cerrando proyecto..OK")
                 end
                 sys.sleep(2000)
-                
+
                 if not self:start_options(new_project_options) then
                     exit = true
                     break
@@ -3671,7 +3671,7 @@ function dc:main(
                        exit = true
                        break
                    else
-                      local clone_options = { regnum = regnum, title = title, root_path = defaults.root_project_path, 
+                      local clone_options = { regnum = regnum, title = title, root_path = defaults.root_project_path,
                                               zoom = pzoom, mode = pmode }
                       if current_project:create( clone_options ) then
                          print(" Proyecto clonado como '"..title.."'..OK")
@@ -3697,7 +3697,7 @@ function dc:main(
             if defaults.mode_enable_qm_daemon then
                 self:init_daemons()
             end
-        elseif key == "i" then 
+        elseif key == "i" then
               state.show_cam_status_info = true
         elseif key == "ins" then
            if current_project.session.noc_mode == 'odd-even' then
@@ -3713,7 +3713,7 @@ function dc:main(
             if type(current_project.state.counter) == 'table' then
                if current_project.session.noc_mode == 'odd-even' then
                   if current_project.state.counter.even and current_project.session.counter_max.even then
-                     if current_project.state.counter.even <= current_project.session.counter_max.even then 
+                     if current_project.state.counter.even <= current_project.session.counter_max.even then
                         current_project.session.include_list.from = current_project.state.counter.even
                         loopmsg = " Valor 'desde' actualizado ("..tostring(current_project.session.include_list.from)..")"
                      else
@@ -3724,7 +3724,7 @@ function dc:main(
                   end
                else -- current_project.session.noc_mode == 'single'
                   if current_project.state.counter.single and current_project.session.counter_max.single then
-                     if current_project.state.counter.single <= current_project.session.counter_max.single then 
+                     if current_project.state.counter.single <= current_project.session.counter_max.single then
                         current_project.session.include_list.from = current_project.state.counter.single
                         loopmsg = " Valor 'desde' actualizado ("..tostring(current_project.session.include_list.from)..")"
                      else
@@ -3738,8 +3738,8 @@ function dc:main(
         elseif key == "hasta" then
             if type(current_project.state.counter) == 'table' then
                if current_project.session.noc_mode == 'odd-even' then
-                  if current_project.state.counter.odd and current_project.session.counter_max.odd then 
-                     if current_project.state.counter.odd <= current_project.session.counter_max.odd then 
+                  if current_project.state.counter.odd and current_project.session.counter_max.odd then
+                     if current_project.state.counter.odd <= current_project.session.counter_max.odd then
                         current_project.session.include_list.to = current_project.state.counter.odd
                         loopmsg = " Valor 'hasta' actualizado ("..tostring(current_project.session.include_list.to)..")"
                      else
@@ -3750,7 +3750,7 @@ function dc:main(
                   end
                else -- current_project.session.noc_mode == 'single'
                   if current_project.state.counter.single and current_project.session.counter_max.single then
-                     if current_project.state.counter.single <= current_project.session.counter_max.single then 
+                     if current_project.state.counter.single <= current_project.session.counter_max.single then
                         current_project.session.include_list.to = current_project.state.counter.single
                         loopmsg = " Valor 'desde' actualizado ("..tostring(current_project.session.include_list.to)..")"
                      else
@@ -3762,7 +3762,7 @@ function dc:main(
                end
             end
         elseif key == "reparar" then
-            local status, no_errors, log = current_project:reparar() 
+            local status, no_errors, log = current_project:reparar()
             if status then
                 if no_errors == true then
                     loopmsg = " Reparacion del proyecto exitosa."
@@ -3812,7 +3812,7 @@ function dc:main(
                 loopmsg = " Todavía no se ha creado ningún PDF en este proyecto.\n"
                         .."   Para más opciones use 'pdf listar' (verá una lista de los PDFs)"
             end
-        elseif key == "pdf listar" then                
+        elseif key == "pdf listar" then
             local status, pdf_filename, result, msg = current_project:list_pdfs_and_select()
             if status == true then
                 local pdf_path = current_project.session.base_path.."/"..current_project.paths.doc_dir.."/"..pdf_filename
@@ -3824,7 +3824,7 @@ function dc:main(
             elseif status == nil then
                 loopmsg = " "..tostring(msg)
             else
-                
+
                 loopmsg = " Ha ocurrido un error inesperado."
             end
         elseif key == "pdf borrar" then
@@ -3874,7 +3874,7 @@ function dc:main(
                     if crear == "S" or crear == "s" then
                         local include = strlist and true or false
                         if current_project:send_post_proc_actions({
-                                scantailor_create_project = true, 
+                                scantailor_create_project = true,
                                 include_list              = include,
                             }) then
                             print(" abriendo.. '"..sct_path.."'")
@@ -3985,10 +3985,10 @@ function dc:main(
                 loopmsg = " Debe seleccionar un rango 'desde/hasta' primero"
             else
                 local args
-                if ppr then 
-                    args = key:sub(5) 
-                else 
-                    args = key:sub(4) 
+                if ppr then
+                    args = key:sub(5)
+                else
+                    args = key:sub(4)
                     suffix = nil
                     include_list_exists = false
                 end
@@ -4002,15 +4002,17 @@ function dc:main(
                     printf(">> ")
                     local confirm = io.stdin:read'*l'
                     if confirm == "S" or confirm == "s" then
-                        if current_project:send_post_proc_actions({ 
-                            pp_mode      = true, 
-                            pp           = 'pp='..pp_args, 
+                        if current_project:send_post_proc_actions({
+                            pp_mode      = true,
+                            pp           = 'pp='..pp_args,
                             include_list = include_list_exists,
+                            noc_mode     = current_project.session.noc_mode,
                         }) then
                             suffix = suffix or ""
-                            loopmsg = 
+                            loopmsg =
                                 " Proyecto '"..current_project.session.regnum
-                              .."' ('"..current_project.settings.title.."') enviado "
+                              .."' / '"..current_project.settings.title.."' enviado "
+                              .."('"..current_project.session.noc_mode.."') "
                               ..suffix..pp_args.." OK."
                         else
                             loopmsg = " Hubo errores y el proyecto no pudo ser enviado."
@@ -4033,19 +4035,19 @@ function dc:main(
             end
         elseif key == "load_secure" then
             if current_project:load_state_secure() then
-                loopmsg = "load_state_secure: OK"                    
+                loopmsg = "load_state_secure: OK"
             else
                 loopmsg = "load_state_secure: no se pudo cargar '.dc_state' correctamente"
             end
         else
             loopmsg = " El texto ingresado no corresponde a ninguna opción del menú! ¯\\_(ツ)_/¯"
         end
-    end -- /while loop 
-    
+    end -- /while loop
+
     if defaults.mode_enable_qm_daemon then
         self:kill_daemons()
     end
-        
+
     --
     if exit == true then
         self:dalclick_loop(false)
@@ -4094,4 +4096,3 @@ end
 -- ########################
 
 return dc
-
