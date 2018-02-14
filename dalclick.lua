@@ -3972,6 +3972,11 @@ function dc:main(
             end
         elseif key == "pp" or key == "ppr" or key:sub(0,3) == "pp " or key:sub(0,4) == "ppr " or key == "scantailor" then
             if key == "scantailor" then key = "pp scantailor" end
+            -- TODO lista de postprocesos en '/post' / poder de seleccionar un postproceso de lista
+            -- crear nuevo posproceso / opcion mas simple: trabajar sobre el postproceso 'Default'
+            -- 'n' crear nuevo postproceso, 'o' abrir existosamente
+            -- concepto de 'current' para los posprocesos, el current inicial es 'Default'
+            -- en dalclick debe aparecer en la seccion pp el nombre del 'current'
             local include_list_exists = false
             local suffix
             if current_project.session.include_list.from and current_project.session.include_list.to then

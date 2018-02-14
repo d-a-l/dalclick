@@ -1224,9 +1224,6 @@ function project:send_post_proc_actions(opts)
             end
         end
 
-        print()
-        print( "DEBUG: dcpp_command: "..tostring(dcpp_command) )
-        print()
         local exit_status = os.execute(dcpp_command)
         -- print()
         -- print(" DEBUG: script exit status: "..tostring(exit_status))
@@ -1241,6 +1238,13 @@ function project:send_post_proc_actions(opts)
                 print()
                 print(" Presione <enter> para continuar...")
                 local key = io.stdin:read'*l'
+                if key == 'd' then
+                  print()
+                  print( "DEBUG: dcpp_command: "..tostring(dcpp_command) )
+                  print()
+                  print(" Presione <enter> para continuar...")
+                  local key = io.stdin:read'*l'
+                end
             end
             return false, "El proyecto no pudo ser enviado a la cola de postprocesamiento"
         end

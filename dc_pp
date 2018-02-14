@@ -24,11 +24,12 @@ PDFBEADS_LAYOUT=''
 
 SEND_QUEUE="Yes"
 
-INIT_QUIET_OPTION=""     #
-QUIET_OPTION_1_MODE=1    # Generar PDF (sobrescribir anterior)
-QUIET_OPTION_2_PROFILE=1 # Blanco y negro (1bit)
-QUIET_OPTION_3_CONTDET=1 # No detectar contenido
-QUIET_OPTION_4_OCR=1     # Aplicar OCR
+INIT_QUIET_OPTION=""      #
+QUIET_OPTION_1_MODE=1     # Generar PDF (sobrescribir anterior)
+QUIET_OPTION_2a_LAYOUT=2  # layout 'pagina y medio'
+QUIET_OPTION_2b_PROFILE=1 # Blanco y negro (1bit)
+QUIET_OPTION_3_CONTDET=1  # No detectar contenido
+QUIET_OPTION_4_OCR=1      # Aplicar OCR
 
 ASK_FOR_MODE="Yes"
 ASK_FOR_OCR="Yes"
@@ -141,7 +142,8 @@ if [ "$PP_COMMAND" == "Yes" ]
    ASK_FOR_CONTDET="No"
    INIT_QUIET_OPTION=''
    QUIET_OPTION_1_MODE="i"
-   QUIET_OPTION_2_PROFILE="i"
+   QUIET_OPTION_2a_LAYOUT="i"
+   QUIET_OPTION_2b_PROFILE="i"
    QUIET_OPTION_3_CONTDET="i"
    QUIET_OPTION_4_OCR="i"
 
@@ -188,7 +190,7 @@ fi
 check_dirs "$PROJECT_PATH" 'proyecto'
 check_dirs "$EVENPATH" 'even'
 check_dirs "$ODDPATH" 'odd'
-check_dirs "$SINGLEPATH" 'sinlge'
+check_dirs "$SINGLEPATH" 'single'
 check_dirs "$ALLPATH" 'all'
 check_dirs "$DONEPATH" 'done'
 
@@ -281,7 +283,8 @@ if [ "$CLEAR_COMMAND" == "Yes" ]
    INTERACTIVE="No"
    SEND_QUEUE="No"
    QUIET_OPTION_1_MODE="i"
-   QUIET_OPTION_2_PROFILE="i"
+   QUIET_OPTION_2a_LAYOUT="i"
+   QUIET_OPTION_2b_PROFILE="i"
    QUIET_OPTION_3_CONTDET="i"
    QUIET_OPTION_4_OCR="i"
 
@@ -478,14 +481,53 @@ esac
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
+if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_PROFILE" == "Yes" ] && [ "$NOCMODE" == 'single' ]
+ then
+   echo " Perfil de layout:"
+   echo ""
+   echo "  1) Página individual"
+   echo "  2) Página opuesta parcial"
+   echo "  3) Página doble"
+   echo ""
+   echo " <enter> para salir sin hacer nada"
+   echo ""
+   echo -n ">> "
+   read ly_option
+   echo ""
+elif [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_PROFILE" == "Yes" ] && [ "$NOCMODE" == 'odd-even' ]
+ then
+   ly_option="2"
+else
+   ly_option=$QUIET_OPTION_2a_LAYOUT
+fi
+
+case "$ly_option" in
+    1)
+        PROFILE_LAYOUT='a2'
+        ;;
+    2)
+        PROFILE_LAYOUT='a3'
+        ;;
+    3)
+        PROFILE_LAYOUT='a4'
+        ;;
+    i)
+        # ignore!
+        ;;
+    *)
+        exit 1
+        ;;
+esac
+
 if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_PROFILE" == "Yes" ]
   then
     echo " Perfil de procesamiento:"
     echo ""
-    echo "  1) Blanco y negro (1bit)"
-    echo "  2) Autodetectar imagenes en color o blanco y negro"
-    echo "  3) Color o escala de grises"
-    echo "  4) Color o escala de grises con contraste"
+    echo "  1) ByN alto contrate (Fotocopia)"
+    echo "  2) ByN alto contrate, con imágenes en color"
+    echo "  3) Color con contraste"
+    echo "  4) Color sin contraste"
+    echo "  5) Color sin contraste y margen"
 
     echo ""
     echo " <enter> para salir sin hacer nada"
@@ -495,7 +537,7 @@ if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_PROFILE" == "Yes" ]
     read pr_option
     echo ""
 else
-    pr_option=$QUIET_OPTION_2_PROFILE
+    pr_option=$QUIET_OPTION_2b_PROFILE
 fi
 
 case "$pr_option" in
@@ -503,13 +545,16 @@ case "$pr_option" in
         PROFILE_OPTIONS=''
         ;;
     2)
-        PROFILE_OPTIONS=',q1'
+        PROFILE_OPTIONS='q1'
         ;;
     3)
-        PROFILE_OPTIONS=',q2'
+        PROFILE_OPTIONS='q3'
         ;;
     4)
-        PROFILE_OPTIONS=',q3'
+        PROFILE_OPTIONS='q2'
+        ;;
+    5)
+        PROFILE_OPTIONS='p1'
         ;;
     i)
         # ignore!
@@ -523,10 +568,11 @@ esac
 
 if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_CONTDET" == "Yes" ]
   then
-    echo " Detección de contenido:"
+    echo " Recorte de contenido:"
     echo ""
-    echo "  1) No detectar contenido (sólo borde de página)"
-    echo "  2) Detectar contenido (limpiar márgenes)"
+    echo "  1) Recorte a borde de página"
+    echo "  2) Recorte a bloque de texto, creando márgenes blancos en proporción"
+    echo "  3) Recorte a bloque de texto creando márgenes mínimos"
 
     echo ""
     echo " <enter> para salir sin hacer nada"
@@ -545,6 +591,9 @@ case "$cd_option" in
         ;;
     2)
         PROFILE_OPTIONS="$PROFILE_OPTIONS,d1"
+        ;;
+    3)
+        PROFILE_OPTIONS="$PROFILE_OPTIONS,y1"
         ;;
     i)
         # ignore!
@@ -681,11 +730,7 @@ if [ "$PDFBEADS_LAYOUT" != "" ]
     fi
 fi
 
-if  [ "$NOCMODE" == 'odd-even' ]; then
-  PROFILE="profile=a3$PROFILE_OPTIONS" # layout-oneandhalf
-else
-  PROFILE="profile=a2$PROFILE_OPTIONS" # layout-onepage
-fi
+PROFILE="profile=${PROFILE_LAYOUT},${PROFILE_OPTIONS}"
 
 # --- profile-processor
 
@@ -787,8 +832,5 @@ pretty-format
      exit 1
    fi
 fi
-
-
-
 
 exit 0
