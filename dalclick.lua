@@ -2152,27 +2152,27 @@ local function select_file(dir)
     return true, list
 end
 
-local function open_thunar(path)
-   if defaults.thunar_available then
-       os.execute("thunar".." "..path.." &")
+local function open_file_browser(path)
+   if defaults.file_browser_available then
+       os.execute(defaults.file_browser_path.." "..path.." &")
    else
         print()
-        print("ATENCION: Su sistema debe ser configurado para poder usar esta opcion")
-        print("No se encuentra la aplicación 'Thunar' para explorar archivos")
+        print("ATENCIÓN: Su sistema debe ser configurado para poder usar esta opción.")
+        print("Revise la configuración en el archivo CONFIG.")
         print()
         sys.sleep(2000)
    end
 end
 
-local function open_evince(path_to_pdf)
-   if defaults.evince_available then
+local function open_pdf_viewer(path_to_pdf)
+   if defaults.pdf_viewer_available then
        if type(path_to_pdf) == 'string' and dcutls.localfs:file_exists( path_to_pdf ) then
-           os.execute("evince".." "..path_to_pdf.." &")
+           os.execute(defaults.pdf_viewer_path.." "..path_to_pdf.." &")
        end
    else
         print()
-        print("ATENCION: Su sistema debe ser configurado para poder usar esta opcion")
-        print("No se encuentra la aplicación 'Evince' para visualizar PDFs")
+        print("ATENCIÓN: Su sistema debe ser configurado para poder usar esta opción.")
+        print("Revise la configuración en el archivo CONFIG.")
         print()
         sys.sleep(2000)
    end
@@ -2802,8 +2802,8 @@ function dc:main(
     ROTATE_ODD_DEFAULT,
     ROTATE_EVEN_DEFAULT,
     DALCLICK_MODE,
-    THUNAR,
-    EVINCE,
+    FILE_BROWSER,
+    PDF_VIEWER,
     SCANTAILOR_PATH,
     NOC_MODE)
 
@@ -2829,19 +2829,21 @@ function dc:main(
         defaults.dalclick_pwdir = '/opt/src/dalclick'
     end
 
-    if THUNAR == "Yes" then
-        defaults.thunar_available = true
-        print(" * thunar available")
+    if FILE_BROWSER ~= "" then
+        defaults.file_browser_available = true
+        defaults.file_browser_path = tostring(FILE_BROWSER)
+        print(" * File Browser: "..tostring(FILE_BROWSER))
     end
 
-    if EVINCE == "Yes" then
-       defaults.evince_available = true
-       print(" * evince available")
+    if PDF_VIEWER ~= "" then
+       defaults.pdf_viewer_available = true
+       defaults.pdf_viewer_path = PDF_VIEWER
+       print(" * PDF Viewer: "..tostring(PDF_VIEWER))
     end
 
     if SCANTAILOR_PATH ~= "" then
        defaults.scantailor_available = true
-       print(" * scantailor available")
+       print(" * Scantailor available")
        defaults.scantailor_path = SCANTAILOR_PATH
     end
 
@@ -2957,13 +2959,13 @@ function dc:main(
 ]]
 -- [xx] ídem, pdf modo auto
 
-    local thunar_option = ""
-    if defaults.thunar_available then
-        thunar_option = "  [dir]     abrir el proyecto en el explorador de archivos\n"
+    local fileb_option = ""
+    if defaults.file_browser_available then
+        fileb_option = "  [dir]     abrir el proyecto en el explorador de archivos\n"
     end
-    local evince_option = ""
-    if defaults.evince_available then
-        evince_option = "  [pdf abrir]    ver último pdf generado\n"
+    local pdfview_option = ""
+    if defaults.pdf_viewer_available then
+        pdfview_option = "  [pdf abrir]    ver último pdf generado\n"
     end
 
     menu.advanced = [[
@@ -2977,7 +2979,7 @@ function dc:main(
   [rango borrar]  eliminar rango
 
  Explorar archivos:
-]]..thunar_option..
+]]..fileb_option..
 [[
  Funciones avanzadas de cámaras
   [ifocus]  mostrar info de foco
@@ -3104,7 +3106,7 @@ function dc:main(
 
  Opciones generales
   [pdf listar]   abrir pdf desde una lista de los pdfs generados
-]]..evince_option..
+]]..pdfview_option..
 [[  [pdf ayuda]   ver una ayuda para el comando 'pp'
 
 ]]
@@ -3796,13 +3798,13 @@ function dc:main(
                 loopmsg = " Encienda o reinicie las cámaras para poder efectuar esta operación."
             end
         elseif key == "dir" then
-            open_thunar(current_project.session.base_path)
+            open_file_browser(current_project.session.base_path)
         elseif key == "pdf abrir" then
             if current_project.state.last_pdf_generated then
                 local pdf_path = current_project.session.base_path.."/"..current_project.paths.doc_dir.."/"..current_project.state.last_pdf_generated
                 if dcutls.localfs:file_exists( pdf_path ) then
                    print(" abriendo.. '"..pdf_path.."'")
-                   open_evince( pdf_path )
+                   open_pdf_viewer( pdf_path )
                 else
                    loopmsg = " No existe '"..current_project.state.last_pdf_generated.."'\n"
                            .."   El archivo PDF no se ha terminado de generar o ha sido eliminado.\n"
@@ -3818,7 +3820,7 @@ function dc:main(
                 local pdf_path = current_project.session.base_path.."/"..current_project.paths.doc_dir.."/"..pdf_filename
                 if dcutls.localfs:file_exists( pdf_path ) then
                    print(" abriendo.. '"..pdf_path.."'")
-                   open_evince( pdf_path )
+                   open_pdf_viewer( pdf_path )
                 else
                 end
             elseif status == nil then

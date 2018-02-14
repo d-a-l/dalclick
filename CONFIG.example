@@ -1,5 +1,14 @@
-DALCLICK_HOME="$HOME/.dalclick"
+# descomente DALCLICK_HOME sólo si desea cambiar el valor por defecto
+# DALCLICK_HOME="$HOME/.dalclick"
+
 DALCLICK_PROJECTS="$HOME/Dalclick-Projects"
 ROTATE_ODD_DEFAULT="90"
 ROTATE_EVEN_DEFAULT="-90"
+ROTATE_SINGLE_DEFAULT="180"
+FILE_BROWSER='/usr/bin/nautilus'
+PDF_VIEWER='/usr/bin/evince'
+
+# NOC_MODE (numero de cámaras)
+# 'odd-even', dos cámaras para estativo en 'V'
+# 'single', una cámara para estativo plano
 NOC_MODE='odd-even'
