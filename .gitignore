@@ -15,6 +15,7 @@ ScanTailor.files
 ScanTailor.includes
 build-*/
 samples/
+test.lua
+test/
 
 CONFIG
-
