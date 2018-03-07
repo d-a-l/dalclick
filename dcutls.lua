@@ -6,14 +6,19 @@ local dcutls = {
 function dcutls.localfs:file_exists(path)
 
     local f = io.open(path, "r")
-    if f ~= nil then 
-        io.close(f) 
-        return true 
-    else 
-        return false 
+    if f ~= nil then
+        io.close(f)
+        return true
+    else
+        return false
     end
 end
 
+function dcutls.localfs:is_dir(path)
+   if type(path) ~= 'string' then return nil end
+   local result,idntknw,code = os.execute("cd '" .. path .. "'")
+   return result -- true/false
+end
 
 function dcutls.localfs:delete_file(path)
 
@@ -31,56 +36,56 @@ end
 
 function dcutls.localfs:create_file(path,content)
 
-    if path == "" then 
+    if path == "" then
         return false
     end
     local f = io.open(path, "w")
-    if f ~= nil then 
+    if f ~= nil then
         f:write(content)
-        f:close(f) 
-        return true 
-    else 
-        return false 
+        f:close(f)
+        return true
+    else
+        return false
     end
 end
 
 function dcutls.localfs:read_file(path)
 
     local content
-    if path == "" then 
+    if path == "" then
         return false
     end
     local f = io.open(path, "r")
-    if f~=nil then 
+    if f~=nil then
         content = f:read("*a")
         f:close()
         return content
-    else 
-        return false 
+    else
+        return false
     end
 end
 
 function dcutls.localfs:read_file_as_table(path)
 
     local content = {}
-    if path == "" then 
+    if path == "" then
         return false
     end
     local f = io.open(path, "r")
-    if f ~= nil then 
+    if f ~= nil then
         for line in f:lines() do
             table.insert(content, line);
         end
         f:close()
         return content
-    else 
-        return false 
+    else
+        return false
     end
 end
 
 function dcutls.localfs:create_folder(path)
 
-    if path == "" then 
+    if path == "" then
         return false
     end
     if not self:file_exists(path) then
@@ -99,7 +104,7 @@ end
 
 function dcutls.localfs:create_folder_quiet(path)
 
-    if path == "" then 
+    if path == "" then
         return false
     end
     if not self:file_exists(path) then
