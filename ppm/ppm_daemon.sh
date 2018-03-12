@@ -127,13 +127,14 @@ if [ ! -z "$EXISTING_JOBS" ]
             EVENIMG=$(ls "$PROJPATH/pre/even" | grep .jpg | wc -w)
             FINISHED=$(ls "$PROJPATH/done" | grep output.pdf | wc -w)
             ODDIMG=$(ls "$PROJPATH/pre/odd" | grep .jpg | wc -w)
+            SINGLEIMG=$(ls "$PROJPATH/pre/single" | grep .jpg | wc -w)
             if [[ "$IMGSINFO" != "" ]] 
               then
                IFS="," read -ra tmpArr <<< "$IMGSINFO"
                IMGS=$(echo ${#tmpArr[@]})
 			   TYPE="parcial"
             else
-               IMGS=$(( EVENIMG + ODDIMG ))
+               IMGS=$(( EVENIMG + ODDIMG + SINGLEIMG ))
 			   TYPE="total"
             fi
             if (( FINISHED > 0 )) && [ "$TYPE" == "total" ]
