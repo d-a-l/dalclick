@@ -2801,6 +2801,7 @@ function dc:main(
     DALCLICK_PWDIR,
     ROTATE_ODD_DEFAULT,
     ROTATE_EVEN_DEFAULT,
+    ROTATE_SINGLE_DEFAULT,
     DALCLICK_MODE,
     FILE_BROWSER,
     PDF_VIEWER,
@@ -2880,7 +2881,9 @@ function dc:main(
     if ROTATE_EVEN_DEFAULT then
         defaults.rotate_even = ROTATE_EVEN_DEFAULT
     end
-
+    if ROTATE_SINGLE_DEFAULT then
+        defaults.rotate_single = ROTATE_SINGLE_DEFAULT
+    end
     self:dalclick_loop(false)
 
     local exit = false
@@ -3765,6 +3768,38 @@ function dc:main(
             end
         elseif key == "reparar" then
             local status, no_errors, log = current_project:reparar()
+            if status then
+                if no_errors == true then
+                    loopmsg = " Reparacion del proyecto exitosa."
+                elseif no_errors == 'warning' then
+                    loopmsg = " Reparacion del proyecto exitosa, pero con observaciones."
+                elseif no_errors == false then
+                    loopmsg = " Hubo errores al intentar reparar el proyecto."
+                else
+                    loopmsg = " Hubo errores al intentar reparar el proyecto."
+                end
+            else
+                    loopmsg = " No se pudo reparar el proyecto."
+            end
+            sys.sleep(1000)
+        elseif key == "regenerar" then
+            -- borra subcarpetas 'pre' (single, odd o even, segun noc_mode) 
+            -- e ignorando state previo regenera 'pre' a partir de lo que haya en 'raw'
+
+            local folders = {}
+            if current_project.session.noc_mode == 'odd-even' then
+                folders = { 'odd', 'even' }
+            else -- self.session.noc_mode == 'single'
+                folders = { 'single' }
+            end
+            for n, idname in pairs(folders) do
+                local command = "rm -r "..current_project.session.base_path.."/"..current_project.paths.proc[idname].." > /dev/null 2>&1"
+                print(command)
+                if not os.execute(command) then
+                   print("ERROR\n    falló: '"..command.."'")
+                end
+            end
+            local status, no_errors, log = current_project:reparar(true)
             if status then
                 if no_errors == true then
                     loopmsg = " Reparacion del proyecto exitosa."

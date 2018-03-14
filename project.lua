@@ -637,12 +637,12 @@ function project:preview_counter_prev(min)
 end
 
 
-function project:reparar()
+function project:reparar(clear)
     -- ATENCION solo funciona en modo odd-even!!!!!!!!! ToDo
     local log = ''
     local msg
 
-    printf("verificando archivos de configuracion...")
+    print("clear: "..tostring(clear))
 
     local status, check_settings_log = self:check_settings()
     if not status then
@@ -652,12 +652,20 @@ function project:reparar()
         log = log.."\n"..msg
         printf("REPARADO ")
     end
-    if not self:check_state() then
-        self:init_state()
-        msg = " state reiniciado"
-        print(msg)
-        log = log.."\n"..msg
-        printf("REPARADO ")
+    if clear then
+            self:init_state()
+            msg = " state reiniciado"
+            print(msg)
+            log = log.."\n"..msg
+            printf("REPARADO ")
+    else
+        if not self:check_state() then
+            self:init_state()
+            msg = " state reiniciado"
+            print(msg)
+            log = log.."\n"..msg
+            printf("REPARADO ")
+        end
     end
     if self:write() then
         print("OK")
@@ -699,17 +707,35 @@ function project:reparar()
         return nil, false, log
     end
     -- TODO redundante desde que hacemos antes un check state? lo dejamos por las dudas
-    if self.state.rotate.odd == nil or self.state.rotate.even == nil then
-        msg= " No esta definido en el proyecto como rotar las imagenes ( state.rotate[] )"
-        print(msg)
-        log = log.."\n"..msg
-        -- sys.sleep(2000)
-        return false, false, log
+    if self.session.noc_mode == 'odd-even' then
+        if self.state.rotate.odd == nil or self.state.rotate.even == nil then
+            msg= " No esta definido en el proyecto como rotar las imagenes ( state.rotate[] )"
+            print(msg)
+            log = log.."\n"..msg
+            -- sys.sleep(2000)
+            return false, false, log
+        end
+    else
+        if self.state.rotate.single == nil then
+            msg= " No esta definido en el proyecto como rotar las imagenes ( state.rotate[single] )"
+            print(msg)
+            log = log.."\n"..msg
+            -- sys.sleep(2000)
+            return false, false, log
+        end
     end
     if status == true then
-        if self:set_counter(self.session.counter_min.odd) then
+        local counter_min_ref
+        if self.session.noc_mode == 'odd-even' then
+           counter_min_ref = 'even'
+           counter_max_ref = 'odd'
+        else
+           counter_min_ref = 'single'
+           counter_max_ref = 'single'
+        end
+        if self:set_counter(self.session.counter_min[counter_min_ref]) then
             -- TODO p.state.rotate[idname]
-            msg = " iniciando reparacion desde contador en '"..tostring(self.state.counter.even).."/"..tostring(self.state.counter.odd).."'"
+            msg = " iniciando reparacion desde contador en '"..tostring(self.state.counter[counter_max_ref]).."'"
             print(msg)
             log = log.."\n"..msg
 
@@ -737,6 +763,17 @@ function project:reparar()
                     return false, false, log
                 end
 
+                local portrait = false
+                if self.settings.rotate then
+                   if self.state.rotate[idname] == 180 or self.state.rotate[idname] == 0 then
+                      portrait = false
+                   else
+                      portrait = true
+                   end
+                else
+                   portrait = false
+                end
+
                 filename_we = string.format("%04d", count)..".jpg"
                 raw_path = self.session.base_path.."/"..self.paths.raw[idname].."/"..filename_we
                 pre_path = self.session.base_path.."/"..self.paths.proc[idname].."/"..filename_we
@@ -751,7 +788,7 @@ function project:reparar()
                             "econvert -i "..raw_path
                           .." --rotate "..self.state.rotate[idname]
                           .." -o "..pre_path
-                          .." --thumbnail ".."0.125"
+                          .." --thumbnail "..( portrait and "0.125" or "0.167")
                           .." -o "..preview_path
                           .." > /dev/null 2>&1"
                         if not os.execute(command) then
@@ -782,7 +819,7 @@ function project:reparar()
                             end
                         end
                     elseif not dcutls.localfs:file_exists( preview_path ) then
-                        command = "econvert -i "..pre_path.." --thumbnail ".."0.125".." -o "..preview_path.." > /dev/null 2>&1"
+                        command = "econvert -i "..pre_path.." --thumbnail "..( portrait and "0.125" or "0.167").." -o "..preview_path.." > /dev/null 2>&1"
                         if not os.execute(command) then
                             msg = "ERROR\n    falló: '"..command.."'"
                             print(msg)
@@ -809,7 +846,7 @@ function project:reparar()
                 end
 
             end -- for
-            if self:counter_next(self.session.counter_max.odd) == false then
+            if self:counter_next(self.session.counter_max[counter_max_ref]) == false then
                 break
             end
             end -- while
