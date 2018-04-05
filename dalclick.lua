@@ -2154,7 +2154,7 @@ end
 
 local function open_file_browser(path)
    if defaults.file_browser_available then
-       os.execute(defaults.file_browser_path.." "..path.." &")
+       os.execute(defaults.file_browser_path.." "..path.." > /dev/null 2>&1 &")
    else
         print()
         print("ATENCIÓN: Su sistema debe ser configurado para poder usar esta opción.")
@@ -2167,7 +2167,7 @@ end
 local function open_pdf_viewer(path_to_pdf)
    if defaults.pdf_viewer_available then
        if type(path_to_pdf) == 'string' and dcutls.localfs:file_exists( path_to_pdf ) then
-           os.execute(defaults.pdf_viewer_path.." "..path_to_pdf.." &")
+           os.execute(defaults.pdf_viewer_path.." "..path_to_pdf.." &")  --" > /dev/null 2>&1 &"
        end
    else
         print()
@@ -2181,7 +2181,7 @@ end
 local function open_scantailor_gui(path_to_scproject)
   if defaults.scantailor_available then
       if type(path_to_scproject) == 'string' and dcutls.localfs:file_exists( path_to_scproject ) then
-          os.execute(defaults.scantailor_path.." "..path_to_scproject.." &")
+          os.execute(defaults.scantailor_path.." "..path_to_scproject.." &") --" > /dev/null 2>&1 &"
       end
   end
 end
@@ -3783,7 +3783,7 @@ function dc:main(
             end
             sys.sleep(1000)
         elseif key == "regenerar" then
-            -- borra subcarpetas 'pre' (single, odd o even, segun noc_mode) 
+            -- borra subcarpetas 'pre' (single, odd o even, segun noc_mode)
             -- e ignorando state previo regenera 'pre' a partir de lo que haya en 'raw'
 
             local folders = {}
@@ -3913,6 +3913,7 @@ function dc:main(
                         if current_project:send_post_proc_actions({
                                 scantailor_create_project = true,
                                 include_list              = include,
+                                noc_mode = current_project.session.noc_mode,
                             }) then
                             print(" abriendo.. '"..sct_path.."'")
                             open_scantailor_gui( sct_path )
