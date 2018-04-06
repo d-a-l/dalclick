@@ -31,7 +31,7 @@ function project:init(globalconf)
     self.settings_default.noc_mode = nil
     self.settings_default.ref_cam = nil
     self.settings_default.rotate = nil
-    self.settings_default.mode = 'secure'
+    self.settings_default.mode = globalconf.delay_mode -- 'secure'
 
 
     self.settings.title = nil

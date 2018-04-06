@@ -75,7 +75,7 @@ fi
 while
 true # Loop forever
 do
-    ./chdkptp -e"exec dc=require('dalclick')" -e"exec return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', '$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$NOC_MODE')" 2> $DALCLICK_HOME/lua_errors
+    ./chdkptp -e"exec dc=require('dalclick')" -e"exec return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', '$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$NOC_MODE', '$DELAY_MODE')" 2> $DALCLICK_HOME/lua_errors
     cat "$DALCLICK_HOME/lua_errors"
     LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )
     if [[ $LUA_ERRORS != "" ]]

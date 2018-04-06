@@ -91,7 +91,8 @@ local defaults={
     test_high_name = '_high',
     test_low_name = '_low',
     mode_enable_qm_daemon = false,
-    autorestore_project_on_init = true
+    autorestore_project_on_init = true,
+    -- delay_mode = 'secure',
     -- regnum = '',
 }
 
@@ -2806,7 +2807,8 @@ function dc:main(
     FILE_BROWSER,
     PDF_VIEWER,
     SCANTAILOR_PATH,
-    NOC_MODE)
+    NOC_MODE,
+    DELAY_MODE)
 
     -- debug
     if false then
@@ -2853,6 +2855,12 @@ function dc:main(
         print(" * NOC_MODE: '"..tostring(defaults.noc_mode_default).."'")
     end
 
+    if DELAY_MODE == 'secure' or DELAY_MODE == 'normal' or DELAY_MODE == 'fast' then
+        defaults.delay_mode = DELAY_MODE
+        print(" * DELAY_MODE: '"..tostring(defaults.delay_mode).."'")
+    else
+        defaults.delay_mode = 'secure'
+    end
     defaults.qm_sendcmd_path = defaults.dalclick_pwdir.."/qm/qm_sendcmd.sh"
     defaults.qm_daemon_path = defaults.dalclick_pwdir.."/qm/qm_daemon.sh"
 
@@ -3193,6 +3201,14 @@ function dc:main(
         else
             zoom_line = " Valor del Zoom: Sin definir"
         end
+
+        if current_project.settings.mode then
+            delaymode_line = " Modo: "..tostring(current_project.settings.mode)
+        else
+            delaymode_line = ""
+        end
+
+        zoom_line = zoom_line .. delaymode_line
 
         print( regnum_line.." "..string.rep(" ", 65 - string.len(regnum_line))
               ..string.rep(" ", 12 - string.len(iconline_f))..iconline_t
