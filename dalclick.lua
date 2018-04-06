@@ -3020,7 +3020,7 @@ function dc:main(
  [enter] volver a opciones
 
  Modificar proyecto
-  [modificar titulo] [modificar rotacion] 
+  [modificar titulo] [modificar rotacion]
   [reparar] reparar y checkear integridad del proyecto
 
  Rango o subselección de páginas:
@@ -3412,7 +3412,7 @@ function dc:main(
                end
            else -- current_project.session.noc_mode == 'single'
                if current_project.session.counter_max.single ~= nil then
-                   current_project.state.counter.single =  current_project.session.counter_max.odd
+                   current_project.state.counter.single = current_project.session.counter_max.single + 1
                    current_project:save_state()
                else
                    loopmsg = " No se puede avanzar al final porque todavía no hay capturas"
