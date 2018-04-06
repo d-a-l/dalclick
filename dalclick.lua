@@ -2073,6 +2073,43 @@ local function tablelength(T)
   return count
 end
 
+local function modify_title(title)
+   guisys.init()
+
+   local scanf_title
+   local format = "Modificar título\nTítulo:%300.30%s\n"
+   scanf_title = iup.Scanf(format, title)
+   if scanf_title == nil then return false end
+
+   if scanf_title == title then
+      return nil
+   else
+      return true, scanf_title
+   end
+end
+
+local function modify_rotation(rotation)
+   guisys.init()
+
+   local scanf_rotation
+   local format = "Modificar rotación\nRotación:%5.5%s\n"
+   repeat
+      scanf_rotation = iup.Scanf(format, tostring(rotation))
+      if scanf_rotation == nil then return false end
+
+      if scanf_rotation == rotation then
+         return nil
+      else
+         if scanf_rotation == "90" or scanf_rotation == "-90" or scanf_rotation == "180" or scanf_rotation == "0" then
+            return true, scanf_rotation
+         else
+            --print("debug: '"..scanf_rotation.."'")
+            iup.Message("Modificar rotación", "Los valores admitidos son '90','-90','180' ó '0'")
+         end
+      end
+   until false
+end
+
 local function get_project_newname()
 
     guisys.init()
@@ -2982,7 +3019,8 @@ function dc:main(
     menu.advanced = [[
  [enter] volver a opciones
 
- Reparación de proyectos:
+ Modificar proyecto
+  [modificar titulo] [modificar rotacion] 
   [reparar] reparar y checkear integridad del proyecto
 
  Rango o subselección de páginas:
@@ -3850,6 +3888,34 @@ function dc:main(
             end
         elseif key == "dir" then
             open_file_browser(current_project.session.base_path)
+        elseif key == "modificar titulo" or key == "modificar título" then
+            local status, new_title = modify_title(current_project.settings.title)
+            if status == true then
+               current_project.settings.title = new_title
+               loopmsg = " El título ahora es: '"..current_project.settings.title.."'"
+               if not current_project:write() then
+                  print(" ERROR\n    no se pudo guardar el proyecto actual.")
+               end
+            elseif status == nil then
+               loopmsg = " El valor del título no fue modificado"
+            else
+               loopmsg = " Cancelado"
+            end
+        elseif key == "modificar rotacion" or key == "modificar rotación" then
+           if current_project.session.noc_mode == 'single' then
+              local status, new_rotation = modify_rotation(current_project.state.rotate.single)
+              if status == true then
+                current_project.state.rotate.single = new_rotation
+                loopmsg = " La rotación ahora es: '"..current_project.state.rotate.single.."'"
+                current_project:save_state()
+              elseif status == nil then
+                loopmsg = " El valor de la rotación no fue modificado"
+              else
+                loopmsg = " Cancelado"
+              end
+           else
+             loopmsg = " Esta opción sólo es válida para proyectos en modo 'single'"
+           end
         elseif key == "pdf abrir" then
             if current_project.state.last_pdf_generated then
                 local pdf_path = current_project.session.base_path.."/"..current_project.paths.doc_dir.."/"..current_project.state.last_pdf_generated
