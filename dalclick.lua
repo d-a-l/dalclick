@@ -2785,9 +2785,9 @@ function dc:check_running_project()
             return running_project_path
         else
             -- archivo running_project corrupto, no existe el proyecto
-            print(" ATENCION: Dalclick encontro una referecnia a un proyecto previo que no existe.")
+            print(" ATENCION: Dalclick encontro una referencia a un proyecto previo que no existe.")
             print(" Eliminando referencia...")
-            dcutls.localfs:delete_file( running_project_info )
+            dcutls.localfs:delete_file( running_project_fileinfo )
         end
     end
     return false
