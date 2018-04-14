@@ -11,34 +11,23 @@ QMBNAME='Send> '
 THISDIR="$(dirname "$0")"
 cd "$THISDIR"
 
+. ../get_config
+
 # Check to see if a two parameter has been given
-if [ $# != 1 ]
+if [ $# != 2 ]
 then
-	echo "${QMBNAME} $$: ERROR: $# parameter/s has/have been received, expected 1" >> $ERROR_LOG
-	echo " ${QMBNAME} $$: ERROR: $# parameter/s has/have been received, expected 1"
+	echo "${QMBNAME} $$: ERROR: $# parameter/s has/have been received, expected 2" >> $ERROR_LOG
+	echo " ${QMBNAME} $$: ERROR: $# parameter/s has/have been received, expected 2"
 	exit 1
 fi
 
-if [[ -f "../CONFIG" ]]
- then
-  . ../CONFIG
-else
-  echo
-  echo " Necesita crear el archivo 'CONFIG' en '$THISDIR/'"
-  echo " con la configuración de directorios de su proyecto."
-  echo " Renombre el archivo 'CONFIG.example' y reemplace las rutas"
-  echo " que considere necesarias."
-  echo
-  echo " Presione <enter> para salir."
-  echo -n " >>"
-  read tecla
-  exit 0
-fi
+[[ -d "$DALCLICK_PROJECTS" ]] || {
+	echo "ERROR: la carpeta de proyectos '$DALCLICK_PROJECTS' no existe, revise la configuracion de directorios."
+	exit 1
+}
 
-[[ -d $DALCLICK_PROJECTS ]] || { echo "ERROR: la carpeta de proyectos '$DALCLICK_PROJECTS' no existe, revise la configuracion de directorios."; exit 0; }
-
-QUEUEPATH=$DALCLICK_PROJECTS"/.queue"
-if [[ ! -d $QUEUEPATH ]] 
+QUEUEPATH="$DALCLICK_PROJECTS/.queue"
+if [[ ! -d $QUEUEPATH ]]
  then
    mkdir $QUEUEPATH && echo "Se creó '$QUEUEPATH'" || { echo "No se pudo crear '$QUEUEPATH'"; exit 1;}
 fi
@@ -51,7 +40,7 @@ EXISTING_JOBS=$(ls -d "${QUEUEPATH}"/* | grep .job)
 
 if [ ! -z "$EXISTING_JOBS" ]
  then
-    echo 
+    echo
     while read -r line
     do
         if [ ! -z "$line" ]
@@ -118,7 +107,7 @@ fi
 
 echo "${QMBNAME} job ID ${jobid} assigned" >> $LOG
 echo " ${QMBNAME} Nuevo trabajo '${jobid}' en cola para procesar!"
-echo 
+echo
 echo "-----"  >> $LOG
 
 exit 0

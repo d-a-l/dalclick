@@ -1,0 +1,25 @@
+# get config global vars
+
+DALCLICK_HOME="$HOME/.dalclick"
+[[ -d "$DALCLICK_HOME" ]] && [[ -f "$DALCLICK_HOME/CONFIG" ]] &&{
+  CONFIG_FILE="$DALCLICK_HOME/CONFIG"
+} || {
+  CONFIG_FILE="$PWDIR/CONFIG"
+}
+
+if [[ -f "$CONFIG_FILE" ]]
+ then
+  . "$CONFIG_FILE"
+else
+  echo
+  echo " Necesita crear el archivo 'CONFIG' en '$HOME/.dalclick'"
+  echo " o en su defecto en el directorio '$DALCLICK_SCRIPTS_DIR/'"
+  echo " con la configuración de directorios de su proyecto."
+  echo " Renombre el archivo 'CONFIG.example' y reemplace las rutas"
+  echo " que considere necesarias."
+  echo
+  echo " Presione <enter> para salir."
+  echo -n " >>"
+  read tecla
+  exit 0
+fi

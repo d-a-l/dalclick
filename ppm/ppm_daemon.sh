@@ -14,26 +14,12 @@ echo
 THISDIR="$(dirname "$0")"
 cd "$THISDIR"
 
-if [[ -f "../CONFIG" ]]
- then
-  . ../CONFIG
-else
-  echo
-  echo " Necesita crear el archivo 'CONFIG' en '$DALCLICK_SCRIPTS_DIR/'"
-  echo " con la configuración de directorios de su proyecto."
-  echo " Renombre el archivo 'CONFIG.example' y reemplace las rutas"
-  echo " que considere necesarias."
-  echo
-  echo " Presione <enter> para salir."
-  echo -n " >>"
-  read tecla
-  exit 0
-fi
+. ../get_config
 
 [[ -d $DALCLICK_PROJECTS ]] || { echo " ERROR: la carpeta de proyectos '$DALCLICK_PROJECTS' no existe, revise la configuracion de directorios."; exit 0; }
 
 QUEUEPATH=$DALCLICK_PROJECTS"/.queue"
-if [[ ! -d $QUEUEPATH ]] 
+if [[ ! -d $QUEUEPATH ]]
  then
    mkdir $QUEUEPATH && echo "Se creó '$QUEUEPATH'" || { echo "No se pudo crear '$QUEUEPATH'"; exit 1;}
 fi
@@ -112,7 +98,7 @@ EXISTING_JOBS=$(ls -d "${QUEUEPATH}"/* | grep .job)
 
 if [ ! -z "$EXISTING_JOBS" ]
  then
-    echo 
+    echo
     echo
     i=0
     while read -r line
@@ -128,7 +114,7 @@ if [ ! -z "$EXISTING_JOBS" ]
             FINISHED=$(ls "$PROJPATH/done" | grep output.pdf | wc -w)
             ODDIMG=$(ls "$PROJPATH/pre/odd" | grep .jpg | wc -w)
             SINGLEIMG=$(ls "$PROJPATH/pre/single" | grep .jpg | wc -w)
-            if [[ "$IMGSINFO" != "" ]] 
+            if [[ "$IMGSINFO" != "" ]]
               then
                IFS="," read -ra tmpArr <<< "$IMGSINFO"
                IMGS=$(echo ${#tmpArr[@]})
@@ -156,7 +142,7 @@ if (( i > 0 ))
     echo " Hay $i trabajo/s pendientes para procesar!"
     echo
     echo " Opciones:"
-    echo 
+    echo
     echo "  [enter] Comenzar procesar los trabajos pendientes inmediatamente."
     echo "  [x]     Eliminar los trabajos pendientes listados y esperar nuevos."
     echo "  [q]     Salir sin hacer nada."
@@ -171,7 +157,7 @@ if (( i > 0 ))
             echo "${QMBNAME}Se seleccionó remover archivos en cola pervia" >> $LOG
             ls -d "${QUEUEPATH}"/* | grep .job | xargs rm -v
             ;;
-        *) 
+        *)
             echo "${QMBNAME}Eligió salir"
             exit 0
             ;;
@@ -186,9 +172,9 @@ fi
 echo "${QMBNAME}Queue Manager Initialising..." >> $LOG
 echo '   Entering looping state...' >> $LOG
 echo ' ' >> $LOG
-echo 
+echo
 
-echo 
+echo
 echo "${QMBNAME}Iniciando loop de espera..."
 echo "${QMBNAME}(Para salir use Ctrl+C)"
 echo
@@ -196,7 +182,7 @@ echo
 while
 true # Loop forever
 do
-    echo -en "\r [LOOP]: Leyendo..." 
+    echo -en "\r [LOOP]: Leyendo..."
 	# Check to see if there are jobs...
 	ls "${QUEUEPATH}" | grep .job > "${QUEUEPATH}/.filelist"
 	nextjob=$(head -1 "${QUEUEPATH}/.filelist")
@@ -211,7 +197,7 @@ do
 		echo
 		echo "- - - - - - INICIO ${nextjob} - - - - - - "
 		echo
-		
+
 		echo -en "\033[36m"
 		bash "${QUEUEPATH}/$nextjob"
         echo -en "\033[0m"
@@ -227,7 +213,7 @@ do
 		echo "${QMBNAME}${nextjob} Eliminado"
 		# set timeout counter to 0 when There's a new job to run
 		# count=0
-		echo 
+		echo
 	else
 		# There's no job to run
         sleep 1
@@ -258,7 +244,7 @@ do
 		done
 		sleep 0.2
 		echo -en "\r [LOOP]:              $clear"
-		
+
 		# timeout counter
 		# $(( count++ ))
 	fi
@@ -298,4 +284,3 @@ echo "${QMBNAME}Clean-up complete. Queue Manager finished." >> $LOG
 echo "${QMBNAME}Clean-up complete. Queue Manager finished."
 echo "-----"  >> $LOG
 echo
-

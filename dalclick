@@ -7,36 +7,17 @@ PWDIR="$(pwd -P)"
 DALCLICK_SCRIPTS_DIRNAME="${PWDIR##*/}"
 MODE="$1"
 UTILS=""
-DALCLICK_HOME="$HOME/.dalclick"
-[[ -d "$DALCLICK_HOME" ]] && [[ -f "$DALCLICK_HOME/CONFIG" ]] &&{
-  CONFIG_FILE="$DALCLICK_HOME/CONFIG"
-} || {
-  CONFIG_FILE="$PWDIR/CONFIG"
-}
 
-
-if [[ -f "$CONFIG_FILE" ]]
- then
-  . "$CONFIG_FILE"
-else
-  echo
-  echo " Necesita crear el archivo 'CONFIG' en '$HOME/.dalclick'"
-  echo " o en su defecto en el directorio '$DALCLICK_SCRIPTS_DIR/'"
-  echo " con la configuración de directorios de su proyecto."
-  echo " Renombre el archivo 'CONFIG.example' y reemplace las rutas"
-  echo " que considere necesarias."
-  echo
-  echo " Presione <enter> para salir."
-  echo -n " >>"
-  read tecla
-  exit 0
-fi
+. get_config
 
 [[ -f "$FILE_BROWSER" ]] || FILE_BROWSER=""
 [[ -f "$PDF_VIEWER" ]] || PDF_VIEWER=""
 
 SCANTAILOR_PATH="/opt/src/scantailor-enhanced/scantailor"
 [[ -f "$SCANTAILOR_PATH" ]] || SCANTAILOR_PATH=""
+
+PDFBEADS_PATH="/opt/src/pdfbeads-kopi/bin/pdfbeads"
+[[ -f "$PDFBEADS_PATH" ]] || PDFBEADS_PATH=""
 
 cd /opt/src/chdkptp
 
@@ -75,7 +56,7 @@ fi
 while
 true # Loop forever
 do
-    ./chdkptp -e"exec dc=require('dalclick')" -e"exec return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', '$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$NOC_MODE', '$DELAY_MODE')" 2> $DALCLICK_HOME/lua_errors
+    ./chdkptp -e"exec dc=require('dalclick')" -e"exec return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', '$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$PDFBEADS_PATH', '$PDFBEADS_QUALITY', '$NOC_MODE', '$DELAY_MODE')" 2> $DALCLICK_HOME/lua_errors
     cat "$DALCLICK_HOME/lua_errors"
     LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )
     if [[ $LUA_ERRORS != "" ]]
