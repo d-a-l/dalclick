@@ -57,6 +57,7 @@ local defaults={
     -- qm_daemon_path = "/opt/src/dalclick/qm/qm_daemon.sh",
     -- empty_thumb_path = "/opt/src/dalclick/empty_g.jpg",
     -- empty_thumb_path_error = "/opt/src/dalclick/empty.jpg", --TODO debug!
+    dalclick_project_version = 20180414, -- verion compatible de proyecto
     root_project_path = nil, -- -- main(DALCLICK_PROJECTS)
     left_cam_id_filename = "LEFT.TXT",
     right_cam_id_filename = "RIGHT.TXT",
@@ -4181,6 +4182,27 @@ function dc:main(
             else
                 loopmsg = "load_state_secure: no se pudo cargar '.dc_state' correctamente"
             end
+        elseif key == "version" then
+           if current_project:load_project_version() then
+                loopmsg = " Versión del proyecto: "..tostring(current_project.version)
+                loopmsg = loopmsg.."\n  "
+                        .." Versión compatible actual: "..tostring(defaults.dalclick_project_version)
+                local status = current_project:check_project_version()
+                if status then
+                   loopmsg = loopmsg.."\n  "
+                        .." OK: versión actual"
+                else
+                   if status == nil then
+                      loopmsg = loopmsg.."\n  "
+                        .." ERROR!"
+                   else
+                      loopmsg = loopmsg.."\n  "
+                        .." OUTDATED!"
+                   end
+                end
+           else
+                loopmsg = " Este proyecto no tiene versión!"
+           end
         else
             loopmsg = " El texto ingresado no corresponde a ninguna opción del menú! ¯\\_(ツ)_/¯"
         end

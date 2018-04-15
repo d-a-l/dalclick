@@ -27,6 +27,8 @@ function project:init(globalconf)
     self.session.noc_mode = nil
     self.session.ppp = self.dalclick.ppp_default_name
     --
+    self.version = nil
+    --
     self.paths = globalconf.paths
     --
     self.settings_default.noc_mode = nil
@@ -350,6 +352,8 @@ function project:load(settings_path, opts)
             self.session.base_path = base_path    -- /ruta/a/regnum
             self.session.root_path = root_path    -- /ruta/a
 
+            self:load_project_version()
+
             self.settings = util.unserialize(content)
             local status, log = self:check_settings()
             if not status then
@@ -362,6 +366,7 @@ function project:load(settings_path, opts)
 
             print("\n Datos del proyecto cargado:\n")
             print(" ===================================================")
+            print(" = Versión: "..self.version)
             print(" = ID:     "..self.session.regnum)
             if self.settings.title and self.settings.title ~= "" then
                 print(" = Título: '"..self.settings.title.."'")
@@ -501,7 +506,8 @@ function project:check_project_paths()
             repared = true
         end
     end
-
+    -- chequear si existe .processing y .logs en done y moverlos a post/Default (crearla si no existe)
+    -- chequear si existen archivos *.scantailor y moverlos a post/Default
     if repared == true then
         return true, 'repared', log -- 'modified'
     else
@@ -1132,6 +1138,27 @@ function project:save_state()
     else
         return false
     end
+end
+
+function project:load_project_version()
+    local content = dcutls.localfs:read_file(self.session.base_path.."/.dc_version")
+    if content then
+        self.version = tonumber(content)
+    else
+        -- aca metodos para deducir versiones antiguas
+        self.version = 20180000
+    end
+    return true
+end
+
+function project:check_project_version()
+   if self.version < self.dalclick.dalclick_project_version then
+      return false, "outdated"
+   elseif self.version == self.dalclick.dalclick_project_version then
+      return true, "updated"
+   else
+      return nil, ""
+   end
 end
 
 function project:load_state()
