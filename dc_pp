@@ -76,6 +76,14 @@ while [ $# -ne 0 ]
             DONEPATH="${arg#*=}"
             DONEPATH="${DONEPATH%/}"
             ;;
+        post=*)
+             POSTPATH="${arg#*=}"
+             POSTPATH="${POSTPATH%/}"
+             ;;
+        ppp=*)
+            PPP="${arg#*=}"
+            PPP="${PPP%/}"
+            ;;
         output_name=*) # pdf file name without path
             OUTPUT_NAME="${arg#*=}"
             ;;
@@ -198,6 +206,8 @@ if [ "$PP_COMMAND" == "Yes" ]
 fi
 
 # --- check param and paths
+[[ "$PPP" != "" ]] && POSTPATH="$POSTPATH/$PPP"
+[[ -d "$POSTPATH" ]] || mkdir "$POSTPATH"
 
 check_dirs "$PROJECT_PATH" 'proyecto'
 check_dirs "$EVENPATH" 'even'
@@ -205,9 +215,10 @@ check_dirs "$ODDPATH" 'odd'
 check_dirs "$SINGLEPATH" 'single'
 check_dirs "$ALLPATH" 'all'
 check_dirs "$DONEPATH" 'done'
+check_dirs "$POSTPATH" 'post'
 
 PROJECT_NAME=$( basename "$PROJECT_PATH" )
-LOGPATH="$DONEPATH/.logs"
+LOGPATH="$POSTPATH/.logs"
 [[ -d "$LOGPATH" ]] || { mkdir "$LOGPATH" || { echo "No se pudo crear '$LOGPATH'"; exit 1; } }
 
 OUTPUT_NAME_WOE="${OUTPUT_NAME%.*}"
@@ -252,26 +263,26 @@ PREV_OCR=""
 PREV_PDFB=""
 
 PREV_MSG=""
-if [ -d "$DONEPATH/.processing" ]
+if [ -d "$POSTPATH" ]
   then
     echo ""
-    if find "$DONEPATH/.processing" -mindepth 1 -maxdepth 1 -name "*.tif" | grep -q .
+    if find "$POSTPATH" -mindepth 1 -maxdepth 1 -name "*.tif" | grep -q .
       then
         PREV_SC="Yes"
         PREV_MSG+=" - Archivos 'tif' de Scantailor\n"
     fi
-    if find "$DONEPATH/.processing" -mindepth 1 -maxdepth 1 -name "*.html" | grep -q .
+    if find "$POSTPATH" -mindepth 1 -maxdepth 1 -name "*.html" | grep -q .
       then
         PREV_OCR="Yes"
         PREV_MSG+=" - Archivos 'hocr' de texto OCR\n"
     fi
-    if find "$DONEPATH/.processing" -mindepth 1 -maxdepth 1 -name "*.jbig2" | grep -q .
+    if find "$POSTPATH" -mindepth 1 -maxdepth 1 -name "*.jbig2" | grep -q .
       then
         PREV_PDFB="Yes"
         PREV_MSG+=" - Archivos de PDFbeads\n"
     fi
 fi
-if [ -f "$DONEPATH/$SCANTAILOR_PROJECT_NAME" ]
+if [ -f "$POSTPATH/$SCANTAILOR_PROJECT_NAME" ]
   then
     PREV_SCPROJ="Yes"
     PREV_MSG+=" - Proyecto Scantailor\n"
@@ -797,7 +808,8 @@ send_with_post_actions() {
 $SEND_CMD \
 "$PROFILE_PROCESSOR \
 'src=$ALLPATH' \
-'wrk=$DONEPATH' \
+'wrk=$POSTPATH' \
+'out=$DONEPATH' \
 'log=$LOGPATH' \
 ext=$EXT \
 $PARAM \
@@ -818,7 +830,12 @@ $POST_ACTIONS_SCRIPT \
 
 send_without_post_actions() {
 $SEND_CMD \
-"$PROFILE_PROCESSOR 'src=$ALLPATH' 'wrk=$DONEPATH' 'log=$LOGPATH' ext=$EXT \
+"$PROFILE_PROCESSOR \
+'src=$ALLPATH' \
+'wrk=$POSTPATH' \
+'out=$DONEPATH' \
+'log=$LOGPATH' \
+ext=$EXT \
 $PARAM \
 'name=$OUTPUT_NAME' \
 $INCLUDE \
@@ -828,21 +845,10 @@ debug pretty-format \
 }
 
 run_profile_postprocessor() {
-# echo "$PROFILE_PROCESSOR \
-# src=$ALLPATH \
-# wrk=$DONEPATH \
-# log=$LOGPATH \
-# ext=$EXT \
-# $PARAM \
-# name=$OUTPUT_NAME \
-# $INCLUDE \
-# $PROFILE \
-# debug \
-# pretty-format"
-
 $PROFILE_PROCESSOR \
 "src=$ALLPATH" \
-"wrk=$DONEPATH" \
+"wrk=$POSTPATH" \
+"out=$DONEPATH" \
 "log=$LOGPATH" \
 ext=$EXT \
 $PARAM \

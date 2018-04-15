@@ -73,7 +73,9 @@ local defaults={
     all_name = "all",
     single_name = "single",
     raw_name = "raw",
-    proc_name = "pre", -- processed
+    proc_name = "pre", -- pre-processed
+    post_name = "post", -- post-processed
+    ppp_default_name = "Default", -- post-process project default name
     doc_name = "done", -- destino final (pdf, epub, djvu, etc.)
     doc_filebase = "output",
     doc_fileext = "pdf",
@@ -122,6 +124,7 @@ defaults.paths.test = {
     single = defaults.test_name.."/"..defaults.single_name,
 }
 defaults.paths.doc_dir = defaults.doc_name
+defaults.paths.post_dir = defaults.post_name
 
 local state = {
     cameras_status = nil,
@@ -3984,7 +3987,7 @@ function dc:main(
                 if key == "sc abrir" then suffix = nil; strlist = nil; end
                 suffix = suffix or ""
                 local sct_name = current_project.dalclick.doc_filebase..suffix..".scantailor"
-                local sct_path = current_project.session.base_path.."/"..current_project.paths.doc_dir.."/"..sct_name
+                local sct_path = current_project.session.base_path.."/"..current_project.paths.post_dir.."/"..current_project.session.ppp.."/"..sct_name
                 if dcutls.localfs:file_exists( sct_path ) then
                    print(" abriendo.. '"..sct_path.."'")
                    open_scantailor_gui( sct_path )
@@ -4038,7 +4041,7 @@ function dc:main(
         elseif key == "sc listar" then
             local status, sc_filename, result, msg = current_project:list_scantailors_and_select()
             if status == true then
-                local stproject_path = current_project.session.base_path.."/"..current_project.paths.doc_dir.."/"..sc_filename
+                local stproject_path = current_project.session.base_path.."/"..current_project.paths.post_dir.."/"..current_project.session.ppp.."/"..sc_filename
                 if dcutls.localfs:file_exists( stproject_path ) then
                    print(" abriendo.. '"..stproject_path.."'")
                    open_scantailor_gui( stproject_path )
@@ -4131,6 +4134,8 @@ function dc:main(
                 end
                 local status, pp_args, msg = parse_pp_args( args )
                 if status then
+                    print()
+                    print(" Proyecto de postprocesado: '"..tostring( current_project.session.ppp ).."'")
                     print()
                     print( msg )
                     print()

@@ -25,6 +25,7 @@ function project:init(globalconf)
     self.session.counter_min = {}
     self.session.include_list = {}
     self.session.noc_mode = nil
+    self.session.ppp = self.dalclick.ppp_default_name
     --
     self.paths = globalconf.paths
     --
@@ -472,6 +473,7 @@ function project:check_project_paths()
     table.insert( paths_to_check, self.paths.proc_dir )
     table.insert( paths_to_check, self.paths.test_dir  )
     table.insert( paths_to_check, self.paths.doc_dir  )
+    table.insert( paths_to_check, self.paths.post_dir  )
     table.insert( paths_to_check, self.paths.raw.even )
     table.insert( paths_to_check, self.paths.raw.odd )
     table.insert( paths_to_check, self.paths.raw.all )
@@ -517,6 +519,7 @@ function project.mkdir_tree(dalclick,session,paths)
         dcutls.localfs:create_folder( session.base_path.."/"..paths.proc_dir )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.test_dir )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.doc_dir )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.post_dir )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.odd )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.even )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.all )
@@ -987,14 +990,16 @@ function project:list_and_select(opts)
     end
 
     local file_list = {}
-    for f in lfs.dir(self.session.base_path.."/"..self.paths.doc_dir) do
-        if lfs.attributes( self.session.base_path.."/"..self.paths.doc_dir.."/"..f, "mode") == "file" then
-            for _,extension in pairs( opts.ext ) do
-                if f:match("^(.+)%."..extension.."$") then
-                    table.insert( file_list, f )
-                end
-            end
-        end
+    if dcutls.localfs:is_dir( opts.dir ) then
+       for f in lfs.dir( opts.dir ) do
+           if lfs.attributes( opts.dir.."/"..f, "mode") == "file" then
+               for _,extension in pairs( opts.ext ) do
+                   if f:match("^(.+)%."..extension.."$") then
+                       table.insert( file_list, f )
+                   end
+               end
+           end
+       end
     end
     function print_dformat(str)
           if type(str) ~= 'string' then return end
@@ -1035,21 +1040,23 @@ end
 function project:list_pdfs_and_select()
     local extensions = {"pdf", "PDF"}
     local description = { singular = "archivo PDF", plural = "archivos PDF"}
-    local status, file_selected, result, msg = self:list_and_select({ext = extensions, desc = description})
+    local folder = self.session.base_path.."/"..self.paths.doc_dir
+    local status, file_selected, result, msg = self:list_and_select({ext = extensions, desc = description, dir = folder})
     return status, file_selected, result, msg
 end
 
 function project:list_scantailors_and_select()
     local extensions = {"scantailor"}
     local description = { singular = "archivo de Proyecto Scantailor", plural = "archivos de Proyecto Scantailor"}
-    local status, file_selected, result, msg = self:list_and_select({ext = extensions, desc = description})
+    local folder = self.session.base_path.."/"..self.paths.post_dir.."/"..self.session.ppp
+    local status, file_selected, result, msg = self:list_and_select({ext = extensions, desc = description, dir = folder})
     return status, file_selected, result, msg
 end
 
 function project:delete_scantailor_project(sct_name)
     if type(sct_name) ~= 'string' or sct_name == '' then return false end
 
-    local sct_path = self.session.base_path.."/"..self.paths.doc_dir.."/"..sct_name
+    local sct_path = self.session.base_path.."/"..self.paths.post_dir.."/"..self.session.ppp.."/"..sct_name
     if dcutls.localfs:delete_file( sct_path ) then
        return true
     else
@@ -1219,17 +1226,25 @@ function project:send_post_proc_actions(opts)
             .." 'single=".. self.session.base_path.."/"..self.paths.proc.single.."'"
             .." 'all="..    self.session.base_path.."/"..self.paths.proc.all.."'"
             .." 'done="..   self.session.base_path.."/"..self.paths.doc_dir .."'"
-            .." 'title="..self.settings.title.."'"
+            .." 'post="..   self.session.base_path.."/"..self.paths.post_dir.."'"
+            .." 'ppp="..    self.session.ppp.."'"
+            .." 'title="..  self.settings.title.."'"
             .." 'noc-mode="..opts.noc_mode.."'"
             .." 'pdf-layout=TwoPageRight'" -- TwoPageRight(PDF 1.5) Display the pages two at a time,
                                            -- with odd-numbered pages on the right
         local last_pdf_generated
+
+        local pdf_name = self.dalclick.doc_filebase
+        if self.session.ppp ~= self.dalclick.ppp_default_name then -- si no es "Default"
+           pdf_name = self.dalclick.doc_filebase.."_"..self.session.ppp
+        end
+        local pdf_ext = "."..self.dalclick.doc_fileext
         if opts.include_list then
             local status, strlist, suffix = self:get_include_strings()
             if not status then
                 return false
             else
-                local pdf_filename = self.dalclick.doc_filebase..suffix.."."..self.dalclick.doc_fileext
+                local pdf_filename = pdf_name..suffix..pdf_ext
                 dcpp_command = dcpp_command.." 'output_name="..pdf_filename.."'"
                 dcpp_command = dcpp_command.." 'include="..strlist.."'"
                 last_pdf_generated = pdf_filename
@@ -1237,9 +1252,9 @@ function project:send_post_proc_actions(opts)
                 dcpp_command = dcpp_command.." 'scantailor_name="..sct_filename.."'"
             end
         else
-            dcpp_command = dcpp_command.." 'output_name=".. self.dalclick.doc_filename.."'"
+            dcpp_command = dcpp_command.." 'output_name=".. pdf_name..pdf_ext.."'"
 
-            last_pdf_generated = self.dalclick.doc_filename
+            last_pdf_generated = pdf_name..pdf_ext
             local sct_filename = self.dalclick.doc_filebase..".".."scantailor"
             dcpp_command = dcpp_command.." 'scantailor_name="..sct_filename.."'"
         end
@@ -1257,7 +1272,7 @@ function project:send_post_proc_actions(opts)
         elseif opts.scantailor_process_and_exit then
             dcpp_command = dcpp_command.." pp=+scantailor"
         elseif opts.pp_mode then
-            dcpp_command = dcpp_command.." "..opts.pp
+            dcpp_command = dcpp_command.." "..opts.pp -- opts.pp_mode=true => se envia opts.pp (que contiene el comando)
         else -- standart mode
             if not opts.include_list then
                 dcpp_command = dcpp_command.." post-actions-enabled"

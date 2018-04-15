@@ -15,9 +15,15 @@ function dcutls.localfs:file_exists(path)
 end
 
 function dcutls.localfs:is_dir(path)
+   local r = false
    if type(path) ~= 'string' then return nil end
    local result,idntknw,code = os.execute("cd '" .. path .. "'")
-   return result -- true/false
+   if type(result) == 'boolean' then -- lua 5.2
+      if result == true then r = true end
+   elseif type(number) == 'number' then -- lua 5.1
+      if result == 0 then r = true end
+   end
+   return r -- true/false
 end
 
 function dcutls.localfs:delete_file(path)
