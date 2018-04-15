@@ -105,6 +105,7 @@ while [ $# -ne 0 ]
             INIT_QUIET_OPTION='create-new-scantailor-project'
             ASK_FOR_MODE='No'
             ASK_FOR_OCR='No'
+            ASL_FOR_PDFB='No'
             ASK_FOR_PROFILE='Yes'
             ASK_FOR_CONTDET='Yes'
             QUIET_OPTION_1_MODE='i'
@@ -146,6 +147,7 @@ if [ "$PP_COMMAND" == "Yes" ]
    ASK_FOR_OCR="No"
    ASK_FOR_PROFILE="No"
    ASK_FOR_CONTDET="No"
+   ASK_FOR_PDFB="No"
    INIT_QUIET_OPTION=''
    QUIET_OPTION_1_MODE="i"
    QUIET_OPTION_2a_LAYOUT="i"
@@ -160,22 +162,25 @@ if [ "$PP_COMMAND" == "Yes" ]
 	        PARAM="no-ocr no-compile-pdf"
 	        ;;
         +scantailor+ocr|+scantailor+ocr_lazy|-compile) #[ocr-lazy]
-            INIT_QUIET_OPTION='scantailor-auto-options'
+           INIT_QUIET_OPTION='scantailor-auto-options'
 	        PARAM="no-compile-pdf"
-            [[ "$pp_command_args" == "-scantailor-ocr_lazy" ]] && PARAM="$PARAM no-overwrite-ocr"
+           [[ "$pp_command_args" == "-scantailor-ocr_lazy" ]] && PARAM="$PARAM no-overwrite-ocr"
 	        ;;
         +scantailor+ocr+compile|+scantailor+ocr_lazy+compile|+all) #[ocr-lazy]
 	        INIT_QUIET_OPTION='scantailor-auto-options'
 	        PARAM="pdfbeads-force"
+           ASK_FOR_PDFB="Yes"
             [[ "$pp_command_args" == "-scantailor-ocr_lazy-compile" ]] && PARAM="$PARAM no-overwrite-ocr"
 	        ;;
         +scantailor+compile|-ocr)
 	        INIT_QUIET_OPTION='scantailor-auto-options'
 	        PARAM="no-ocr pdfbeads-force"
+           ASK_FOR_PDFB="Yes"
 	        ;;
         +ocr+compile|+ocr_lazy+compile|-scantailor) #[ocr-lazy] compile-lazy
 	        PARAM="no-scantailor"
-            [[ "$pp_command_args" == "-ocr_lazy-compile" ]] && PARAM="$PARAM no-overwrite-ocr"
+           ASK_FOR_PDFB="Yes"
+           [[ "$pp_command_args" == "-ocr_lazy-compile" ]] && PARAM="$PARAM no-overwrite-ocr"
 	        ;;
         +ocr|+ocr_lazy|-scantailor-compile) #[ocr-lazy]
 	        PARAM="no-scantailor no-compile-pdf"
@@ -183,6 +188,7 @@ if [ "$PP_COMMAND" == "Yes" ]
 	        ;;
         +compile|+compile_lazy|-scantailor-ocr) #[compile-lazy]
 	        PARAM="no-ocr no-scantailor"
+           ASK_FOR_PDFB="Yes"
             [[ "$pp_command_args" == "-compile_lazy" ]] || PARAM="$PARAM pdfbeads-force"
 	        ;;
         *)
@@ -215,20 +221,20 @@ fi
 
 # --- check scripts
 
-echo ""
-echo -n " Checkeando scripts de procesamiento"
+# echo ""
+# echo -n " Checkeando scripts de procesamiento"
 
 PROFILE_PROCESSOR="/opt/src/fcen-tesis/fcen-postprocessing/scripts/profile-processor"
-[[ -f "$PROFILE_PROCESSOR" ]] && echo -n "..OK(1)" || { echo "profile-processor FILE NOT FOUND"; exit 1;}
+[[ -f "$PROFILE_PROCESSOR" ]] || { echo "profile-processor FILE NOT FOUND"; exit 1;}
 
 SEND_CMD="$PWDIR/ppm/ppm_sendcmd.sh"
-[[ -f "$SEND_CMD" ]] && echo -n "..OK(2)" || { echo "ppm_sendcmd.sh FILE NOT FOUND"; exit 1;}
+[[ -f "$SEND_CMD" ]] || { echo "ppm_sendcmd.sh FILE NOT FOUND"; exit 1;}
 
 POST_ACTIONS_SCRIPT="$PWDIR/dc_pp_post_actions"
-[[ -f "$POST_ACTIONS_SCRIPT" ]] && echo -n "..OK(3)" || { echo "dc_pp_post_action FILE NOT FOUND"; exit 1;}
+[[ -f "$POST_ACTIONS_SCRIPT" ]] || { echo "dc_pp_post_action FILE NOT FOUND"; exit 1;}
 
 PRE_ACTIONS_SCRIPT="$PWDIR/dc_pp_pre_actions"
-[[ -f "$PRE_ACTIONS_SCRIPT" ]] && echo "..OK(4)" || { echo "dc_pp_pre_actions FILE NOT FOUND"; exit 1;}
+[[ -f "$PRE_ACTIONS_SCRIPT" ]] || { echo "dc_pp_pre_actions FILE NOT FOUND"; exit 1;}
 
 # --- check include list
 
