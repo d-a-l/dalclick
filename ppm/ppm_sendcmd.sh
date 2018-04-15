@@ -13,11 +13,11 @@ cd "$THISDIR"
 
 . ../get_config
 
-# Check to see if a two parameter has been given
-if [ $# != 2 ]
+# Check to see if onlu one parameter has been given
+if [ $# != 1 ]
 then
-	echo "${QMBNAME} $$: ERROR: $# parameter/s has/have been received, expected 2" >> $ERROR_LOG
-	echo " ${QMBNAME} $$: ERROR: $# parameter/s has/have been received, expected 2"
+	echo "${QMBNAME} $$: ERROR: $# parameter/s has/have been received, expected 1" >> $ERROR_LOG
+	echo " ${QMBNAME} $$: ERROR: $# parameter/s has/have been received, expected 1"
 	exit 1
 fi
 
