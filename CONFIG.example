@@ -12,3 +12,4 @@ PDF_VIEWER='/usr/bin/evince'
 # 'odd-even', dos cámaras para estativo en 'V'
 # 'single', una cámara para estativo plano
 NOC_MODE='odd-even'
+# PDFBEADS_QUALITY="50" # (1...100), el valor por defecto de pdfbeads es 50

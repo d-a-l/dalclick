@@ -1248,6 +1248,9 @@ function project:send_post_proc_actions(opts)
             dcpp_command = dcpp_command.." quiet"
         end
 
+        if self.dalclick.pdfbeads_default_quality then
+            dcpp_command = dcpp_command.." pdfbeads-default-quality="..self.dalclick.pdfbeads_default_quality
+        end
         -- dcpp special modes
         if opts.scantailor_create_project then
             dcpp_command = dcpp_command.." create-new-scantailor-project"

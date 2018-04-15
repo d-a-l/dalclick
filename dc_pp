@@ -19,6 +19,7 @@ OUTPUT_NAME="output.pdf"
 INTERACTIVE='Yes'
 POST_ACTIONS_ENABLED='No'
 PDFBEADS_LAYOUT=''
+PDFBEADS_QUALITY=''
 
 # --- default select options
 
@@ -30,11 +31,13 @@ QUIET_OPTION_2a_LAYOUT=2  # layout 'pagina y medio'
 QUIET_OPTION_2b_PROFILE=1 # Blanco y negro (1bit)
 QUIET_OPTION_3_CONTDET=1  # No detectar contenido
 QUIET_OPTION_4_OCR=1      # Aplicar OCR
+QUIET_OPTION_5_PDFB=1     # Default quality
 
 ASK_FOR_MODE="Yes"
 ASK_FOR_OCR="Yes"
 ASK_FOR_PROFILE="Yes"
 ASK_FOR_CONTDET="Yes"
+ASK_FOR_PDFB="Yes"
 
 PARAM="follow-symbolic-links"
 CREATE_SYMLINKS="Yes"
@@ -91,6 +94,9 @@ while [ $# -ne 0 ]
         pdf-layout=*)
             PDFBEADS_LAYOUT="${arg#*=}"
             ;;
+        pdfbeads-default-quality=*)
+            PDFBEADS_DEFAULT_QUALITY="${arg#*=}"
+            ;;
         clear=*)
             CLEAR_COMMAND="Yes"
             clear_command_args="${arg#*=}"
@@ -131,9 +137,9 @@ while [ $# -ne 0 ]
 if [ "$PP_COMMAND" == "Yes" ]
  then
    [[ "$CLEAR_COMMAND" == "Yes" ]] &&
-      { CLEAR_COMMAND="No"; echo " anulado parámetro 'clear=', no compatible con 'pdf='"; }
+      { CLEAR_COMMAND="No"; echo " anulado parámetro 'clear=', no compatible con 'pp='"; }
    [[ "$INIT_QUIET_OPTION" == "create-new-scantailor-project" ]] &&
-      echo " anulado parámetro 'create-new-scantailor-project', no compatible con 'pdf='"
+      echo " anulado parámetro 'create-new-scantailor-project', no compatible con 'pp='"
 
    INTERACTIVE="Yes"
    ASK_FOR_MODE="No"
@@ -585,7 +591,6 @@ else
     cd_option=$QUIET_OPTION_3_CONTDET
 fi
 
-
 case "$cd_option" in
     1)
         ;;
@@ -653,6 +658,44 @@ case "$ocr_option" in
         exit 1
         ;;
 esac
+
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+if [ "$INTERACTIVE" == "Yes" ] && [ "$ASK_FOR_PDFB" == "Yes" ]
+ then
+   qval=''
+   if [ "$PDFBEADS_DEFAULT_QUALITY" != "" ]
+     then
+        qval="($PDFBEADS_DEFAULT_QUALITY)"
+   fi
+   echo " Calidad de imagen del PDF, ingrese un valor en 1 y 100, y luego <enter>:"
+   echo ""
+   echo "    1: Mínima calidad y menor tamaño del PDF"
+   echo "   50: Valor recomendado para un PDF accesible vía web"
+   echo "  100: Máxima calidad y mayor tamaño del PDF"
+   echo " sólo <enter>: calidad por defecto indicada en la configuración $qval"
+   echo ""
+
+   while true
+     do
+      echo -n ">> "
+      read pdfq_option
+      echo ""
+      case $pdfq_option in
+          *[0-9]*)
+             if [ "$pdfq_option" -lt "101" ] && [ "$pdfq_option" -gt "0" ]; then
+                PDFBEADS_QUALITY=$pdfq_option
+                break
+             fi
+          ;;
+          '')
+             break
+          ;;
+          *) : ;;
+      esac
+      echo "Ingrese un valor nulo (enter), o un numero entre 0 y 100."
+   done
+fi
 
 # --- create symbolic links in "all" dir
 
@@ -732,16 +775,19 @@ fi
 
 PROFILE="profile=${PROFILE_LAYOUT},${PROFILE_OPTIONS}"
 
+if [ "$PDFBEADS_QUALITY" == "" ]
+  then
+   if [ "$PDFBEADS_DEFAULT_QUALITY" != "" ]
+    then
+      PARAM="$PARAM pdfbeads-quality=$PDFBEADS_DEFAULT_QUALITY"
+   fi
+else
+   PARAM="$PARAM pdfbeads-quality=$PDFBEADS_QUALITY"
+fi
+
 # --- profile-processor
 
-echo " Enviar acción a la cola de procesamiento..."
-echo ""
-
-if [ "$SEND_QUEUE" == "Yes" ]
- then
-   if [ "$POST_ACTIONS_ENABLED" == "Yes" ]
-    then
-
+send_with_post_actions() {
 $SEND_CMD \
 "$PROFILE_PROCESSOR \
 'src=$ALLPATH' \
@@ -762,55 +808,31 @@ $POST_ACTIONS_SCRIPT \
 'name=$OUTPUT_NAME' \
 'output_path=$DONEPATH/$OUTPUT_NAME' \
 #$PROJECT_PATH $nItems"
+}
 
-     if [ $? -eq 0 ]
-     then
-       echo " Listo."
-     else
-       echo " El proyecto no fue enviado o se produjeron errores en '$SEND_CMD'"
-       exit 1
-     fi
-
-   else
-
+send_without_post_actions() {
 $SEND_CMD \
-"$PROFILE_PROCESSOR \
-'src=$ALLPATH' \
-'wrk=$DONEPATH' \
-'log=$LOGPATH' \
-ext=$EXT \
+"$PROFILE_PROCESSOR 'src=$ALLPATH' 'wrk=$DONEPATH' 'log=$LOGPATH' ext=$EXT \
 $PARAM \
 'name=$OUTPUT_NAME' \
 $INCLUDE \
 $PROFILE \
-debug \
-pretty-format \
+debug pretty-format \
 #$PROJECT_PATH $INCLUDE_LIST"
+}
 
-     if [ $? -eq 0 ]
-     then
-       echo " Listo."
-     else
-       echo " El proyecto no fue enviado o se produjeron errores en '$SEND_CMD'"
-       exit 1
-     fi
-
-   fi
-
-else
-
-
-echo "$PROFILE_PROCESSOR \
-src=$ALLPATH \
-wrk=$DONEPATH \
-log=$LOGPATH \
-ext=$EXT \
-$PARAM \
-name=$OUTPUT_NAME \
-$INCLUDE \
-$PROFILE \
-debug \
-pretty-format"
+run_profile_postprocessor() {
+# echo "$PROFILE_PROCESSOR \
+# src=$ALLPATH \
+# wrk=$DONEPATH \
+# log=$LOGPATH \
+# ext=$EXT \
+# $PARAM \
+# name=$OUTPUT_NAME \
+# $INCLUDE \
+# $PROFILE \
+# debug \
+# pretty-format"
 
 $PROFILE_PROCESSOR \
 "src=$ALLPATH" \
@@ -824,6 +846,35 @@ $PROFILE \
 debug \
 pretty-format
 
+}
+
+echo " Enviar acción a la cola de procesamiento..."
+echo ""
+
+if [ "$SEND_QUEUE" == "Yes" ]
+ then
+   if [ "$POST_ACTIONS_ENABLED" == "Yes" ]
+    then
+      send_with_post_actions
+      if [ $? -eq 0 ]
+       then
+         echo " Listo."
+      else
+         echo " El proyecto no fue enviado o se produjeron errores en '$SEND_CMD'"
+         exit 1
+      fi
+   else
+      send_without_post_actions
+     if [ $? -eq 0 ]
+     then
+       echo " Listo."
+     else
+       echo " El proyecto no fue enviado o se produjeron errores en '$SEND_CMD'"
+       exit 1
+     fi
+   fi
+else
+   run_profile_postprocessor
    if [ $? -eq 0 ]
    then
      echo " Listo."

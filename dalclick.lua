@@ -2844,6 +2844,8 @@ function dc:main(
     FILE_BROWSER,
     PDF_VIEWER,
     SCANTAILOR_PATH,
+    PDFBEADS_PATH,
+    PDFBEADS_QUALITY,
     NOC_MODE,
     DELAY_MODE)
 
@@ -2885,6 +2887,16 @@ function dc:main(
        defaults.scantailor_available = true
        print(" * Scantailor available")
        defaults.scantailor_path = SCANTAILOR_PATH
+    end
+
+    if PDFBEADS_PATH ~= "" then
+       defaults.pdfbeads_path = PDFBEADS_PATH
+       print(" * Pdfbeads path: '"..defaults.pdfbeads_path.."'")
+    end
+
+    if PDFBEADS_QUALITY ~= "" then
+       defaults.pdfbeads_default_quality = PDFBEADS_QUALITY
+       print(" * Pdfbeads quality: "..defaults.pdfbeads_default_quality )
     end
 
     if NOC_MODE then
