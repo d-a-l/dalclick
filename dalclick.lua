@@ -57,7 +57,7 @@ local defaults={
     -- qm_daemon_path = "/opt/src/dalclick/qm/qm_daemon.sh",
     -- empty_thumb_path = "/opt/src/dalclick/empty_g.jpg",
     -- empty_thumb_path_error = "/opt/src/dalclick/empty.jpg", --TODO debug!
-    dalclick_project_version = 20180414, -- verion compatible de proyecto
+    dalclick_project_version = 20180414, -- version compatible de proyecto
     root_project_path = nil, -- -- main(DALCLICK_PROJECTS)
     left_cam_id_filename = "LEFT.TXT",
     right_cam_id_filename = "RIGHT.TXT",
@@ -75,7 +75,8 @@ local defaults={
     single_name = "single",
     raw_name = "raw",
     proc_name = "pre", -- pre-processed
-    post_name = "post", -- post-processed
+    post_name = "proc", -- post-processed
+    logs_name = ".logs", -- post-processed
     ppp_default_name = "Default", -- post-process project default name
     doc_name = "done", -- destino final (pdf, epub, djvu, etc.)
     doc_filebase = "output",
@@ -126,6 +127,7 @@ defaults.paths.test = {
 }
 defaults.paths.doc_dir = defaults.doc_name
 defaults.paths.post_dir = defaults.post_name
+defaults.paths.logs_dir = defaults.logs_name
 
 local state = {
     cameras_status = nil,
@@ -4183,11 +4185,11 @@ function dc:main(
                 loopmsg = "load_state_secure: no se pudo cargar '.dc_state' correctamente"
             end
         elseif key == "version" then
-           if current_project:load_project_version() then
+           if current_project:load_version() then
                 loopmsg = " Versión del proyecto: "..tostring(current_project.version)
                 loopmsg = loopmsg.."\n  "
                         .." Versión compatible actual: "..tostring(defaults.dalclick_project_version)
-                local status = current_project:check_project_version()
+                local status = current_project:check_version()
                 if status then
                    loopmsg = loopmsg.."\n  "
                         .." OK: versión actual"

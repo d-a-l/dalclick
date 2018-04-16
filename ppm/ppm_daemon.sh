@@ -110,8 +110,10 @@ if [ ! -z "$EXISTING_JOBS" ]
             PROJPATH=$(cat "$line" | cut -d "#" -f 2 | cut -d " " -f 1)
             PROJNAME=$(cat "$line" | cut -d "#" -f 2 | cut -d " " -f 1 | xargs basename )
             IMGSINFO=$(cat "$line" | cut -d "#" -f 2 | cut -d " " -f 2)
+            PPP=$(cat "$line" | cut -d "@" -f 2)
+            PPP="_${PPP}"
             EVENIMG=$(ls "$PROJPATH/pre/even" | grep .jpg | wc -w)
-            FINISHED=$(ls "$PROJPATH/done" | grep output.pdf | wc -w)
+            FINISHED=$(ls "$PROJPATH/done" | grep "output${PPP}.pdf" | wc -w)
             ODDIMG=$(ls "$PROJPATH/pre/odd" | grep .jpg | wc -w)
             SINGLEIMG=$(ls "$PROJPATH/pre/single" | grep .jpg | wc -w)
             if [[ "$IMGSINFO" != "" ]]

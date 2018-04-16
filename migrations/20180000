@@ -1,0 +1,55 @@
+#!/bin/bash
+
+PROJECT_PATH="$1"
+M=`basename "$0"`
+[[ "$PROJECT_PATH" == "" ]] && { echo " ${M}> ERROR: PROJECT_PATH = '${PROJECT_PATH}'"; exit 1;}
+[[ -d "$PROJECT_PATH" ]] || { echo " ${M}> ERROR: '${PROJECT_PATH}' no es un directorio"; exit 1; }
+
+[[ -d "${PROJECT_PATH}/proc" ]] || {
+   echo -n " ${M}> Creando carpeta 'post'.."
+   mkdir "${PROJECT_PATH}/proc" && echo "OK" || exit 1
+}
+
+[[ -d "${PROJECT_PATH}/.logs" ]] || {
+   echo -n " ${M}> Creando carpeta '.logs'.."
+   mkdir "${PROJECT_PATH}/.logs" && echo "OK" || exit 1
+}
+
+create_default_folder_if_needed() {
+   [[ -d "${PROJECT_PATH}/proc/Default" ]] || {
+      echo -n " ${M}> Creando carpeta 'proc/Default' para mover los archivos de postproceso.."
+      mkdir "${PROJECT_PATH}/proc/Default" && echo "OK" || exit 1
+   }
+}
+
+[[ -d "${PROJECT_PATH}/done/.processing" ]] && {
+   echo " ${M}> Existen archivos de postproceso en el proyecto."
+   create_default_folder_if_needed
+   echo -n " ${M}> Moviendo carpeta '.processing'.."
+   mv "${PROJECT_PATH}/done/.processing" "${PROJECT_PATH}/proc/Default/" && echo "OK" || exit 1
+   echo -n " ${M}> Renombrando carpeta '.processing'  a 'processing'.."
+   mv "${PROJECT_PATH}/proc/Default/.processing" "${PROJECT_PATH}/proc/Default/processing" && echo "OK" || exit 1
+}
+
+[[ -d "${PROJECT_PATH}/done/.logs" ]] && {
+   create_default_folder_if_needed
+   echo -n " ${M}> Moviendo carpeta '.logs'"
+   mv "${PROJECT_PATH}/done/.logs" "${PROJECT_PATH}/proc/Default/.logs" && echo "OK" || exit 1
+}
+
+if find "${PROJECT_PATH}/done/" -mindepth 1 -maxdepth 1 -iname "*.scantailor" | grep -q .
+ then
+   create_default_folder_if_needed
+   echo -n " ${M}> Moviendo achivos '*.scantailor' encontrados en 'done'.."
+   mv "${PROJECT_PATH}/done/"*.scantailor "${PROJECT_PATH}/proc/Default/" && echo "OK" || exit 1
+fi
+
+[[ -f "${PROJECT_PATH}/done/output.pdf" ]] && {
+   echo -n " ${M}> Renombrando 'output.pdf' a 'output_Default.pdf'.."
+   mv "${PROJECT_PATH}/done/output.pdf" "${PROJECT_PATH}/done/output_Default.pdf" && echo "OK" || exit 1
+}
+
+# futuras migraciones posteriores aqui
+# ./XXXXXXXXXnext_migration_script "$PROJECT_PATH" || exit 1
+
+exit 0

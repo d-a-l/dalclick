@@ -215,7 +215,7 @@ check_dirs "$ODDPATH" 'odd'
 check_dirs "$SINGLEPATH" 'single'
 check_dirs "$ALLPATH" 'all'
 check_dirs "$DONEPATH" 'done'
-check_dirs "$POSTPATH" 'post'
+check_dirs "$POSTPATH" 'proc'
 
 PROJECT_NAME=$( basename "$PROJECT_PATH" )
 LOGPATH="$POSTPATH/.logs"
@@ -263,20 +263,22 @@ PREV_OCR=""
 PREV_PDFB=""
 
 PREV_MSG=""
-if [ -d "$POSTPATH" ]
+if [ -d "$POSTPATH/processing" ]
   then
     echo ""
-    if find "$POSTPATH" -mindepth 1 -maxdepth 1 -name "*.tif" | grep -q .
+    if find "$POSTPATH/processing" -mindepth 1 -maxdepth 1 -name "*.tif" | grep -q .
       then
         PREV_SC="Yes"
         PREV_MSG+=" - Archivos 'tif' de Scantailor\n"
     fi
-    if find "$POSTPATH" -mindepth 1 -maxdepth 1 -name "*.html" | grep -q .
+    if find "$POSTPATH/processing" -mindepth 1 -maxdepth 1 -name "*.html" \
+      -o -name "*.hocr" | grep -q .
       then
         PREV_OCR="Yes"
         PREV_MSG+=" - Archivos 'hocr' de texto OCR\n"
     fi
-    if find "$POSTPATH" -mindepth 1 -maxdepth 1 -name "*.jbig2" | grep -q .
+    if find "$POSTPATH/processing" -mindepth 1 -maxdepth 1 \
+         -name "*.jbig2" -o -name "*.black.tiff" -o -name "*.bg.jpg" | grep -q .
       then
         PREV_PDFB="Yes"
         PREV_MSG+=" - Archivos de PDFbeads\n"
@@ -790,7 +792,9 @@ if [ "$PDFBEADS_LAYOUT" != "" ]
     fi
 fi
 
-PROFILE="profile=${PROFILE_LAYOUT},${PROFILE_OPTIONS}"
+if [ "$PROFILE_LAYOUT" != "" ]; then
+   PROFILE="profile=${PROFILE_LAYOUT},${PROFILE_OPTIONS}"
+fi
 
 if [ "$PDFBEADS_QUALITY" == "" ]
   then
@@ -811,6 +815,7 @@ $SEND_CMD \
 'wrk=$POSTPATH' \
 'out=$DONEPATH' \
 'log=$LOGPATH' \
+processing_name=processing \
 ext=$EXT \
 $PARAM \
 'name=$OUTPUT_NAME' \
@@ -825,7 +830,7 @@ $POST_ACTIONS_SCRIPT \
 'done=$DONEPATH' \
 'name=$OUTPUT_NAME' \
 'output_path=$DONEPATH/$OUTPUT_NAME' \
-#$PROJECT_PATH $nItems"
+#$PROJECT_PATH $nItems @$PPP"
 }
 
 send_without_post_actions() {
@@ -835,13 +840,14 @@ $SEND_CMD \
 'wrk=$POSTPATH' \
 'out=$DONEPATH' \
 'log=$LOGPATH' \
+processing_name=processing \
 ext=$EXT \
 $PARAM \
 'name=$OUTPUT_NAME' \
 $INCLUDE \
 $PROFILE \
 debug pretty-format \
-#$PROJECT_PATH $INCLUDE_LIST"
+#$PROJECT_PATH $INCLUDE_LIST @$PPP"
 }
 
 run_profile_postprocessor() {
@@ -850,6 +856,7 @@ $PROFILE_PROCESSOR \
 "wrk=$POSTPATH" \
 "out=$DONEPATH" \
 "log=$LOGPATH" \
+processing_name=processing \
 ext=$EXT \
 $PARAM \
 "name=$OUTPUT_NAME" \

@@ -352,7 +352,22 @@ function project:load(settings_path, opts)
             self.session.base_path = base_path    -- /ruta/a/regnum
             self.session.root_path = root_path    -- /ruta/a
 
-            self:load_project_version()
+            self:load_version() -- only needs session.base_path
+            local status, msg = self:check_version()
+            if not status then
+               print(" Proyecto desactualizado, migrando de '"
+                  ..tostring(self.version).."' a '"
+                  ..tostring(self.dalclick.dalclick_project_version).."'"
+               )
+               local update_status, update_msg = self:update_version()
+               if update_status then
+                  print( update_msg )
+               else
+                  -- interrumpir carga
+                  print( update_msg )
+                  return false
+               end
+            end
 
             self.settings = util.unserialize(content)
             local status, log = self:check_settings()
@@ -479,6 +494,7 @@ function project:check_project_paths()
     table.insert( paths_to_check, self.paths.test_dir  )
     table.insert( paths_to_check, self.paths.doc_dir  )
     table.insert( paths_to_check, self.paths.post_dir  )
+    table.insert( paths_to_check, self.paths.logs_dir  )
     table.insert( paths_to_check, self.paths.raw.even )
     table.insert( paths_to_check, self.paths.raw.odd )
     table.insert( paths_to_check, self.paths.raw.all )
@@ -506,8 +522,6 @@ function project:check_project_paths()
             repared = true
         end
     end
-    -- chequear si existe .processing y .logs en done y moverlos a post/Default (crearla si no existe)
-    -- chequear si existen archivos *.scantailor y moverlos a post/Default
     if repared == true then
         return true, 'repared', log -- 'modified'
     else
@@ -526,6 +540,7 @@ function project.mkdir_tree(dalclick,session,paths)
         dcutls.localfs:create_folder( session.base_path.."/"..paths.test_dir )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.doc_dir )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.post_dir )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.logs_dir )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.odd )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.even )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.all )
@@ -1140,10 +1155,10 @@ function project:save_state()
     end
 end
 
-function project:load_project_version()
+function project:load_version()
     local content = dcutls.localfs:read_file(self.session.base_path.."/.dc_version")
     if content then
-        self.version = tonumber(content)
+        self.version = tonumber( util.unserialize(content) )
     else
         -- aca metodos para deducir versiones antiguas
         self.version = 20180000
@@ -1151,13 +1166,74 @@ function project:load_project_version()
     return true
 end
 
-function project:check_project_version()
+function project:save_version()
+   local content = util.serialize(self.version)
+   local version_file = self.session.base_path.."/.dc_version"
+   if dcutls.localfs:create_file( version_file, content ) then
+      return true
+   else
+      return false
+   end
+end
+
+function project:check_version()
    if self.version < self.dalclick.dalclick_project_version then
       return false, "outdated"
    elseif self.version == self.dalclick.dalclick_project_version then
       return true, "updated"
    else
       return nil, ""
+   end
+end
+
+function project:update_version()
+   local migration_script = self.dalclick.dalclick_pwdir.."/migrations/"..self.version
+   if dcutls.localfs:file_exists(migration_script) then
+      local exit_status = os.execute( migration_script.." '"..self.session.base_path.."'" ) --" > /dev/null 2>&1 &"
+      if exit_status == 0 then
+          local prev_version = self.version
+          self.version = self.dalclick.dalclick_project_version
+          local msg = " Versión actualizada con éxito de '"
+               ..tostring(prev_version).."' a '"..tostring(self.version).."'"
+          new_version_data = {
+             version = self.version,
+             prev_version = prev_version,
+             update_time = os.time(), -- unix time, para convertir: os.date("%c", unix_time) ej: "%Y/%m/%d %H:%M:%S" => 2018/04/15 20:04:59
+             update_user = os.getenv("USER"),
+             update_hostname = os.getenv("HOSTNAME"),
+          }
+          if self:save_version() and self:update_version_log( new_version_data ) then
+             return true, msg
+          else
+             return nil, " ERROR: El proyecto fue actualizado con éxito pero fallo el registro la nueva versión!"
+          end
+      else
+          msg = " ATENCION: No se puedo actualizar el proyecto!\n  "
+          msg = msg .. " Su versión actual de Dalclick no es compatible con\n  "
+          msg = msg .. " la versión del proyecto, se recomienda cerrar el proyecto\n  "
+          msg = msg .. " hasta solucionar el problema."
+          return false, msg
+      end
+   end
+end
+
+function project:update_version_log( new_version_data )
+   if type(new_version_data) ~= 'table' then return false end
+
+   local version_log_file = self.session.base_path.."/"..self.paths.logs_dir.."/.version_history"
+   local version_log = {}
+   if dcutls.localfs:file_exists( version_log_file ) then
+      local content = dcutls.localfs:read_file( version_log_file )
+      if content then
+         version_log = util.unserialize(content)
+      end
+   end
+   table.insert(version_log, new_version_data)
+   local content = util.serialize(version_log)
+   if dcutls.localfs:create_file( version_log_file, content ) then
+      return true
+   else
+      return false
    end
 end
 
@@ -1261,10 +1337,7 @@ function project:send_post_proc_actions(opts)
                                            -- with odd-numbered pages on the right
         local last_pdf_generated
 
-        local pdf_name = self.dalclick.doc_filebase
-        if self.session.ppp ~= self.dalclick.ppp_default_name then -- si no es "Default"
-           pdf_name = self.dalclick.doc_filebase.."_"..self.session.ppp
-        end
+        local pdf_name = self.dalclick.doc_filebase.."_"..self.session.ppp
         local pdf_ext = "."..self.dalclick.doc_fileext
         if opts.include_list then
             local status, strlist, suffix = self:get_include_strings()
@@ -1300,7 +1373,10 @@ function project:send_post_proc_actions(opts)
             dcpp_command = dcpp_command.." pp=+scantailor"
         elseif opts.pp_mode then
             dcpp_command = dcpp_command.." "..opts.pp -- opts.pp_mode=true => se envia opts.pp (que contiene el comando)
-        else -- standart mode
+            if not opts.include_list then
+                dcpp_command = dcpp_command.." post-actions-enabled"
+            end
+        else -- standart mode (no sabemnos si esta es una opcion obsoleta!)
             if not opts.include_list then
                 dcpp_command = dcpp_command.." post-actions-enabled"
             end
