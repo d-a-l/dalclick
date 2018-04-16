@@ -826,6 +826,8 @@ pretty-format \
 && \
 $POST_ACTIONS_SCRIPT \
 'project=$PROJECT_PATH' \
+'project-name=$PROJECT_NAME' \
+'pp-project-name=$PPP' \
 'title=$PROJECT_TITLE' \
 'done=$DONEPATH' \
 'name=$OUTPUT_NAME' \

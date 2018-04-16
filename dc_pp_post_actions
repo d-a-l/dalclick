@@ -10,9 +10,15 @@ while [ $# -ne 0 ]
   do
     arg="$1"
     case "$arg" in
-        project=*) 
+        project=*)
             PROJECT_PATH="${arg#*=}"
             PROJECT_PATH="${PROJECT_PATH%/}" #remove last slash if any
+            ;;
+        project-name=*)
+            PROJECT_NAME="${arg#*=}"
+            ;;
+        pp-project-name=*)
+            PPP="${arg#*=}"
             ;;
         done=*)
             DONEPATH="${arg#*=}"
@@ -29,7 +35,7 @@ while [ $# -ne 0 ]
             ;;
     esac
     shift
-  done  
+  done
 
 # --- check param and paths
 
@@ -40,8 +46,8 @@ echo "Iniciando acciones para ejecutar luego del post-proceso iniciado."
 [[ -f "$PROJECT_PATH/.POST_ACTIONS" ]] && echo " Detectado .POST_ACTIONS en $PROJECT_PATH" || echo " No se encontro ningun archivo .POST_ACTIONS en la carpeta del proyecto."
 [[ -f "$PROJECT_PATH/../.POST_ACTIONS" ]] && echo " Detectado .POST_ACTIONS en carpeta contenedora de '$PROJECT_PATH'." || echo " No se encontro ningun archivo .POST_ACTIONS en (../)."
 
-if [[ -f "$PROJECT_PATH/.POST_ACTIONS" ]] 
- then   
+if [[ -f "$PROJECT_PATH/.POST_ACTIONS" ]]
+ then
     echo " Ejecutando acciones en '.'"
     cd "$PROJECT_PATH"
     . .POST_ACTIONS
@@ -55,4 +61,5 @@ else
     echo ""
 fi
 
+echo "Acciones posteriores al post-proceso ejecutadas con éxito."
 exit 0

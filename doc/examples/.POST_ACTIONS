@@ -1,20 +1,32 @@
 # las acciones que coloque en este archivo seran ejecutadas luego de realizar el postproceso
 # variables de entorno
 # $PROJECT_PATH la ruta absoluta a la carpeta principal del proyecto
+# $PROJECT_NAME: el nombre del proyecto (nombre del directorio)
 # $DONEPATH: la ruta absoluta a la carpeta 'done' dentro del proyecto
 # $OUTPUT_NAME: el nombre del archivo PDF"
 # $OUTPUT_PATH: la ruta absoluta al archivo PDF"
 # $PROJECT_TITLE: el titulo del proyecto
+# $PPP: Nombre del (sub)proyecto de postprocesado
 
 echo "chequeando variables de entorno dentro de .POST_ACTIONS"
 echo "PROJECT_PATH: $PROJECT_PATH"
+echo "PROJECT_NAME: $PROJECT_NAME"
 echo "DONEPATH: $DONEPATH"
 echo "OUTPUT_NAME: $OUTPUT_NAME"
 echo "OUTPUT_PATH: $OUTPUT_PATH"
-echo "PROJECT_TITLE: $PROJECT_TITLE"
+echo "PROJECT_TITLE: '$PROJECT_TITLE'"
+echo "PPP: '$PPP'"
+
+# check paths
+[[ -d "$PROJECT_PATH" ]] || { echo "ERROR: PROJECT_PATH"; exit 1; }
+[[ -d "$DONEPATH" ]] || { echo "ERROR: DONEPATH"; exit 1; }
+[[ -f "$OUTPUT_PATH" ]] || { echo "ERROR: OUTPUT_PATH"; exit 1; }
+
 
 # ej:
 # cp "$OUTPUT_PATH" "/tmp/$PROJECT_TITLE.pdf"
 # copia el pdf final a la carpeta "/tmp" usando el titulo dep proyecto como nombre
 
-cp "$OUTPUT_PATH" "/tmp/$PROJECT_TITLE.pdf"
+# cp "$OUTPUT_PATH" "/tmp/$PROJECT_NAME.pdf" || exit 1
+
+# no agregar 'exit 0' al final, el código es incluido usando '.'
