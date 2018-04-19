@@ -74,8 +74,8 @@ local defaults={
     all_name = "all",
     single_name = "single",
     raw_name = "raw",
-    proc_name = "pre", -- pre-processed
-    post_name = "proc", -- post-processed
+    pre_name = "pre", -- pre-processed
+    post_name = "pp", -- post-processed
     logs_name = ".logs", -- post-processed
     ppp_default_name = "Default", -- post-process project default name
     doc_name = "done", -- destino final (pdf, epub, djvu, etc.)
@@ -111,12 +111,12 @@ defaults.paths.raw = {
     all =  defaults.raw_name.."/"..defaults.all_name,
     single = defaults.raw_name.."/"..defaults.single_name,
 }
-defaults.paths.proc_dir = defaults.proc_name
-defaults.paths.proc = {
-    even = defaults.proc_name.."/"..defaults.even_name,
-    odd = defaults.proc_name.."/"..defaults.odd_name,
-    all = defaults.proc_name.."/"..defaults.all_name,
-    single = defaults.proc_name.."/"..defaults.single_name,
+defaults.paths.pre_dir = defaults.pre_name
+defaults.paths.pre = {
+    even = defaults.pre_name.."/"..defaults.even_name,
+    odd = defaults.pre_name.."/"..defaults.odd_name,
+    all = defaults.pre_name.."/"..defaults.all_name,
+    single = defaults.pre_name.."/"..defaults.single_name,
 }
 defaults.paths.test_dir = defaults.test_name
 defaults.paths.test = {
@@ -1215,7 +1215,7 @@ function mc:rotate_all()
         -- path = local_path..file_name
         -- basepath = local_path
         -- basename = file_name
-        command = "econvert -i "..saved_file.path.." --rotate "..current_project.state.rotate[idname].." -o "..current_project.session.base_path.."/"..current_project.paths.proc[idname].."/"..saved_file.basename.." > /dev/null 2>&1"
+        command = "econvert -i "..saved_file.path.." --rotate "..current_project.state.rotate[idname].." -o "..current_project.session.base_path.."/"..current_project.paths.pre[idname].."/"..saved_file.basename.." > /dev/null 2>&1"
 
         if defaults.mode_enable_qm_daemon then
             print(" ["..idname.."] enviando comando (rotar) a la cola de acciones")
@@ -1245,7 +1245,7 @@ function mc:rotate_and_resize_all()
     local command, path
     local command_fail = false
     for idname,saved_file in pairs(current_project.state.saved_files) do
-        local thumbpath = current_project.session.base_path.."/"..current_project.paths.proc[idname].."/"..current_project.dalclick.thumbfolder_name
+        local thumbpath = current_project.session.base_path.."/"..current_project.paths.pre[idname].."/"..current_project.dalclick.thumbfolder_name
         if not dcutls.localfs:file_exists( thumbpath ) then
             if not dcutls.localfs:create_folder( thumbpath ) then
                 print(" ERROR: no se pudo crear '"..thumbpath.."'")
@@ -1265,7 +1265,7 @@ function mc:rotate_and_resize_all()
         command =
             "econvert -i "..saved_file.path
           ..( current_project.settings.rotate and " --rotate "..current_project.state.rotate[idname] or "")
-          .." -o "..current_project.session.base_path.."/"..current_project.paths.proc[idname].."/"..saved_file.basename
+          .." -o "..current_project.session.base_path.."/"..current_project.paths.pre[idname].."/"..saved_file.basename
           .." --thumbnail "..( portrait and "0.125" or "0.167")
           .." -o "..thumbpath.."/"..saved_file.basename
           .." > /dev/null 2>&1"
@@ -1787,15 +1787,15 @@ function batch:show_projects( projects )
             stat_raw = stat_raw..string.rep(".", margin)
 
             local stat_pre = "pre: "
-            if type(paths.proc) == 'table' then
-                if paths.proc.even then
-                    local c = count_files( project.path.."/"..paths.proc.even )
+            if type(paths.pre) == 'table' then
+                if paths.pre.even then
+                    local c = count_files( project.path.."/"..paths.pre.even )
                     if c then
                         stat_pre = stat_pre..tostring(c)
                     end
                 end
-                if paths.proc.odd then
-                    local c = count_files( project.path.."/"..paths.proc.odd )
+                if paths.pre.odd then
+                    local c = count_files( project.path.."/"..paths.pre.odd )
                     if c then
                         stat_pre = stat_pre.."/"..tostring(c).." "
                     end
@@ -3865,7 +3865,7 @@ function dc:main(
                 folders = { 'single' }
             end
             for n, idname in pairs(folders) do
-                local command = "rm -r "..current_project.session.base_path.."/"..current_project.paths.proc[idname].." > /dev/null 2>&1"
+                local command = "rm -r "..current_project.session.base_path.."/"..current_project.paths.pre[idname].." > /dev/null 2>&1"
                 print(command)
                 if not os.execute(command) then
                    print("ERROR\n    falló: '"..command.."'")

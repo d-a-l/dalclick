@@ -296,7 +296,7 @@ function project:check_settings(opts)
         if type(self.settings.path_raw) == 'table' then
             -- por ahora desactivado por que si no pierde compatibilidad con versiones previas
             self.settings.path_raw  = nil
-            self.settings.path_proc = nil
+            self.settings.path_pre = nil
             self.settings.path_test = nil
             -- project_status = 'upgraded'
             log = log .. " ** UPGRADE paths\n"
@@ -490,7 +490,7 @@ function project:check_project_paths()
 
     local paths_to_check = {}
     table.insert( paths_to_check, self.paths.raw_dir  )
-    table.insert( paths_to_check, self.paths.proc_dir )
+    table.insert( paths_to_check, self.paths.pre_dir )
     table.insert( paths_to_check, self.paths.test_dir  )
     table.insert( paths_to_check, self.paths.doc_dir  )
     table.insert( paths_to_check, self.paths.post_dir  )
@@ -499,10 +499,10 @@ function project:check_project_paths()
     table.insert( paths_to_check, self.paths.raw.odd )
     table.insert( paths_to_check, self.paths.raw.all )
     table.insert( paths_to_check, self.paths.raw.single )
-    table.insert( paths_to_check, self.paths.proc.even )
-    table.insert( paths_to_check, self.paths.proc.odd )
-    table.insert( paths_to_check, self.paths.proc.all )
-    table.insert( paths_to_check, self.paths.proc.single )
+    table.insert( paths_to_check, self.paths.pre.even )
+    table.insert( paths_to_check, self.paths.pre.odd )
+    table.insert( paths_to_check, self.paths.pre.all )
+    table.insert( paths_to_check, self.paths.pre.single )
     table.insert( paths_to_check, self.paths.test.even )
     table.insert( paths_to_check, self.paths.test.odd )
     table.insert( paths_to_check, self.paths.test.all )
@@ -536,7 +536,7 @@ function project.mkdir_tree(dalclick,session,paths)
         print(" Creando árbol de directorios del proyecto...\n")
         dcutls.localfs:create_folder( session.base_path )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.raw_dir )
-        dcutls.localfs:create_folder( session.base_path.."/"..paths.proc_dir )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.pre_dir )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.test_dir )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.doc_dir )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.post_dir )
@@ -545,10 +545,10 @@ function project.mkdir_tree(dalclick,session,paths)
         dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.even )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.all )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.raw.single )
-        dcutls.localfs:create_folder( session.base_path.."/"..paths.proc.odd )
-        dcutls.localfs:create_folder( session.base_path.."/"..paths.proc.even )
-        dcutls.localfs:create_folder( session.base_path.."/"..paths.proc.all )
-        dcutls.localfs:create_folder( session.base_path.."/"..paths.proc.single )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.pre.odd )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.pre.even )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.pre.all )
+        dcutls.localfs:create_folder( session.base_path.."/"..paths.pre.single )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.test.odd )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.test.even )
         dcutls.localfs:create_folder( session.base_path.."/"..paths.test.all )
@@ -765,7 +765,7 @@ function project:reparar(clear)
 
             -- check preview folder
             for idname,count in pairs(self.state.counter) do
-                local preview_folder = self.session.base_path.."/"..self.paths.proc[idname].."/"..self.dalclick.thumbfolder_name
+                local preview_folder = self.session.base_path.."/"..self.paths.pre[idname].."/"..self.dalclick.thumbfolder_name
                 if not dcutls.localfs:file_exists( preview_folder ) then
                     if not dcutls.localfs:create_folder( preview_folder ) then
                         return false, false, log
@@ -800,8 +800,8 @@ function project:reparar(clear)
 
                 filename_we = string.format("%04d", count)..".jpg"
                 raw_path = self.session.base_path.."/"..self.paths.raw[idname].."/"..filename_we
-                pre_path = self.session.base_path.."/"..self.paths.proc[idname].."/"..filename_we
-                preview_path = self.session.base_path.."/"..self.paths.proc[idname].."/"..self.dalclick.thumbfolder_name.."/"..filename_we
+                pre_path = self.session.base_path.."/"..self.paths.pre[idname].."/"..filename_we
+                preview_path = self.session.base_path.."/"..self.paths.pre[idname].."/"..self.dalclick.thumbfolder_name.."/"..filename_we
 
                 if dcutls.localfs:file_exists( raw_path ) then
                     if not dcutls.localfs:file_exists( pre_path ) then
@@ -1324,10 +1324,10 @@ function project:send_post_proc_actions(opts)
         local dcpp_command =
             dc_pp
             .." 'project="..self.session.base_path.."'"
-            .." 'even="..   self.session.base_path.."/"..self.paths.proc.even.."'"
-            .." 'odd="..    self.session.base_path.."/"..self.paths.proc.odd.."'"
-            .." 'single=".. self.session.base_path.."/"..self.paths.proc.single.."'"
-            .." 'all="..    self.session.base_path.."/"..self.paths.proc.all.."'"
+            .." 'even="..   self.session.base_path.."/"..self.paths.pre.even.."'"
+            .." 'odd="..    self.session.base_path.."/"..self.paths.pre.odd.."'"
+            .." 'single=".. self.session.base_path.."/"..self.paths.pre.single.."'"
+            .." 'all="..    self.session.base_path.."/"..self.paths.pre.all.."'"
             .." 'done="..   self.session.base_path.."/"..self.paths.doc_dir .."'"
             .." 'post="..   self.session.base_path.."/"..self.paths.post_dir.."'"
             .." 'ppp="..    self.session.ppp.."'"
@@ -1413,7 +1413,7 @@ end
 
 function project:get_thumb_path(idname, filename)
 
-    local preview_folder = self.session.base_path.."/"..self.paths.proc[idname].."/"..self.dalclick.thumbfolder_name
+    local preview_folder = self.session.base_path.."/"..self.paths.pre[idname].."/"..self.dalclick.thumbfolder_name
     if not dcutls.localfs:file_exists( preview_folder ) then
         if dcutls.localfs:create_folder( preview_folder ) then
         else
@@ -1422,7 +1422,7 @@ function project:get_thumb_path(idname, filename)
     end
 
     local thumb_path = preview_folder.."/"..filename
-    local big_path = self.session.base_path.."/"..self.paths.proc[idname].."/"..filename
+    local big_path = self.session.base_path.."/"..self.paths.pre[idname].."/"..filename
 
     local portrait = false
     if self.settings.rotate then

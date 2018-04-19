@@ -215,7 +215,7 @@ check_dirs "$ODDPATH" 'odd'
 check_dirs "$SINGLEPATH" 'single'
 check_dirs "$ALLPATH" 'all'
 check_dirs "$DONEPATH" 'done'
-check_dirs "$POSTPATH" 'proc'
+check_dirs "$POSTPATH" 'pp'
 
 PROJECT_NAME=$( basename "$PROJECT_PATH" )
 LOGPATH="$POSTPATH/.logs"
