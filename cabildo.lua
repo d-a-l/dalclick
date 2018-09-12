@@ -276,7 +276,7 @@ function cabildo:gui(cams) -- projec, cams
             -- param.control_paths[idname].remote_path = -- del saved files anterior o nada
             param.device[idname] = {}
             param.device[idname].dest_dir = current_project.session.base_path.."/"..current_project.paths.raw[idname].."/"
-            param.device[idname].dest_preproc_dir = current_project.session.base_path.."/"..current_project.paths.proc[idname].."/"
+            param.device[idname].dest_preproc_dir = current_project.session.base_path.."/"..current_project.paths.pre[idname].."/"
             param.device[idname].dest_tmp_dir = current_project.session.base_path.."/"..current_project.paths.raw[idname].."/"..current_project.dalclick.tempfolder_name.."/"
             if not dcutls.localfs:file_exists( param.device[idname].dest_tmp_dir ) then
                if not dcutls.localfs:create_folder( param.device[idname].dest_tmp_dir ) then
@@ -285,7 +285,7 @@ function cabildo:gui(cams) -- projec, cams
             end
             param.device[idname].dest_filemame = file_name_we..".".."jpg"
             param.device[idname].basename_without_ext = file_name_we
-            param.device[idname].thumbpath_dir = current_project.session.base_path.."/"..current_project.paths.proc[idname].."/"..current_project.dalclick.thumbfolder_name.."/"
+            param.device[idname].thumbpath_dir = current_project.session.base_path.."/"..current_project.paths.pre[idname].."/"..current_project.dalclick.thumbfolder_name.."/"
             if not dcutls.localfs:file_exists( param.device[idname].thumbpath_dir ) then
                if not dcutls.localfs:create_folder( param.device[idname].thumbpath_dir ) then
                   build_param_fail = true
