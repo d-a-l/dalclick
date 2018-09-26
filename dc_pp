@@ -95,6 +95,7 @@ while [ $# -ne 0 ]
             ;;
         scantailor_name=*)
             SCANTAILOR_EXPLICIT_NAME="${arg#*=}"
+            SCANTAILOR_EXPLICIT_NAME=${SCANTAILOR_EXPLICIT_NAME// /_} # como va dentro de $PARAM no puede tener espacios!
             ;;
         post-actions-enabled)
             POST_ACTIONS_ENABLED='Yes'
@@ -374,7 +375,7 @@ case "$INIT_QUIET_OPTION" in
      PARAM="scantailor-process-and-exit scantailor-save-project scantailor-filters=1,1 follow-symbolic-links no-ocr"
      if [ "$SCANTAILOR_EXPLICIT_NAME" != "" ] # ojo usamos SCANTAILOR_EXPLICIT_NAME porque solo se pasa este valor
       then                                    # si fue explicitamente declarado
-       PARAM="$PARAM 'sct=$SCANTAILOR_EXPLICIT_NAME'"
+       PARAM="$PARAM sct=$SCANTAILOR_EXPLICIT_NAME"
      fi
      POST_ACTIONS_ENABLED="No"
      ;;
@@ -389,7 +390,7 @@ case "$INIT_QUIET_OPTION" in
         ASK_FOR_PROFILE="Yes"
         ASK_FOR_CONTDET="Yes"
      fi
-     PARAM="$PARAM 'sct=$SCANTAILOR_PROJECT_NAME'" # fcen-p tb se fija si existe un proyecto sc implicito, pero mejor explicitarlo
+     PARAM="$PARAM sct=$SCANTAILOR_PROJECT_NAME" # fcen-p tb se fija si existe un proyecto sc implicito, pero mejor explicitarlo
      ;;
   *)
      exit 1
@@ -455,7 +456,7 @@ case "$option" in
      PARAM="scantailor-save-project follow-symbolic-links pdfbeads-force"
      if [ "$SCANTAILOR_EXPLICIT_NAME" != "" ]
       then
-        PARAM="$PARAM 'sct=$SCANTAILOR_EXPLICIT_NAME'"
+        PARAM="$PARAM sct=$SCANTAILOR_EXPLICIT_NAME"
      fi
      ;;
   2)
@@ -490,7 +491,7 @@ case "$option" in
         PARAM="scantailor-load-project pdfbeads-force follow-symbolic-links"
         if [ "$SCANTAILOR_EXPLICIT_NAME" != "" ]
          then
-           PARAM="$PARAM 'sct=$SCANTAILOR_EXPLICIT_NAME'"
+           PARAM="$PARAM sct=$SCANTAILOR_EXPLICIT_NAME"
         fi
      else
        echo " opción inválida "; exit 1
