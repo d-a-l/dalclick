@@ -1331,7 +1331,7 @@ function project:send_post_proc_actions(opts)
             .." 'done="..   self.session.base_path.."/"..self.paths.doc_dir .."'"
             .." 'post="..   self.session.base_path.."/"..self.paths.post_dir.."'"
             .." 'ppp="..    self.session.ppp.."'"
-            .." 'title="..  self.settings.title.."'"
+            .." 'title="..  self.settings.title:gsub("'",'').."'"
             .." 'noc-mode="..opts.noc_mode.."'"
             .." 'pdf-layout=TwoPageRight'" -- TwoPageRight(PDF 1.5) Display the pages two at a time,
                                            -- with odd-numbered pages on the right
