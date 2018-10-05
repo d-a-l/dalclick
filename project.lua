@@ -36,6 +36,14 @@ function project:init(globalconf)
     self.settings_default.rotate = nil
     self.settings_default.mode = globalconf.delay_mode -- 'secure'
 
+    self.settings.prefilters = {}
+    -- self.settings.prefilters.contrast = nil  -- { odd = x, even = x, single = x} -- 0.0 a 1.0 aumenta contraste, 0.0 a -1.0 reduce comntraste, valores superiores o inferiores producen cosas raras
+    -- self.settings.prefilters.brightness = nil
+    -- self.settings.prefilters.lightness = nil
+    -- self.settings.prefilters.gamma = nil
+    -- self.settings.prefilters.normalize = nil
+    -- self.settings.prefilters.colorspace = nil -- Valid values are: BW, BILEVEL, GRAY, GRAY1, GRAY2, GRAY4, RGB, YUV and CYMK.
+    -- mas en https://manpages.debian.org/jessie/exactimage/econvert.1.en.html
 
     self.settings.title = nil
     self.settings.ref_cam = nil
@@ -205,6 +213,8 @@ function project:create( options )
 	    self.settings.rotate = self.dalclick.single_default_rotate
     end
 
+    self.settings.prefilters = {}
+
     print(" Se está creando un nuevo proyecto:\n")
     print(" === "..self.session.regnum.." ===")
     if self.settings.title ~= "" then print(" título: '"..self.settings.title.."'") end
@@ -251,6 +261,12 @@ function project:check_settings(opts)
     if type(self.settings) ~= 'table' then
         self.settings = {}
         log = " * settings estaba sin definir\n"
+        status = false
+    end
+
+    if type(self.settings.prefilters) ~= 'table' then
+        self.settings.prefilters = {}
+        log = " * settings prefilters estaba sin definir\n"
         status = false
     end
 

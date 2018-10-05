@@ -1242,7 +1242,7 @@ function mc:rotate_all()
     end
 end
 
-function mc:rotate_and_resize_all()
+function mc:pre_filters_all()
     local command, path
     local command_fail = false
     for idname,saved_file in pairs(current_project.state.saved_files) do
@@ -1263,9 +1263,14 @@ function mc:rotate_and_resize_all()
         else
              portrait = false
         end
+        local prefilters_param = ""
+        for prefilter, value in pairs( current_project.settings.prefilters ) do
+            prefilters_param = prefilters_param .. " --" .. prefilter .. " " .. value[idname]
+        end
         command =
             "econvert -i "..saved_file.path
           ..( current_project.settings.rotate and " --rotate "..current_project.state.rotate[idname] or "")
+          .. prefilters_param
           .." -o "..current_project.session.base_path.."/"..current_project.paths.pre[idname].."/"..saved_file.basename
           .." --thumbnail "..( portrait and "0.125" or "0.167")
           .." -o "..thumbpath.."/"..saved_file.basename
@@ -1417,7 +1422,7 @@ function mc:capt_all(mode)
                     -- mc:rotate_all( saved_files )
                     -- if current_project.state.saved_files and current_project.settings.rotate == true then
                     if current_project.state.saved_files then
-                        if mc:rotate_and_resize_all() then
+                        if mc:pre_filters_all() then
                         else
                             print(" Error: alguna de las imágenes no pudo ser rotada")
                             return false
@@ -3264,8 +3269,17 @@ function dc:main(
         else
             delaymode_line = ""
         end
-
-        zoom_line = zoom_line .. delaymode_line
+        local prefilters_line = ""; local prefilters_list = ""; local sep = ""
+        for prefilter, value in pairs( current_project.settings.prefilters ) do
+            prefilters_list = prefilters_list .. sep .. prefilter
+            sep = ','
+        end
+        if prefilters_list == "" then
+            prefilters_line = ""
+        else
+            prefilters_line = " Filtros: " .. prefilters_list
+        end
+        zoom_line = zoom_line .. delaymode_line .. prefilters_line
 
         print( regnum_line.." "..string.rep(" ", 65 - string.len(regnum_line))
               ..string.rep(" ", 12 - string.len(iconline_f))..iconline_t
@@ -3907,6 +3921,44 @@ function dc:main(
             end
         elseif key == "dir" then
             open_file_browser(current_project.session.base_path)
+        elseif key:sub(0,9) == "prefiltro" then
+            local words = {}
+            for w in string.gmatch(key, "[^%s]+") do 
+                table.insert(words, w)
+            end
+            if words[2] == "" or words[2] == nil then
+                local prefilters_info = ""
+                for prefilter, value in pairs( current_project.settings.prefilters ) do
+                    prefilters_info = prefilter .. '=' .. value['single'] .. " " .. prefilters_info
+                end
+                loopmsg = " " .. prefilters_info
+            elseif words[2] == 'borrar' then
+                current_project.settings.prefilters = {}
+                loopmsg = ' Prefiltros borrados!'
+            else
+                if words[3] == "" or words[3] == nil then
+                   if current_project.settings.prefilters[words[2]] then
+                      loopmsg = " Valor actual: " .. current_project.settings.prefilters[words[2]]['single']
+                   end
+                else
+                   if words[2] == 'contrast' or 
+                       words[2] == 'brightness' or 
+                       words[2] == 'lightness' or
+                       words[2] == 'gamma' then
+                            current_project.settings.prefilters[words[2]] = {
+                               odd = words[3], 
+                               even = words[3], 
+                               single = words[3]
+                            }
+                        loopmsg = ' Agregado prefiltro: "' .. words[2] .. '", con el valor: "' .. words[3] .. '"'
+                   else
+                        loopmsg = ' Prefiltro desconocido! "' .. words[2] .. '"'
+                   end
+                end
+            end
+            if not current_project:write() then
+               print(" ERROR\n    no se pudo guardar el proyecto actual.")
+            end
         elseif key == "modificar titulo" or key == "modificar título" then
             local status, new_title = modify_title(current_project.settings.title)
             if status == true then
