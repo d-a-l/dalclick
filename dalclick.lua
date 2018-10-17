@@ -1485,10 +1485,15 @@ function mc:capt_all_test_and_preview()
                 else
                      portrait = false
                 end
+                local prefilters_param = ""
+                for prefilter, value in pairs( current_project.settings.prefilters ) do
+                    prefilters_param = prefilters_param .. " --" .. prefilter .. " " .. value[idname]
+                end
                 local command =
                     "econvert"
                   .." -i "..command_paths[idname].src_path
                   ..( current_project.settings.rotate and " --rotate "..current_project.state.rotate[idname] or "")
+                  .. prefilters_param
                   .." -o "..command_paths[idname].high_path
                   .." --thumbnail "..( current_project.settings.rotate and "0.125" or "0.167")
                   .." -o "..command_paths[idname].low_path
