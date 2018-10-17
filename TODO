@@ -1,0 +1,16 @@
+== prefiltros ==
+- crear una interfaz grafica en español para prefiltros econvert 
+  y dejar 'prefiltro <param> <val>' para uso avanzado
+- implementar filtros en el postproceso - definir filtro 
+  previamente en dalclick y en pp mostrar seleccion antes de las opciones 
+  scantailor y  pedir confirmacion
+- sc abrir no deberia crear nuevo documento scantailor si hay
+  definidos filtros y no existe la carpeta de filtros realizados
+- evaluar si agregamos 'filtros' como parametro a pp: 
+    'pp filtros scantailor ocr pdf' 
+  para, por ejemplo, ejecutar solo los filtros
+
+== desarrollo para rebel ==
+
+- probar python gphoto kivy para un controlador especial solo de captura,
+  luego se continua en dalclick con las capturas hechas
