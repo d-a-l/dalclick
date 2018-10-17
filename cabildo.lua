@@ -546,7 +546,7 @@ function cabildo:gui_shoot_download_and_preproc(cams,param)
              .." --thumbnail "..( portrait and "0.125" or "0.167")
              .." -o "..param.device[idname].thumbpath_dir.."/"..param.device[idname].dest_filemame
              .." > /dev/null 2>&1"
-            printf(" ["..idname.."] "..(param.rotate and "rotando y " or "").."generando vista previa ("..param.device[idname].dest_filemame..")...") 
+            printf(" ["..idname.."] "..(param.prefilters and "prefiltro / " or "")..(param.rotate and "rotado / " or "").."vista previa ("..param.device[idname].dest_filemame..")...") 
             if not os.execute(command) then
                print("ERROR")
                print("    falló: '"..command.."'")
