@@ -271,7 +271,7 @@ function cabildo:gui(cams) -- projec, cams
          build_param_fail = false
          param.device = {}
          param.rotate_angle = {}
-         param.prefilter = current_project.settings.prefilters
+         param.prefilters = current_project.settings.prefilters
          if current_project.settings.mode == 'secure' then param.delay = 8 end
          if current_project.settings.mode == 'normal' then param.delay = 4 end
          if current_project.settings.mode == 'fast' then param.delay = 2 end
@@ -539,12 +539,15 @@ function cabildo:gui_shoot_download_and_preproc(cams,param)
             iup.LoopStep()
             command_fail = false
             local prefilters_param = ""
-            for prefilter, value in pairs( param.prefilters ) do
-                prefilters_param = prefilters_param .. " --" .. prefilter .. " " .. value[idname]
+            if type(param.prefilters) == 'table' then
+                for prefilter, value in pairs( param.prefilters ) do
+                    prefilters_param = prefilters_param .. " --" .. prefilter .. " " .. value[idname]
+                end
             end
             local command = 
                "econvert -i "..param.device[idname].dest_dir..param.device[idname].dest_filemame
              ..( param.rotate and " --rotate "..param.device[idname].rotate_angle or "")
+             .. prefilters_param
              .." -o "..param.device[idname].dest_preproc_dir..param.device[idname].dest_filemame
              .." --thumbnail "..( portrait and "0.125" or "0.167")
              .." -o "..param.device[idname].thumbpath_dir.."/"..param.device[idname].dest_filemame
