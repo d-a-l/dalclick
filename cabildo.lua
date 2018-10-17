@@ -271,6 +271,7 @@ function cabildo:gui(cams) -- projec, cams
          build_param_fail = false
          param.device = {}
          param.rotate_angle = {}
+         param.prefilter = current_project.settings.prefilters
          for i, idname in pairs(ids) do
             local file_name_we = string.format("%04d", current_project.state.counter[idname])
             -- param.control_paths[idname].remote_path = -- del saved files anterior o nada
@@ -534,6 +535,10 @@ function cabildo:gui_shoot_download_and_preproc(cams,param)
             pbdlg.title = "generando thumbnails ["..paths.basename.."]"
             iup.LoopStep()
             command_fail = false
+            local prefilters_param = ""
+            for prefilter, value in pairs( param.prefilters ) do
+                prefilters_param = prefilters_param .. " --" .. prefilter .. " " .. value[idname]
+            end
             local command = 
                "econvert -i "..param.device[idname].dest_dir..param.device[idname].dest_filemame
              ..( param.rotate and " --rotate "..param.device[idname].rotate_angle or "")
