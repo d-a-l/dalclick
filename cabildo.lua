@@ -272,6 +272,9 @@ function cabildo:gui(cams) -- projec, cams
          param.device = {}
          param.rotate_angle = {}
          param.prefilter = current_project.settings.prefilters
+         if current_project.settings.mode == 'secure' then param.delay = 8
+         if current_project.settings.mode == 'normal' then param.delay = 4
+         if current_project.settings.mode == 'fast' then param.delay = 2
          for i, idname in pairs(ids) do
             local file_name_we = string.format("%04d", current_project.state.counter[idname])
             -- param.control_paths[idname].remote_path = -- del saved files anterior o nada
