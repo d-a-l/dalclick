@@ -51,6 +51,7 @@ dcutls = require('dcutls')
 local rsalt = require('rsalt')
 current_project = require('project')
 local cabildo = require('cabildo')
+local prefiltros = require('prefiltros')
 
 local defaults={
     -- qm_sendcmd_path = "/opt/src/dalclick/qm/qm_sendcmd.sh",
@@ -3937,6 +3938,8 @@ function dc:main(
                     prefilters_info = prefilter .. '=' .. value['single'] .. " " .. prefilters_info
                 end
                 loopmsg = " " .. prefilters_info
+            elseif words[2] == "config" then
+                prefiltros:gui()
             elseif words[2] == 'borrar' then
                 current_project.settings.prefilters = {}
                 loopmsg = ' Prefiltros borrados!'
