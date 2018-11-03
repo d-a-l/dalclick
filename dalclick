@@ -19,9 +19,9 @@ SCANTAILOR_PATH="/opt/src/scantailor-enhanced/scantailor"
 PDFBEADS_PATH="/opt/src/pdfbeads-kopi/bin/pdfbeads"
 [[ -f "$PDFBEADS_PATH" ]] || PDFBEADS_PATH=""
 
-cd /opt/src/chdkptp
+# cd /opt/src/chdkptp
 
-export LUA_PATH="./lua/?.lua;../$DALCLICK_SCRIPTS_DIRNAME/?.lua"
+export LUA_PATH="./lua/?.lua;../$DALCLICK_SCRIPTS_DIRNAME/?.lua;"
 
 gsettings set org.gnome.desktop.media-handling automount "false"
 gsettings set org.gnome.desktop.media-handling automount-open "false"
@@ -56,7 +56,17 @@ fi
 while
 true # Loop forever
 do
-    ./chdkptp -e"exec dc=require('dalclick')" -e"exec return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', '$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$PDFBEADS_PATH', '$PDFBEADS_QUALITY', '$NOC_MODE', '$DELAY_MODE')" 2> $DALCLICK_HOME/lua_errors
+    lua -e "\
+chdk = {}
+chdku = {}
+function chdk.list_usb_devices() return {} end
+chdku.rlibs = {}
+function chdku.rlibs:register() return false end
+printf = function(s,...) return io.write(s:format(...)) end
+lfs = require('lfs')
+util = require('libs.util')
+dc = require('dalclick')
+return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', '$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$PDFBEADS_PATH', '$PDFBEADS_QUALITY', '$NOC_MODE', '$DELAY_MODE')" 2> $DALCLICK_HOME/lua_errors
     cat "$DALCLICK_HOME/lua_errors"
     LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )
     if [[ $LUA_ERRORS != "" ]]
