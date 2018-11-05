@@ -128,7 +128,7 @@ end
 
 util.extend_table_max_depth = 10
 local extend_table_r
-extend_table_r = function(target,source,seen,depth) 
+extend_table_r = function(target,source,seen,depth)
 	if not seen then
 		seen = {}
 	end
@@ -157,7 +157,7 @@ extend_table_r = function(target,source,seen,depth)
 	return target
 end
 
---[[ 
+--[[
 copy members of source into target
 by default, not deep so any tables will be copied as references
 returns target so you can do x=extend_table({},...)
@@ -177,7 +177,7 @@ function util.extend_table(target,source,opts)
 	if source == nil then -- easier handling of default options
 		return target
 	end
-	if type(source) ~= 'table' then 
+	if type(source) ~= 'table' then
 		error('extend_table: source not table')
 	end
 	if source == target then
@@ -474,7 +474,7 @@ function util.flag_table(t)
 end
 
 --[[
-return a (sub)table value with path indicated by arrray, e.g. 
+return a (sub)table value with path indicated by arrray, e.g.
 table_path_get(t,'a','b','c') returns t.a.b.c
 missing subtables in path return nil, like a missing value
 ]]
@@ -539,7 +539,7 @@ function util.string_split(str,pat,opts)
 	},opts)
 	local r = {}
 	local pos = opts.start
-	local s,e 
+	local s,e
 	if not opts.func then
 		opts.func = function(v)
 			if string.len(v) > 0 or opts.empty then
@@ -622,7 +622,7 @@ function util.hexdump_words(str,offset,fmt)
 	end
 	local lb = lbuf.new(str)
 	local s = ''
-	for i=0,string.len(str)-4,4 do 
+	for i=0,string.len(str)-4,4 do
 		if i%16 == 0 then
 			if i > 1 then
 				s = s .. '\n'
@@ -637,7 +637,7 @@ end
 local serialize_r
 serialize_r = function(v,opts,r,seen,depth)
 	local vt = type(v)
-	if vt == 'nil' or  vt == 'boolean' then 
+	if vt == 'nil' or  vt == 'boolean' then
 		table.insert(r,tostring(v))
 		return
 	end
@@ -655,7 +655,7 @@ serialize_r = function(v,opts,r,seen,depth)
 	end
 	if vt == 'string' then
 		table.insert(r,string.format('%q',v))
-		return 
+		return
 	end
 	if vt == 'table' then
 		if not depth then
@@ -666,12 +666,12 @@ serialize_r = function(v,opts,r,seen,depth)
 		end
 		if not seen then
 			seen={}
-		elseif seen[v] then 
+		elseif seen[v] then
 			if opts.err_cycle then
 				error('serialize: cycle')
 			else
 				table.insert(r,'"cycle:'..tostring(v)..'"')
-				return 
+				return
 			end
 		end
 		-- TODO this is restrictive, t={}, t2={t,t} will be treated as cycle

@@ -93,8 +93,8 @@ end
 
 function project:write()
     -- save existing project
-    local state = util.serialize(self.state)
-    local settings = util.serialize(self.settings)
+    local state = util2.serialize(self.state)
+    local settings = util2.serialize(self.settings)
 
     if dcutls.localfs:create_file(self.session.base_path.."/.dc_state", state) and dcutls.localfs:create_file(self.session.base_path.."/.dc_settings", settings) then
         -- print(" '"..self.session.regnum.."' guardado")
@@ -224,7 +224,7 @@ function project:create( options )
         local settings_path = self.session.base_path.."/.dc_settings"
 
         -- serialize table to save
-        local content = util.serialize(self.settings)
+        local content = util2.serialize(self.settings)
 
         -- create dir tree
         if not self.mkdir_tree(self.dalclick, self.session, self.paths) then
@@ -385,7 +385,7 @@ function project:load(settings_path, opts)
                end
             end
 
-            self.settings = util.unserialize(content)
+            self.settings = util2.unserialize(content)
             local status, log = self:check_settings()
             if not status then
                 print(" Reparado Settings")
@@ -1163,7 +1163,7 @@ function project:init_state( options )
 end
 
 function project:save_state()
-    local content = util.serialize(self.state)
+    local content = util2.serialize(self.state)
     if dcutls.localfs:create_file(self.session.base_path.."/.dc_state", content) then
         return true
     else
@@ -1174,7 +1174,7 @@ end
 function project:load_version()
     local content = dcutls.localfs:read_file(self.session.base_path.."/.dc_version")
     if content then
-        self.version = tonumber( util.unserialize(content) )
+        self.version = tonumber( util2.unserialize(content) )
     else
         -- aca metodos para deducir versiones antiguas
         self.version = 20180000
@@ -1183,7 +1183,7 @@ function project:load_version()
 end
 
 function project:save_version()
-   local content = util.serialize(self.version)
+   local content = util2.serialize(self.version)
    local version_file = self.session.base_path.."/.dc_version"
    if dcutls.localfs:create_file( version_file, content ) then
       return true
@@ -1206,7 +1206,8 @@ function project:update_version()
    local migration_script = self.dalclick.dalclick_pwdir.."/migrations/"..self.version
    if dcutls.localfs:file_exists(migration_script) then
       local exit_status = os.execute( migration_script.." '"..self.session.base_path.."'" ) --" > /dev/null 2>&1 &"
-      if exit_status == 0 then
+      -- atencion, si el script devuelve '0' (exito) en lua 5.1 exit_status es '0' y en lua 5.2 'true'
+      if exit_status then
           local prev_version = self.version
           self.version = self.dalclick.dalclick_project_version
           local msg = " Versión actualizada con éxito de '"
@@ -1241,11 +1242,11 @@ function project:update_version_log( new_version_data )
    if dcutls.localfs:file_exists( version_log_file ) then
       local content = dcutls.localfs:read_file( version_log_file )
       if content then
-         version_log = util.unserialize(content)
+         version_log = util2.unserialize(content)
       end
    end
    table.insert(version_log, new_version_data)
-   local content = util.serialize(version_log)
+   local content = util2.serialize(version_log)
    if dcutls.localfs:create_file( version_log_file, content ) then
       return true
    else
@@ -1256,7 +1257,7 @@ end
 function project:load_state()
     local content = dcutls.localfs:read_file(self.session.base_path.."/.dc_state")
     if content then
-        self.state = util.unserialize(content)
+        self.state = util2.unserialize(content)
         return true
     else
         return false
@@ -1269,7 +1270,7 @@ function project:load_state_secure()
     if not content then
         return false
     else
-        state = util.unserialize(content)
+        state = util2.unserialize(content)
         if type(state) ~= 'table' then
             return false
         else

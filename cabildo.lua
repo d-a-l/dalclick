@@ -52,7 +52,7 @@ function cabildo:gui(cams) -- projec, cams
     elseif max_min_status == nil then
            button_prev_init_active = "NO"
            button_next_init_active = "NO"
-    else 
+    else
       -- error
         print("error: max_min_status == '"..tostring(max_min_status).."'")
         return false
@@ -90,76 +90,76 @@ function cabildo:gui(cams) -- projec, cams
     end
     -- left.cnv:action(); right.cnv:action()
     -------
-       
+
     gbtn.gbtn_prev = iup.button {
-        image = "IUP_ArrowLeft", 
-        flat = "Yes", 
+        image = "IUP_ArrowLeft",
+        flat = "Yes",
         action = function() end,
-        canfocus="No", 
+        canfocus="No",
         tip = "Previous",
         padding = '5x5',
         active = button_prev_init_active
     }
-        
+
     gbtn.gbtn_next = iup.button{
-        image = "IUP_ArrowRight", 
-        flat = "Yes", 
-        action = function() end,  
-        canfocus="No", 
+        image = "IUP_ArrowRight",
+        flat = "Yes",
+        action = function() end,
+        canfocus="No",
         tip = "Next",
         padding = '5x5',
         active = button_next_init_active
     }
-    
+
     -- gbtn.gbtn_go = iup.button{
     --     title = "Ir",
-    --     flat = "No", 
+    --     flat = "No",
     --     padding = "15x2",
-    --     action = function()  end,  
-    --     canfocus="No", 
+    --     action = function()  end,
+    --     canfocus="No",
     --     tip = "",
     -- }
 
     -- gbtn.gbtn_cancel = iup.button{
     --     title = "Cancelar",
-    --     flat = "No", 
+    --     flat = "No",
     --     padding = "15x2",
-    --     canfocus="No", 
+    --     canfocus="No",
     --     tip = "Cancelar",
     --}
-    
+
     gbtn.gbtn_shoot = iup.button {
         image = "IUP_MediaRecord",
-        flat = "No", 
+        flat = "No",
         padding = "15x2",
         canfocus="No",
         padding = '5x5',
         tip = "Capturar",
         active = button_shoot_init_active
     }
-    
+
     gbtn.gbtn_shoot_overw = iup.button {
         image = "IUP_NavigateRefresh",
-        flat = "No", 
+        flat = "No",
         padding = "15x2",
-        canfocus="No", 
+        canfocus="No",
         padding = '5x5',
         tip = "Capturar sobreescribiendo",
     }
-    
+
     -- print("DEBUG: odd "..tostring(p.state.counter.odd)..".."..tostring(p.session.counter_max.odd))
     -- print("DEBUG: even "..tostring(p.state.counter.even)..".."..tostring(p.session.counter_max.even))
 
     -------
     local viewers, labelbar
     if noc_mode == 'odd-even' then
-       viewers = iup.hbox{ 
+       viewers = iup.hbox{
            vcanv.even.cnv,
-           vcanv.odd.cnv 
+           vcanv.odd.cnv
        }
 
-       labelbar = iup.hbox{ 
-           vcanv.even.label, 
+       labelbar = iup.hbox{
+           vcanv.even.label,
            iup.fill {
                expand="HORIZONTAL"
            },
@@ -168,18 +168,18 @@ function cabildo:gui(cams) -- projec, cams
            -- gap = 2,
        }
     else
-       viewers = iup.hbox{ 
+       viewers = iup.hbox{
            vcanv.single.cnv
        }
 
-       labelbar = iup.hbox{ 
+       labelbar = iup.hbox{
            vcanv.single.label
        }
     end
 
 
     local bottombar = iup.hbox{
-        btn_previous, 
+        btn_previous,
         iup.fill {
             expand="HORIZONTAL"
         },
@@ -187,9 +187,9 @@ function cabildo:gui(cams) -- projec, cams
         margin = "10x10",
         gap = 2,
     }
-    
+
     --
-    
+
     local gcenter_buttons = iup.hbox{
         -- gbtn.gbtn_go,
         -- gbtn.gbtn_cancel,
@@ -197,9 +197,9 @@ function cabildo:gui(cams) -- projec, cams
         gbtn.gbtn_shoot,
         gbtn.gbtn_shoot_overw,
     }
-    
+
     local bottombar_guest = iup.hbox{
-        gbtn.gbtn_prev, 
+        gbtn.gbtn_prev,
         iup.fill {
             expand="HORIZONTAL"
         },
@@ -222,7 +222,7 @@ function cabildo:gui(cams) -- projec, cams
        local counter_updated, counter_status = current_project:counter_prev( 0 )
        if counter_updated then
            local previews, filenames = cabildo:make_preview(ids)
-           gbtn:gbtn_action_callback(counter_status, previews, filenames) 
+           gbtn:gbtn_action_callback(counter_status, previews, filenames)
        end
     end
 
@@ -231,7 +231,7 @@ function cabildo:gui(cams) -- projec, cams
 
        if counter_updated then
            local previews, filenames = cabildo:make_preview(ids)
-           gbtn:gbtn_action_callback(counter_status, previews, filenames) 
+           gbtn:gbtn_action_callback(counter_status, previews, filenames)
        end
     end
 
@@ -242,8 +242,8 @@ function cabildo:gui(cams) -- projec, cams
       if type(cams) == 'table' and next(cams) then
          --continue
          print("·cams ="..tostring(cams))
-      else 
-         return false 
+      else
+         return false
       end
 
       local ok_to_shoot = false
@@ -303,7 +303,7 @@ function cabildo:gui(cams) -- projec, cams
          if (not build_param_fail) and cabildo:gui_shoot_download_and_preproc(cams, param) then
             current_project.session.counter_max = current_project.state.counter
             local previews, filenames = cabildo:make_preview(ids)
-            gbtn:gbtn_action_callback('last', previews, filenames) 
+            gbtn:gbtn_action_callback('last', previews, filenames)
          else
             -- no hubo exito
             if back_counter_if_fail == true then
@@ -314,8 +314,8 @@ function cabildo:gui(cams) -- projec, cams
     end
 
     -- -- -- --
-    
-    local dlg    
+
+    local dlg
 
     dlg = iup.dialog{
         iup.vbox{
@@ -356,7 +356,7 @@ function cabildo:gui(cams) -- projec, cams
        end
     end
 
-    local function destroy_dialog() 
+    local function destroy_dialog()
         -- print(" cerrando  ...")
        for i, obj in pairs(vcanv) do
            obj.image:Destroy()
@@ -365,9 +365,9 @@ function cabildo:gui(cams) -- projec, cams
        iup.ExitLoop() -- should be removed if used inside a bigger application
        dlg:destroy()
     end
-    
 
-    -- function gbtn.gbtn_go:action() 
+
+    -- function gbtn.gbtn_go:action()
     --    set_counter()
     --    destroy_dialog()
     --    return iup.IGNORE -- because we destroy the dialog
@@ -405,7 +405,7 @@ function cabildo:gui(cams) -- projec, cams
           vcanv[idname].label.title = filenames[idname]
        -- gbtn_go.tip = "Go to "..filenames.even.." | "..filenames.odd
        end
-       
+
        if counter_status == "last" then
            gbtn.gbtn_next.active = "NO"
            gbtn.gbtn_prev.active = "YES"
@@ -451,7 +451,7 @@ end
 function cabildo:gui_shoot_download_and_preproc(cams,param)
 	--require "iuplua"
 
-   local dc_multicam = require('dc_multicam')
+   local dc_multicam = require('dev.chdkptp.gui_multicam')
 
 	local flags = {}
 	local gaugeProgress
@@ -516,7 +516,7 @@ function cabildo:gui_shoot_download_and_preproc(cams,param)
          iup.LoopStep()
          local tmppath = paths.basepath..paths.basename
          local permpath = param.device[idname].dest_dir..paths.basename
-         
+
          if os.rename(tmppath, permpath) then
              print(" ["..idname.."] moviendo '"..tostring(paths.basename).."' desde carpeta temporal..OK")
          else
@@ -544,7 +544,7 @@ function cabildo:gui_shoot_download_and_preproc(cams,param)
                     prefilters_param = prefilters_param .. " --" .. prefilter .. " " .. value[idname]
                 end
             end
-            local command = 
+            local command =
                "econvert -i "..param.device[idname].dest_dir..param.device[idname].dest_filemame
              ..( param.rotate and " --rotate "..param.device[idname].rotate_angle or "")
              .. prefilters_param
@@ -552,7 +552,7 @@ function cabildo:gui_shoot_download_and_preproc(cams,param)
              .." --thumbnail "..( portrait and "0.125" or "0.167")
              .." -o "..param.device[idname].thumbpath_dir.."/"..param.device[idname].dest_filemame
              .." > /dev/null 2>&1"
-            printf(" ["..idname.."] "..(param.prefilters and "prefiltro / " or "")..(param.rotate and "rotado / " or "").."vista previa ("..param.device[idname].dest_filemame..")...") 
+            printf(" ["..idname.."] "..(param.prefilters and "prefiltro / " or "")..(param.rotate and "rotado / " or "").."vista previa ("..param.device[idname].dest_filemame..")...")
             if not os.execute(command) then
                print("ERROR")
                print("    falló: '"..command.."'")
@@ -567,7 +567,7 @@ function cabildo:gui_shoot_download_and_preproc(cams,param)
    end
    gaugeProgress.value = 1.0; pbdlg.title = "listo"
    iup.LoopStep()
-   sys.sleep(100)
+   os.execute("sleep 0.1")
    -- distinguish canceled from finished by inspecting the flag
    print("canceled:", flags.cancelflag)
     --iup.ExitLoop() -- should be removed if used insgaugeProgress.value = 1.0; pbdlg.title = "listo"ide a bigger application

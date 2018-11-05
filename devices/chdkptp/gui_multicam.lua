@@ -34,10 +34,10 @@ function dc_multicam:shoot_and_download_all(progress, flags, cams, param, dlg)
 	-- 		basepath = ...la ruta al directorio donde se guardo la imagen
 	-- 		basename = ...el nombre del archivo
 	-- 		remote_path = ...la ruta remota del archivo en la camara
-	-- 
+	--
 	-- result.download_fail = string or nil
 	--	  idname de la camara que fallo en una descarga
-	-- result.cam_fail = string or nil 
+	-- result.cam_fail = string or nil
 	--	  idname de la camara que fallo o tuvo el problema
 	-- result.remote_path_fail = string or nil
 	--	  path remoto que se detecto ya descargado
@@ -62,7 +62,7 @@ function dc_multicam:shoot_and_download_all(progress, flags, cams, param, dlg)
 		if type(param.device) == 'table' and next(param.device) then
 			for i,lcon in ipairs(cams) do
 			   if param.device[lcon.idname] then
-                   check_param = true				
+                   check_param = true
 			   end
 			end
 		end
@@ -99,14 +99,14 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
 	progress.value = 0.2; dlg.title = "esperando "..tostring(delay).." seg..."
 	iup.LoopStep()
 	if flags.cancelflag then result.status = 999; return result end
-    
+
     local progr = 0.2
     local incr = 0.3 / (delay*10)
     for n=0, delay*10, 1 do
         sys.sleep(100)
         --print(".")
         progr = progr + incr
-		progress.value = progr 
+		progress.value = progr
 		iup.LoopStep()
 		if flags.cancelflag then result.status = 999; return result end
 
@@ -151,7 +151,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
                     end
                 end
             end
-            lastcapt = lastname 
+            lastcapt = lastname
         end
     end
 
@@ -180,7 +180,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
             end
         else
             print()
-            print(" ATENCION: no se puedo obtener el nombre de la última captura") 
+            print(" ATENCION: no se puedo obtener el nombre de la última captura")
             print(" Vuelva a intentarlo...")
             print(" Si el problema persiste pruebe en modo 'seguro' ó 'normal'.")
             print()
@@ -203,7 +203,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
 	iup.LoopStep()
 	if flags.cancelflag then result.status = 999; return result end
 
-   
+
     local download_fail = false
     result.successful = {}
     for i,lcon in ipairs(cams) do
@@ -274,4 +274,3 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
 end
 
 return dc_multicam
-
