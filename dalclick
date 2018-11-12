@@ -55,41 +55,55 @@ else
     DALCLICK_MODE=""
 fi
 
-while
-true # Loop forever
-do
-    lua -e "\
+CHDKPTP_LIBS="
+   require('chdkptp')
+   require('lbuf')
+   require('rawimg')
+   --
+   util = require('util')
+   util:import()
+   ustime = require('ustime')
+   fsutil = require('fsutil')
+   prefs = require('prefs')
+   varsubst = require('varsubst')
+   chdku = require('chdku')
+   cli = require('cli')
+   exp = require('exposure')
+   dng = require('dng')
+   dngcli = require('dngcli')
+"
+
+CHDKPTP_FAKE="
+   chdk = {}
+   chdku = {}
+   function chdk.list_usb_devices() return {} end
+   chdku.rlibs = {}
+   function chdku.rlibs:register() return true end
+   lfs = require('lfs')
+"
+
+if [[ "$LOAD_FAKE_CHDKPTP" != "" ]]
+ then
+    CHDKPTP_LIBS="$CHDKPTP_FAKE"
+fi
+
+echo "CHDKPTP_LIBS: $CHDKPTP_LIBS"
+
+LUA_SCRIPT="\
 require('lfs')
 require('io')
 require('os')
 --
-require('chdkptp')
+"$CHDKPTP_LIBS"
 --
-require('lbuf')
-require('rawimg')
---
-util=require('util')
-util:import()
-ustime=require('ustime')
-fsutil=require('fsutil')
-prefs=require('prefs')
-varsubst=require('varsubst')
-chdku=require('chdku')
-cli=require('cli')
-exp=require('exposure')
-dng=require('dng')
-dngcli=require('dngcli')
---
--- chdk = {}
--- chdku = {}
--- function chdk.list_usb_devices() return {} end
--- chdku.rlibs = {}
--- function chdku.rlibs:register() return false end
 printf = function(s,...) return io.write(s:format(...)) end
--- lfs = require('lfs')
 util2 = require('libs.util2')
-dc = require('dalclick')
-return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', '$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$PDFBEADS_PATH', '$PDFBEADS_QUALITY', '$NOC_MODE', '$DELAY_MODE')" 2> $DALCLICK_HOME/lua_errors
+dc = require('dalclick') dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', '$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$PDFBEADS_PATH', '$PDFBEADS_QUALITY', '$NOC_MODE', '$DELAY_MODE')"
+
+while
+true # Loop forever
+do
+    lua -e "$LUA_SCRIPT" 2> $DALCLICK_HOME/lua_errors
     cat "$DALCLICK_HOME/lua_errors"
     LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )
     if [[ $LUA_ERRORS != "" ]]

@@ -13,3 +13,6 @@ PDF_VIEWER='/usr/bin/evince'
 # 'single', una cámara para estativo plano
 NOC_MODE='odd-even'
 # PDFBEADS_QUALITY="50" # (1...100), el valor por defecto de pdfbeads es 50
+
+# chdkptp crash kernel on my notebook, quick and dirty solution:
+# LOAD_FAKE_CHDKPTP="Yes"
