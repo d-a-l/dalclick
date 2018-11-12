@@ -67,4 +67,5 @@ fi
 # futuras migraciones posteriores aqui
 # ./XXXXXXXXXnext_migration_script "$PROJECT_PATH" || exit 1
 
+echo "debug: script devolviendo '0'"
 exit 0
