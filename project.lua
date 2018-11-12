@@ -50,6 +50,8 @@ function project:init(globalconf)
     self.settings.rotate = nil
     self.settings.mode = self.settings_default.mode
     self.settings.last_noc_mode = nil
+    self.settings.scpf = {}
+
     --
     self.state.counter = {}
     self.state.zoom_pos = nil
@@ -267,6 +269,12 @@ function project:check_settings(opts)
     if type(self.settings.prefilters) ~= 'table' then
         self.settings.prefilters = {}
         log = " * settings prefilters estaba sin definir\n"
+        status = false
+    end
+
+    if type(self.settings.scpf) ~= 'table' then
+        self.settings.scpf = {}
+        log = " * settings scpf estaba sin definir\n"
         status = false
     end
 

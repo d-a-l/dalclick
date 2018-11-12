@@ -15,13 +15,13 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-]]
+--]]
 
 --[[
     DISCLAIMER:
     - I'm not developer
     - not know much about OO
-]]
+--]]
 
 --[[
 = enable disable automount in gnome desktop
@@ -44,7 +44,7 @@ export LUA_PATH="./lua/?.lua;../dalclick/?.lua"
 
 gnome-terminal -e /opt/src/dalclick/dalclick
 
-]]
+--]]
 
 
 dcutls = require('dcutls')
@@ -3927,19 +3927,22 @@ function dc:main(
             end
         elseif key == "dir" then
             open_file_browser(current_project.session.base_path)
+        elseif key == "scpf" then
+            table.insert(current_project.settings.scpf, "econvert -i {{infile}} --crop 50 50 50 50 -o {{outfile}}")
         elseif key:sub(0,9) == "prefiltro" then
             local words = {}
-            for w in string.gmatch(key, "[^%s]+") do 
+            for w in string.gmatch(key, "[^%s]+") do
                 table.insert(words, w)
             end
             if words[2] == "" or words[2] == nil then
-                local prefilters_info = ""
-                for prefilter, value in pairs( current_project.settings.prefilters ) do
-                    prefilters_info = prefilter .. '=' .. value['single'] .. " " .. prefilters_info
-                end
-                loopmsg = " " .. prefilters_info
-            elseif words[2] == "config" then
-                prefiltros:gui()
+               local result, msg = prefiltros:gui()
+               if msg then loopmsg = msg end
+            elseif words[2] == "list" then
+               local prefilters_info = ""
+               for prefilter, value in pairs( current_project.settings.prefilters ) do
+                   prefilters_info = prefilter .. '=' .. value['single'] .. " " .. prefilters_info
+               end
+               loopmsg = " " .. prefilters_info
             elseif words[2] == 'borrar' then
                 current_project.settings.prefilters = {}
                 loopmsg = ' Prefiltros borrados!'
@@ -3949,13 +3952,13 @@ function dc:main(
                       loopmsg = " Valor actual: " .. current_project.settings.prefilters[words[2]]['single']
                    end
                 else
-                   if words[2] == 'contrast' or 
-                       words[2] == 'brightness' or 
+                   if words[2] == 'contrast' or
+                       words[2] == 'brightness' or
                        words[2] == 'lightness' or
                        words[2] == 'gamma' then
                             current_project.settings.prefilters[words[2]] = {
-                               odd = words[3], 
-                               even = words[3], 
+                               odd = words[3],
+                               even = words[3],
                                single = words[3]
                             }
                         loopmsg = ' Agregado prefiltro: "' .. words[2] .. '", con el valor: "' .. words[3] .. '"'

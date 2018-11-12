@@ -20,6 +20,7 @@ INTERACTIVE='Yes'
 POST_ACTIONS_ENABLED='No'
 PDFBEADS_LAYOUT=''
 PDFBEADS_QUALITY=''
+PRESCFILTER_CMDS=''
 
 # --- default select options
 
@@ -127,6 +128,8 @@ while [ $# -ne 0 ]
         noc-mode=*)
             NOCMODE="${arg#*=}"
             ;;
+        presc-filter=*)
+            PRESCFILTER_CMDS="${arg#*=}"
         quiet)
             INTERACTIVE='No'
             PARAM='pdfbeads-force'
@@ -824,6 +827,7 @@ $INCLUDE \
 $PROFILE \
 debug \
 pretty-format \
+'presc_filter=$PRESCFILTER_CMDS' \
 && \
 $POST_ACTIONS_SCRIPT \
 'project=$PROJECT_PATH' \
@@ -850,6 +854,7 @@ $PARAM \
 $INCLUDE \
 $PROFILE \
 debug pretty-format \
+'presc_filter=$PRESCFILTER_CMDS' \
 #$PROJECT_PATH $INCLUDE_LIST @$PPP"
 }
 
@@ -866,7 +871,8 @@ $PARAM \
 $INCLUDE \
 $PROFILE \
 debug \
-pretty-format
+pretty-format \
+'presc_filter=$PRESCFILTER_CMDS'
 
 }
 
