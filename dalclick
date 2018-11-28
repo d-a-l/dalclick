@@ -13,13 +13,29 @@ UTILS=""
 [[ -f "$FILE_BROWSER" ]] || FILE_BROWSER=""
 [[ -f "$PDF_VIEWER" ]] || PDF_VIEWER=""
 
+# Default components paths
 SCANTAILOR_PATH="/opt/src/scantailor-enhanced/scantailor"
-[[ -f "$SCANTAILOR_PATH" ]] || SCANTAILOR_PATH=""
-
 PDFBEADS_PATH="/opt/src/pdfbeads-kopi/bin/pdfbeads"
-[[ -f "$PDFBEADS_PATH" ]] || PDFBEADS_PATH=""
+CHDKPTP_PATH="/opt/src/chdkptp"
 
-cd /opt/src/chdkptp
+if [[ -f COMPONENTS ]]; then
+. COMPONENTS
+fi
+
+[[ -f "$SCANTAILOR_PATH" ]] || { 
+  echo "Scantailor no instalado, continuar? Y/n"
+  read tecla
+  if [[ "$tecla" =~ "n"|"N" ]]; then exit 0; fi 
+  SCANTAILOR_PATH="" 
+}
+[[ -f "$PDFBEADS_PATH" ]] || { 
+  echo "Pdfbeads no instalado, continuar? Y/n"
+  read tecla
+  if [[ "$tecla" =~ "n"|"N" ]]; then exit 0; fi 
+  PDFBEADS_PATH=""
+}
+
+cd "$CHDKPTP_PATH" || { echo "ERROR: No existe '$CHDKPTP_PATH'"; exit 1; }
 
 export LUA_PATH="./lua/?.lua;../$DALCLICK_SCRIPTS_DIRNAME/?.lua"
 

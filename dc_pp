@@ -237,6 +237,11 @@ fi
 # echo -n " Checkeando scripts de procesamiento"
 
 PROFILE_PROCESSOR="/opt/src/fcen-tesis/fcen-postprocessing/scripts/profile-processor"
+
+if [[ -f "$PWDIR/COMPONENTS" ]]; then
+  . "$PWDIR/COMPONENTS"
+fi
+
 [[ -f "$PROFILE_PROCESSOR" ]] || { echo "profile-processor FILE NOT FOUND"; exit 1;}
 
 SEND_CMD="$PWDIR/ppm/ppm_sendcmd.sh"

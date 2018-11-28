@@ -1,0 +1,8 @@
+# Components paths
+
+SCANTAILOR_PATH="/opt/src/scantailor-enhanced/scantailor"
+PDFBEADS_PATH="/opt/src/pdfbeads-kopi/bin/pdfbeads"
+CHDKPTP_PATH="/opt/src/chdkptp"
+
+#SE_BIN="${SCANTAILOR_PATH}-cli" #Scantailor enhanced exec path
+#PB_BIN="$PDFBEADS_PATH" #Pdfbeads enhanced
