@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 DALCLICK_SCRIPTS_DIR="$(dirname "$0")"
 cd "$DALCLICK_SCRIPTS_DIR"
 PWDIR="$(pwd -P)"
@@ -39,8 +38,23 @@ cd "$CHDKPTP_PATH" || { echo "ERROR: No existe '$CHDKPTP_PATH'"; exit 1; }
 
 export LUA_PATH="./lua/?.lua;../$DALCLICK_SCRIPTS_DIRNAME/?.lua"
 
-gsettings set org.gnome.desktop.media-handling automount "false"
-gsettings set org.gnome.desktop.media-handling automount-open "false"
+# check conflicting services
+echo "$PWDIR"/block_conflicting_services
+"$PWDIR"/block_conflicting_services 'block' && BLOCK="OK" || BLOCK="Error"
+
+[[ "$BLOCK" == "Error" ]] && {
+  echo "gPhoto2:"
+  ps aux | pgrep -l gphoto2
+  echo "Media Transfer Protocol:"
+  ps aux | pgrep -l mtp
+  echo ""
+  echo "Hubo problemas al intentar suspender 'Gphoto2' y 'Media Transfer Protocol'"
+  echo "Estos servicios interfieren con Dalclick y pueden provocar que el"
+  echo "enlace USB con las cámaras no funcione o no funcione correctamente,"
+  echo "continuar de todas formas? Y/n"
+  read tecla
+  if [[ "$tecla" =~ "n"|"N" ]]; then exit 0; fi 
+}
 
 echo
 echo "Main paths:"
@@ -89,5 +103,9 @@ do
     fi
 done
 
-gsettings set org.gnome.desktop.media-handling automount "true"
-gsettings set org.gnome.desktop.media-handling automount-open "true"
+"$PWDIR"/block_conflicting_services 'unblock' && UNBLOCK="OK" || UNBLOCK="Error"
+[[ "$UNBLOCK" == "Error" ]] && {
+  echo "Atención: Hubo problemas al intentar reactivar 'Gphoto2' y 'Media Transfer Protocol',"
+  echo "al salir de Dalclick."
+}
+

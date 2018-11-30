@@ -1,0 +1,109 @@
+#!/bin/bash
+
+ARCH="$(uname -m)" # x86_64 i386 (i686?)
+DESKTOP_ENVIRONMENT=$(echo "$XDG_DATA_DIRS" | grep -Eo 'xfce|kde|gnome')
+OSNAME=`lsb_release -is`
+CODENM=`lsb_release -cs`
+RELEASN=`lsb_release -rs`
+# echo $DESKTOP_SESSION gnome-flashback-metacity
+
+function stop_and_mask_systemd_service() {
+   SERVICE="$1"
+   [[ "$SERVICE" == "" ]] && { echo "Error! mask_systemd_service()"; exit 1; }
+
+   echo "Comprobando si '$SERVICE' se está ejecutando:"
+	if ps aux | pgrep -f $SERVICE; then
+		echo "Deteniendo ejecución de '$SERVICE'"
+		systemctl --user stop $SERVICE.service || return 1
+      echo "Verificando que '$SERVICE' se detuvo:"
+		if ps aux | pgrep -f $SERVICE; then
+			echo "No se pudo detener la ejecución de '$SERVICE'"
+			return 1
+		else
+		   echo "OK"
+		fi
+	else
+	  	echo "'$SERVICE' no se está ejecutando"
+	fi
+   
+  	if [[ -L "$HOME/.config/systemd/user/$SERVICE.service" ]]; then
+  	   TARGET=$(readlink "$HOME/.config/systemd/user/$SERVICE.service")
+  	   if [ "$TARGET" == '/dev/null' ]; then
+   		echo "'$SERVICE' ya esta bloqueado"
+      else
+      	echo "Bloqueando reinicio de '$SERVICE' (!)"
+			systemctl --user mask $SERVICE.service || return 1
+      fi		
+   else
+   	echo "Bloqueando reinicio de $SERVICE"
+		systemctl --user mask $SERVICE.service || return 1
+  	fi
+  	return 0
+}
+	  	  #systemctl --user disable gvfs-mtp-volume-monitor.service 
+	  	  #systemctl --user disable gvfs-mtp-volume-monitor.service 
+
+
+function block() {
+	# block gnome gphoto2/mtp that have conflicts with chdkptp
+	BLOCKED="OK"
+	
+	if [ "$OSNAME" == "Ubuntu" ] && 
+		[[ "$RELEASN" =~ '16.04'|'18.04' ]] &&
+		[[ "$DESKTOP_ENVIRONMENT" == "gnome"  ]]; then
+	
+   	echo "Suspendiendo gnome media automount de '$DESKTOP_ENVIRONMENT', en $OSNAME $RELEASN"   
+		gsettings set org.gnome.desktop.media-handling automount "false" || BLOCKED="Error"
+		gsettings set org.gnome.desktop.media-handling automount-open "false" || BLOCKED="Error"
+	
+		stop_and_mask_systemd_service "gvfs-gphoto2-volume-monitor" || BLOCKED="Error"
+		stop_and_mask_systemd_service "gvfs-mtp-volume-monitor" || BLOCKED="Error"
+	fi
+	
+	if [ "$OSNAME" == "Debian" ] && 
+		[[ "$RELEASN" == '7.11' ]]; then
+		[[ "$DESKTOP_ENVIRONMENT" == "gnome"  ]] && {
+		   echo "Suspendiendo gnome media automount de '$DESKTOP_ENVIRONMENT', en $OSNAME $RELEASN"   
+		   gsettings set org.gnome.desktop.media-handling automount "false" || BLOCKED="Error"
+		   gsettings set org.gnome.desktop.media-handling automount-open "false" || BLOCKED="Error"
+		}
+	fi
+	[[ "$BLOCKED" == "OK" ]] && return 0 || return 1
+}
+
+function unblock() {
+   UNBLOCKED="OK"
+	if [ "$OSNAME" == "Ubuntu" ] && 
+	   [[ "$RELEASN" =~ '16.04'|'18.04' ]] &&
+	   [[ "$DESKTOP_ENVIRONMENT" == "gnome"  ]]; then
+	      echo "Activando servicios gphoto2 y mtp en '$DESKTOP_ENVIRONMENT', en $OSNAME $RELEASN"
+	   	systemctl --user unmask gvfs-gphoto2-volume-monitor.service || UNBLOCKED="Error"
+			systemctl --user unmask gvfs-mtp-volume-monitor.service || UNBLOCKED="Error"
+			systemctl --user start gvfs-gphoto2-volume-monitor.service || UNBLOCKED="Error"
+			systemctl --user start gvfs-mtp-volume-monitor.service  || UNBLOCKED="Error"
+	
+	      echo "Activando media automount en '$DESKTOP_ENVIRONMENT', en $OSNAME $RELEASN"
+			gsettings set org.gnome.desktop.media-handling automount "true"  || UNBLOCKED="Error"
+			gsettings set org.gnome.desktop.media-handling automount-open "true"  || UNBLOCKED="Error"
+	fi	
+	if [ "$OSNAME" == "Debian" ] && 
+	   [[ "$RELEASN" == '7.11' ]]; then
+	   [[ "$DESKTOP_ENVIRONMENT" == "gnome"  ]] && {
+	      echo "Activando media automount en '$DESKTOP_ENVIRONMENT', en $OSNAME $RELEASN"
+	      gsettings set org.gnome.desktop.media-handling automount "true" || UNBLOCKED="Error"
+	      gsettings set org.gnome.desktop.media-handling automount-open "true" || UNBLOCKED="Error"
+	   }
+	fi
+	[[ "$UNBLOCKED" == "OK" ]] && return 0 || return 1
+}
+
+# ---------------------------------------------------------
+
+if [ "$1" == "block" ]; then
+	block && exit 0 || exit 1
+elif [ "$1" == "unblock" ]; then
+   unblock && exit 0 || exit 1
+else
+   echo "debug: se llamó a block_conflicting_services sin argumentos"
+   exit 0
+fi
