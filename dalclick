@@ -34,9 +34,10 @@ fi
   PDFBEADS_PATH=""
 }
 
+echo "chdkptp_path=$CHDKPTP_PATH"
 cd "$CHDKPTP_PATH" || { echo "ERROR: No existe '$CHDKPTP_PATH'"; exit 1; }
 
-export LUA_PATH="./lua/?.lua;../$DALCLICK_SCRIPTS_DIRNAME/?.lua"
+export LUA_PATH="./lua/?.lua;$PWDIR/?.lua"
 
 # check conflicting services
 echo "$PWDIR"/block_conflicting_services

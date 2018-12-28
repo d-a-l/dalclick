@@ -94,7 +94,7 @@ press('shoot_full_only'); sleep(100); release('shoot_full')
         sys.sleep(100)
     end
 
-    local delay = param.delay or 4
+    local delay = param.delay or 2
 
 	progress.value = 0.2; dlg.title = "esperando "..tostring(delay).." seg..."
 	iup.LoopStep()

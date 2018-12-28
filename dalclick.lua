@@ -1120,8 +1120,9 @@ function mc:check_sdcams_options()
     -- local key = io.stdin:read'*l'
 
     local empty = true
+    local menu = ""
     if current_project.session.noc_mode == 'odd-even' then
-       local menu = [[
+       menu = [[
  ====================================================================
  ATENCION: Se recomienda borrar todas las imágenes contenidas en las
  tarjetas SD de las cámaras antes de comenzar.
@@ -1134,7 +1135,7 @@ function mc:check_sdcams_options()
 
 ]]
     else -- current_project.session.noc_mode == 'single'
-       local menu = [[
+       menu = [[
  ====================================================================
  ATENCION: Se recomienda borrar todas las imágenes contenidas en la
  tarjeta SD de la cámara antes de comenzar.
@@ -2874,7 +2875,7 @@ function dc:main(
         defaults.dalclick_pwdir = DALCLICK_PWDIR
         print(" * dalclick pwdir: '"..tostring(defaults.dalclick_pwdir).."'")
     else
-        defaults.dalclick_pwdir = '/opt/src/dalclick'
+        defaults.dalclick_pwdir = '/opt/bibliohack/dalclick'
     end
 
     if FILE_BROWSER ~= "" then

@@ -1,7 +1,7 @@
 # descomente DALCLICK_HOME sólo si desea cambiar el valor por defecto
 # DALCLICK_HOME="$HOME/.dalclick"
 
-DALCLICK_PROJECTS="$HOME/Dalclick-Projects"
+DALCLICK_PROJECTS="/bib/aysa"
 ROTATE_ODD_DEFAULT="90"
 ROTATE_EVEN_DEFAULT="-90"
 ROTATE_SINGLE_DEFAULT="180"
