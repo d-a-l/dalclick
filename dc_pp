@@ -20,6 +20,12 @@ INTERACTIVE='Yes'
 POST_ACTIONS_ENABLED='No'
 PDFBEADS_LAYOUT=''
 PDFBEADS_QUALITY=''
+DALCLICK_PWDIR_PATH=''
+FCEN_TESIS_DIR='/opt/src/fcen-dir'
+
+if [[ -f COMPONENTS ]]; then
+. COMPONENTS
+fi
 
 # --- default select options
 
@@ -52,7 +58,7 @@ while [ $# -ne 0 ]
   do
     arg="$1"
     case "$arg" in
-        project=*)
+         project=*)
             PROJECT_PATH="${arg#*=}"
             PROJECT_PATH="${PROJECT_PATH%/}" #remove last slash if any
             ;;
@@ -236,7 +242,7 @@ fi
 # echo ""
 # echo -n " Checkeando scripts de procesamiento"
 
-PROFILE_PROCESSOR="/opt/src/fcen-tesis/fcen-postprocessing/scripts/profile-processor"
+PROFILE_PROCESSOR="${FCEN_TESIS_DIR}/fcen-postprocessing/scripts/profile-processor"
 
 if [[ -f "$PWDIR/COMPONENTS" ]]; then
   . "$PWDIR/COMPONENTS"
