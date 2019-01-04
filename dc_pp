@@ -242,13 +242,13 @@ fi
 # echo ""
 # echo -n " Checkeando scripts de procesamiento"
 
-PROFILE_PROCESSOR="${FCEN_TESIS_DIR}/fcen-postprocessing/scripts/profile-processor"
-
 if [[ -f "$PWDIR/COMPONENTS" ]]; then
   . "$PWDIR/COMPONENTS"
 fi
 
-[[ -f "$PROFILE_PROCESSOR" ]] || { echo "profile-processor FILE NOT FOUND"; exit 1;}
+PROFILE_PROCESSOR="${FCEN_TESIS_DIR}/fcen-postprocessing/scripts/profile-processor"
+
+[[ -f "$PROFILE_PROCESSOR" ]] || { echo "profile-processor '$PROFILE_PROCESSOR' FILE NOT FOUND"; exit 1;}
 
 SEND_CMD="$PWDIR/ppm/ppm_sendcmd.sh"
 [[ -f "$SEND_CMD" ]] || { echo "ppm_sendcmd.sh FILE NOT FOUND"; exit 1;}
