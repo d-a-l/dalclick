@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ARCH="$(uname -m)" # x86_64 i386 (i686?)
-DESKTOP_ENVIRONMENT=$(echo "$XDG_DATA_DIRS" | grep -Eo 'xfce|kde|gnome')
+DESKTOP_ENVIRONMENT=$(echo "$XDG_DATA_DIRS" | grep -Eo 'xfce|kde|gnome') # No funciona en el desktop por defecto de ubuntu bionic!!
 OSNAME=`lsb_release -is`
 CODENM=`lsb_release -cs`
 RELEASN=`lsb_release -rs`
@@ -46,13 +46,14 @@ function stop_and_mask_systemd_service() {
 
 function block() {
 	# block gnome gphoto2/mtp that have conflicts with chdkptp
-	BLOCKED="OK"
+	BLOCKED=""
 	
 	if [ "$OSNAME" == "Ubuntu" ] && 
-		[[ "$RELEASN" =~ '16.04'|'18.04' ]] &&
-		[[ "$DESKTOP_ENVIRONMENT" == "gnome"  ]]; then
+		[[ "$RELEASN" =~ '18.04' ]]; then
+		# [[ "$DESKTOP_ENVIRONMENT" == "gnome"  ]]; then
 	
    	echo "Suspendiendo gnome media automount de '$DESKTOP_ENVIRONMENT', en $OSNAME $RELEASN"   
+		BLOCKED="OK"
 		gsettings set org.gnome.desktop.media-handling automount "false" || BLOCKED="Error"
 		gsettings set org.gnome.desktop.media-handling automount-open "false" || BLOCKED="Error"
 	
@@ -64,6 +65,7 @@ function block() {
 		[[ "$RELEASN" == '7.11' ]]; then
 		[[ "$DESKTOP_ENVIRONMENT" == "gnome"  ]] && {
 		   echo "Suspendiendo gnome media automount de '$DESKTOP_ENVIRONMENT', en $OSNAME $RELEASN"   
+		   BLOCKED="OK"
 		   gsettings set org.gnome.desktop.media-handling automount "false" || BLOCKED="Error"
 		   gsettings set org.gnome.desktop.media-handling automount-open "false" || BLOCKED="Error"
 		}
@@ -72,10 +74,11 @@ function block() {
 }
 
 function unblock() {
-   UNBLOCKED="OK"
+   UNBLOCKED=""
 	if [ "$OSNAME" == "Ubuntu" ] && 
-	   [[ "$RELEASN" =~ '16.04'|'18.04' ]] &&
-	   [[ "$DESKTOP_ENVIRONMENT" == "gnome"  ]]; then
+	   [[ "$RELEASN" =~ '18.04' ]]; then 
+	   # [[ "$DESKTOP_ENVIRONMENT" == "gnome"  ]]; then
+	UNBLOCKED="OK"
 	      echo "Activando servicios gphoto2 y mtp en '$DESKTOP_ENVIRONMENT', en $OSNAME $RELEASN"
 	   	systemctl --user unmask gvfs-gphoto2-volume-monitor.service || UNBLOCKED="Error"
 			systemctl --user unmask gvfs-mtp-volume-monitor.service || UNBLOCKED="Error"
@@ -89,6 +92,7 @@ function unblock() {
 	if [ "$OSNAME" == "Debian" ] && 
 	   [[ "$RELEASN" == '7.11' ]]; then
 	   [[ "$DESKTOP_ENVIRONMENT" == "gnome"  ]] && {
+	UNBLOCKED="OK"
 	      echo "Activando media automount en '$DESKTOP_ENVIRONMENT', en $OSNAME $RELEASN"
 	      gsettings set org.gnome.desktop.media-handling automount "true" || UNBLOCKED="Error"
 	      gsettings set org.gnome.desktop.media-handling automount-open "true" || UNBLOCKED="Error"
