@@ -1,6 +1,7 @@
 # Components paths
 
 SCANTAILOR_PATH="/opt/src/scantailor-enhanced/scantailor"
+SCANTAILOR_ADV_PATH="/opt/src/scantailor-advanced/scantailor"
 PDFBEADS_PATH="/opt/src/pdfbeads-kopi/bin/pdfbeads"
 CHDKPTP_PATH="/opt/src/chdkptp"
 FCEN_TESIS_DIR="/opt/src/fcen-tesis"

@@ -21,16 +21,16 @@ if [[ -f COMPONENTS ]]; then
 . COMPONENTS
 fi
 
-[[ -f "$SCANTAILOR_PATH" ]] || { 
+[[ -f "$SCANTAILOR_PATH" ]] || {
   echo "Scantailor no instalado, continuar? Y/n"
   read tecla
-  if [[ "$tecla" =~ "n"|"N" ]]; then exit 0; fi 
-  SCANTAILOR_PATH="" 
+  if [[ "$tecla" =~ "n"|"N" ]]; then exit 0; fi
+  SCANTAILOR_PATH=""
 }
-[[ -f "$PDFBEADS_PATH" ]] || { 
+[[ -f "$PDFBEADS_PATH" ]] || {
   echo "Pdfbeads no instalado, continuar? Y/n"
   read tecla
-  if [[ "$tecla" =~ "n"|"N" ]]; then exit 0; fi 
+  if [[ "$tecla" =~ "n"|"N" ]]; then exit 0; fi
   PDFBEADS_PATH=""
 }
 
@@ -53,7 +53,7 @@ echo "$PWDIR"/block_conflicting_services
   echo "enlace USB con las cámaras no funcione o no funcione correctamente,"
   echo "continuar de todas formas? Y/n"
   read tecla
-  if [[ "$tecla" =~ "n"|"N" ]]; then exit 0; fi 
+  if [[ "$tecla" =~ "n"|"N" ]]; then exit 0; fi
 }
 
 echo
@@ -86,7 +86,7 @@ fi
 while
 true # Loop forever
 do
-    ./chdkptp -e"exec dc=require('dalclick')" -e"exec return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', '$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$PDFBEADS_PATH', '$PDFBEADS_QUALITY', '$NOC_MODE', '$DELAY_MODE')" 2> $DALCLICK_HOME/lua_errors
+    ./chdkptp -e"exec dc=require('dalclick')" -e"exec return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', '$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$SCANTAILOR_ADV_PATH', '$PDFBEADS_PATH', '$PDFBEADS_QUALITY', '$NOC_MODE', '$DELAY_MODE')" 2> $DALCLICK_HOME/lua_errors
     cat "$DALCLICK_HOME/lua_errors"
     LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )
     if [[ $LUA_ERRORS != "" ]]
@@ -108,4 +108,3 @@ done
   echo "Atención: Hubo problemas al intentar reactivar 'Gphoto2' y 'Media Transfer Protocol',"
   echo "al salir de Dalclick."
 }
-

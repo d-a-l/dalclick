@@ -2230,6 +2230,17 @@ local function open_scantailor_gui(path_to_scproject)
   end
 end
 
+local function open_scantailor_adv_gui(path_to_scproject)
+  if defaults.scantailor_adv_available then
+     if type(path_to_scproject) == 'string'
+        and dcutls.localfs:file_exists( path_to_scproject ) then
+        os.execute(defaults.scantailor_adv_path.." "..path_to_scproject.." &") --" > /dev/null 2>&1 &"
+     end
+  else
+     open_scantailor_gui(path_to_scproject)
+  end
+end
+
 local function parse_pp_args(items)
     if items == nil or items == '' then return true, '+all', ' Acciones seleccionadas: postprocesado completo' end
 
@@ -2850,6 +2861,7 @@ function dc:main(
     FILE_BROWSER,
     PDF_VIEWER,
     SCANTAILOR_PATH,
+    SCANTAILOR_ADV_PATH,
     PDFBEADS_PATH,
     PDFBEADS_QUALITY,
     NOC_MODE,
@@ -2893,6 +2905,12 @@ function dc:main(
        defaults.scantailor_available = true
        print(" * Scantailor available")
        defaults.scantailor_path = SCANTAILOR_PATH
+    end
+
+    if SCANTAILOR_ADV_PATH ~= "" then
+       defaults.scantailor_adv_available = true
+       print(" * Scantailor Advance available")
+       defaults.scantailor_adv_path = SCANTAILOR_ADV_PATH
     end
 
     if PDFBEADS_PATH ~= "" then
@@ -3982,46 +4000,45 @@ function dc:main(
             else
                 loopmsg = " Ha ocurrido un error inesperado."
             end
-        elseif key == "scr abrir" or key == "sc abrir" then -- abre sc si existe, de lo contrario lo crea (include)
+        elseif key == "sc abrir" or key == "sc"
+            or key == "scantailor abrir" or key == "scantailor"
+            then -- abre sc si existe, de lo contrario lo crea (include)
             local status, strlist, suffix = current_project:get_include_strings()
-            if key == "scr abrir" and not status then
-                loopmsg = " Debe seleccionar un rango de páginas primero para seleccionar esta opción."
+            suffix = suffix or ""
+            local sct_name = current_project.dalclick.doc_filebase..suffix..".scantailor"
+            local sct_path = current_project.session.base_path.."/"..current_project.paths.post_dir.."/"..current_project.session.ppp.."/"..sct_name
+            if dcutls.localfs:file_exists( sct_path ) then
+               print(" abriendo.. '"..sct_path.."'")
+               if key == "scantailor abrir" or key == "scantailor" then
+                  open_scantailor_adv_gui( sct_path )
+               else
+                  open_scantailor_gui( sct_path )
+               end
             else
-                if key == "sc abrir" then suffix = nil; strlist = nil; end
-                suffix = suffix or ""
-                local sct_name = current_project.dalclick.doc_filebase..suffix..".scantailor"
-                local sct_path = current_project.session.base_path.."/"..current_project.paths.post_dir.."/"..current_project.session.ppp.."/"..sct_name
-                if dcutls.localfs:file_exists( sct_path ) then
-                   print(" abriendo.. '"..sct_path.."'")
-                   open_scantailor_gui( sct_path )
-                else
-                    local this_thing = strlist and "este rango seleccionado!" or "este proyecto!"
-                    print()
-                    print(" No existe un proyecto Scantailor para "..this_thing)
-                    print("'"..sct_name.."'")
-                    print()
-                    print(" Importante! a continuación se creará un nuevo proyecto Scantailor para ser")
-                    print(" configurado manualmente desde la interfaz gráfica. Pero si desea que la con-")
-                    print(" figuración se lleve a cabo automáticamente y dejar para la operación manual")
-                    print(" sólo los ajustes y corrección de errores (recomendado), entonces responda no")
-                    print(" y luego use [pp scantailor].")
-                    print()
-                    print(" Crear proyecto nuevo '"..sct_name.."' [S/n]")
-                    local crear = io.stdin:read'*l'
-                    if crear == "S" or crear == "s" then
-                        local include = strlist and true or false
-                        if current_project:send_post_proc_actions({
-                                scantailor_create_project = true,
-                                include_list              = include,
-                                noc_mode = current_project.session.noc_mode,
-                            }) then
-                            print(" abriendo.. '"..sct_path.."'")
-                            open_scantailor_gui( sct_path )
-                        else
-                            loopmsg = " No pudo crearse un nuevo proyecto Scantailor '"..tostring(sct_path).."'."
-                        end
-                    end
-                end
+               local this_thing = strlist and "este rango seleccionado!" or "este proyecto!"
+               print()
+               print(" No existe un proyecto Scantailor para "..this_thing)
+               print("'"..sct_name.."'")
+               print()
+               print(" ¿Crear proyecto nuevo '"..sct_name.."'? [S/n]")
+               local crear = io.stdin:read'*l'
+               if crear == "S" or crear == "s" then
+                  local include = strlist and true or false
+                  if current_project:send_post_proc_actions({
+                          scantailor_create_project = true,
+                          include_list              = include,
+                          noc_mode = current_project.session.noc_mode,
+                      }) then
+                      print(" abriendo.. '"..sct_path.."'")
+                      if key == "scantailor abrir" or key == "scantailor" then
+                         open_scantailor_adv_gui( sct_path )
+                      else
+                         open_scantailor_gui( sct_path )
+                      end
+                  else
+                      loopmsg = " No pudo crearse un nuevo proyecto Scantailor '"..tostring(sct_path).."'."
+                  end
+               end
             end
         elseif key == "sc borrar" then
             local status, sc_filename, result, msg = current_project:list_scantailors_and_select()
@@ -4041,13 +4058,17 @@ function dc:main(
             else
                 loopmsg = " Ha ocurrido un error inesperado."
             end
-        elseif key == "sc listar" then
+        elseif key == "sc listar" or key == "scantailor listar" then
             local status, sc_filename, result, msg = current_project:list_scantailors_and_select()
             if status == true then
                 local stproject_path = current_project.session.base_path.."/"..current_project.paths.post_dir.."/"..current_project.session.ppp.."/"..sc_filename
                 if dcutls.localfs:file_exists( stproject_path ) then
                    print(" abriendo.. '"..stproject_path.."'")
-                   open_scantailor_gui( stproject_path )
+                   if key == "scantailor listar" then
+                      open_scantailor_adv_gui( stproject_path )
+                   else
+                      open_scantailor_gui( stproject_path )
+                   end
                 end
             elseif status == nil then
                 loopmsg = " "..tostring(msg)
@@ -4057,7 +4078,7 @@ function dc:main(
                     print()
                     print(" Todavía no ha ejecutado ningun paso del postproceso que haya generado")
                     print(" un archivo Scantailor. Puede crear uno con:")
-                    print(" - 'pp scantailor'")
+                    print(" - 'sc abrir' ó 'scantailor abrir'")
                     print()
                     print(" Presione <enter> para continuar...")
                     local key = io.stdin:read'*l'
