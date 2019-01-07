@@ -51,6 +51,7 @@ dcutls = require('dcutls')
 local rsalt = require('rsalt')
 current_project = require('project')
 local cabildo = require('cabildo')
+local sc_utils = require('scantailor_utils')
 
 local defaults={
     -- qm_sendcmd_path = "/opt/src/dalclick/qm/qm_sendcmd.sh",
@@ -3078,6 +3079,7 @@ function dc:main(
 
  Opciones Scantailor
   [sc abrir]     abrir en scantailor (edicion manual)
+  [scantailor]   abrir con scantailor advanced
   [sc borrar]    borrar el proyecto scantailor
 
  Opciones Scantailor para rango de páginas
@@ -4009,7 +4011,8 @@ function dc:main(
             local sct_path = current_project.session.base_path.."/"..current_project.paths.post_dir.."/"..current_project.session.ppp.."/"..sct_name
             if dcutls.localfs:file_exists( sct_path ) then
                print(" abriendo.. '"..sct_path.."'")
-               if key == "scantailor abrir" or key == "scantailor" then
+               local result, msg, version = sc_utils:check_version(sct_path)
+               if version == "3" then
                   open_scantailor_adv_gui( sct_path )
                else
                   open_scantailor_gui( sct_path )
