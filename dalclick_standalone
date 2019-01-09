@@ -1,0 +1,120 @@
+#!/bin/bash
+
+DALCLICK_SCRIPTS_DIR="$(dirname "$0")"
+cd "$DALCLICK_SCRIPTS_DIR"
+PWDIR="$(pwd -P)"
+DALCLICK_SCRIPTS_DIRNAME="${PWDIR##*/}"
+MODE="$1"
+UTILS=""
+
+. get_config
+
+[[ -f "$FILE_BROWSER" ]] || FILE_BROWSER=""
+[[ -f "$PDF_VIEWER" ]] || PDF_VIEWER=""
+
+# Default components paths
+SCANTAILOR_PATH="/opt/src/scantailor-enhanced/scantailor"
+PDFBEADS_PATH="/opt/src/pdfbeads-kopi/bin/pdfbeads"
+CHDKPTP_PATH="/opt/src/chdkptp"
+
+if [[ -f COMPONENTS ]]; then
+. COMPONENTS
+fi
+
+[[ -f "$SCANTAILOR_PATH" ]] || {
+  echo "Scantailor no instalado, continuar? Y/n"
+  read tecla
+  if [[ "$tecla" =~ "n"|"N" ]]; then exit 0; fi
+  SCANTAILOR_PATH=""
+}
+[[ -f "$PDFBEADS_PATH" ]] || {
+  echo "Pdfbeads no instalado, continuar? Y/n"
+  read tecla
+  if [[ "$tecla" =~ "n"|"N" ]]; then exit 0; fi
+  PDFBEADS_PATH=""
+}
+
+# cd "$CHDKPTP_PATH" || { echo "ERROR: No existe '$CHDKPTP_PATH'"; exit 1; }
+
+export LUA_PATH="./lua/?.lua;$PWDIR/?.lua;$PWDIR/xmlutils/?.lua"
+
+# check conflicting services
+echo "$PWDIR"/block_conflicting_services
+"$PWDIR"/block_conflicting_services 'block' && BLOCK="OK" || BLOCK="Error"
+
+[[ "$BLOCK" == "Error" ]] && {
+  echo "gPhoto2:"
+  ps aux | pgrep -l gphoto2
+  echo "Media Transfer Protocol:"
+  ps aux | pgrep -l mtp
+  echo ""
+  echo "Hubo problemas al intentar suspender 'Gphoto2' y 'Media Transfer Protocol'"
+  echo "Estos servicios interfieren con Dalclick y pueden provocar que el"
+  echo "enlace USB con las cámaras no funcione o no funcione correctamente,"
+  echo "continuar de todas formas? Y/n"
+  read tecla
+  if [[ "$tecla" =~ "n"|"N" ]]; then exit 0; fi
+}
+
+echo
+echo "Main paths:"
+echo
+echo " Dalclick working folder: '$DALCLICK_HOME'"
+echo " Projects folder: '$DALCLICK_PROJECTS'"
+echo " Default rotate - odd: $ROTATE_ODD_DEFAULT"
+echo " Default rotate - even: $ROTATE_EVEN_DEFAULT"
+echo " Default rotate - single: $ROTATE_SINGLE_DEFAULT"
+echo
+
+[[ -d $DALCLICK_PROJECTS ]] || { echo "ERROR: la carpeta de proyectos '$DALCLICK_PROJECTS' no existe, revise la configuracion de directorios."; exit 0; }
+[[ -w $DALCLICK_PROJECTS ]] || { echo "ERROR: no tiene los permisos necesarios en '$DALCLICK_PROJECTS'."; exit 0; }
+
+LUA_ERRORS=""
+
+if [[ ! -e "$DALCLICK_HOME" ]]
+then
+    mkdir $DALCLICK_HOME
+fi
+
+if [[ "$MODE" != "" ]]
+then
+    DALCLICK_MODE="$MODE"
+else
+    DALCLICK_MODE=""
+fi
+
+while
+true # Loop forever
+do
+    lua -e"\
+chdk = {}
+chdku = {}
+function chdk.list_usb_devices() return {} end
+chdku.rlibs = {}
+function chdku.rlibs:register() return false end
+printf = function(s,...) return io.write(s:format(...)) end
+lfs = require('lfs')
+util = require('libs.util')
+dc = require('dalclick')
+return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', '$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$SCANTAILOR_ADV_PATH', '$PDFBEADS_PATH', '$PDFBEADS_QUALITY', '$NOC_MODE', '$DELAY_MODE')" 2> "$DALCLICK_HOME/lua_errors"
+    cat "$DALCLICK_HOME/lua_errors"
+    LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )
+    if [[ $LUA_ERRORS != "" ]]
+    then
+        echo
+        echo " Presione <enter> para salir."
+        echo -n " >>"
+        read tecla
+        break
+    fi
+    if [[ ! -e "$DALCLICK_HOME/loop" ]]
+    then
+        break
+    fi
+done
+
+"$PWDIR"/block_conflicting_services 'unblock' && UNBLOCK="OK" || UNBLOCK="Error"
+[[ "$UNBLOCK" == "Error" ]] && {
+  echo "Atención: Hubo problemas al intentar reactivar 'Gphoto2' y 'Media Transfer Protocol',"
+  echo "al salir de Dalclick."
+}
