@@ -4002,44 +4002,73 @@ function dc:main(
             else
                 loopmsg = " Ha ocurrido un error inesperado."
             end
-        elseif key == "sc abrir" or key == "sc"
-            or key == "scantailor abrir" or key == "scantailor"
-            then -- abre sc si existe, de lo contrario lo crea (include)
+        elseif key == "sc abrir" or key == "sc" or key == "advance" then
+            local extension = ".scantailor"
+            local scantailor_name = "Scantailor"
+            if key == "advance" and defaults.scantailor_adv_available then
+               extension = ".adv.ScanTailor"
+               scantailor_name = "Scantailor Advance"
+            end
             local status, strlist, suffix = current_project:get_include_strings()
             suffix = suffix or ""
-            local sct_name = current_project.dalclick.doc_filebase..suffix..".scantailor"
-            local sct_path = current_project.session.base_path.."/"..current_project.paths.post_dir.."/"..current_project.session.ppp.."/"..sct_name
+            local ppp_path = current_project.session.base_path.."/"..current_project.paths.post_dir.."/"..current_project.session.ppp
+            local ppp_processing_path = ppp_path.."/".."processing",
+            local sct_name = current_project.dalclick.doc_filebase..suffix..extension
+            local sct_path = ppp_path.."/"..sct_name
             if dcutls.localfs:file_exists( sct_path ) then
-               print(" abriendo.. '"..sct_path.."'")
-               local result, msg, version = sc_utils:check_version(sct_path)
-               if version == "3" then
+               print(" abriendo proyecto.. '"..sct_path.."' en " .. scantailor_name)
+               -- local result, msg, version = sc_utils:check_version(sct_path)
+               if key == "advance" and defaults.scantailor_adv_available then
                   open_scantailor_adv_gui( sct_path )
                else
                   open_scantailor_gui( sct_path )
                end
             else
-               local this_thing = strlist and "este rango seleccionado!" or "este proyecto!"
+               local this_thing = strlist and "para este rango seleccionado!" or ""
                print()
-               print(" No existe un proyecto Scantailor para "..this_thing)
+               print(" No existe un proyecto "..scantailor_name.." "..this_thing)
                print("'"..sct_name.."'")
                print()
-               print(" ¿Crear proyecto nuevo '"..sct_name.."'? [S/n]")
+               print(" ¿Crear proyecto nuevo de '"..scantailor_name.."'? [S/n]")
                local crear = io.stdin:read'*l'
                if crear == "S" or crear == "s" then
-                  local include = strlist and true or false
-                  if current_project:send_post_proc_actions({
-                          scantailor_create_project = true,
-                          include_list              = include,
-                          noc_mode = current_project.session.noc_mode,
-                      }) then
-                      print(" abriendo.. '"..sct_path.."'")
-                      if key == "scantailor abrir" or key == "scantailor" then
-                         open_scantailor_adv_gui( sct_path )
-                      else
-                         open_scantailor_gui( sct_path )
-                      end
-                  else
-                      loopmsg = " No pudo crearse un nuevo proyecto Scantailor '"..tostring(sct_path).."'."
+                  -- local include = strlist and true or false
+                  -- if current_project:send_post_proc_actions({
+                  --        scantailor_create_project = true,
+                  --        include_list              = include,
+                  --        noc_mode = current_project.session.noc_mode,
+                  --    }) then
+                  local continue = true
+                  if not dcutls.localfs:is_dir( ppp_path ) then
+                     if not dcutls.localfs:create_folder_quiet(ppp_path) then
+                        loopmsg = " Error: no se pudo crear el directorio '"..ppp_path.."'"
+                        continue = false
+                     end
+                  end
+                  if not dcutls.localfs:is_dir( ppp_processing_path ) then
+                     if not dcutls.localfs:create_folder_quiet(ppp_processing_path) then
+                        loopmsg = " Error: no se pudo crear el directorio '"..ppp_processing_path.."'"
+                        continue = false
+                     end
+                  end
+                  -- TODO crear symlinks en all!!!
+                  if continue then
+                     opts = {
+                        source_path = current_project.session.base_path.."/"..current_project.paths.pre.all.."'",
+                        out_path = ppp_processing_path,
+                        projectfile_path = sct_path
+                     }
+                     local result, msg = sc_utils:create_protoproject_and_save(opts)
+                     if result then
+                         print(" abriendo.. '"..sct_path.."'")
+                         if key == "advance" and defaults.scantailor_adv_available then
+                            open_scantailor_adv_gui( sct_path )
+                         else
+                            open_scantailor_gui( sct_path )
+                         end
+                     else
+                         loopmsg = " "..tostring(msg)
+                     end
                   end
                end
             end
