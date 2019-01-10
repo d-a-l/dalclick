@@ -17,7 +17,7 @@ end
 function dcutls.localfs:is_dir(path)
    local r = false
    if type(path) ~= 'string' then return nil end
-   local result,idntknw,code = os.execute("cd '" .. path .. "'")
+   local result,idntknw,code = os.execute("cd '" .. path .. "' 2> /dev/null")
    if type(result) == 'boolean' then -- lua 5.2
       if result == true then r = true end
    elseif type(result) == 'number' then -- lua 5.1
@@ -122,6 +122,76 @@ function dcutls.localfs:create_folder_quiet(path)
     else
         return nil
     end
+end
+
+function dcutls.localfs:scandir(opts)
+   local opts = opts or {}
+   if not opts.dir then return false, "Error: scandir: dir no recibido" end
+   if not opts.extension then opts.extension = {"(.+)"} end
+   if not opts.match then opts.match = "^(.+)" end
+   if not dcutls.localfs:is_dir( opts.dir ) then return false, "Error: scandir: '"..opts.dir.."' no es un directorio" end
+
+   local file_list = {}
+   local dot = "%."
+
+   for file in lfs.dir(opts.dir) do
+      if lfs.attributes( opts.dir.."/"..file, "mode") == "file" then
+         for _,extension in pairs( opts.extension ) do
+            if extension == "" then dot = "" end -- si se recibio un literal ""
+            if file:match(opts.match..dot..extension.."$") then
+               local file_obj = { name = file, abs_path = opts.dir..'/'..file }
+               table.insert( file_list, file_obj )
+            end
+         end
+      end
+   end
+
+   local sort_func = function( a,b ) return a.name < b.name end
+   table.sort( file_list, sort_func )
+   return true, "", file_list
+end
+
+function dcutls:get_relative_path(file_path, relative_from_this_dir)
+   if not file_path or not relative_from_this_dir then return false end
+
+   p1 = self:split_string_to_table(file_path, '/')
+   p2 = self:split_string_to_table(relative_from_this_dir, '/')
+
+   while true do
+      if p1[1] == p2[1] then
+         table.remove(p1, 1)
+         table.remove(p2, 1)
+      else
+         break
+      end
+   end
+
+   local relative_path_1 = ""
+   for k,v in pairs(p2) do
+     relative_path_1 = relative_path_1.."../"
+   end
+   if relative_path_1 == "" then
+      relative_path_1 = "./"
+   end
+   local relative_path_2 = ""
+   local sep = ""
+   for k,v in pairs(p1) do
+     relative_path_2 = relative_path_2..sep..v
+     sep = "/"
+   end
+   return relative_path_1 .. relative_path_2
+end
+
+function dcutls:split_string_to_table(inputstr, sep)
+   if sep == nil then
+      sep = "%s"
+   end
+   local t={} ; i=1
+   for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+      t[i] = str
+      i = i + 1
+   end
+   return t
 end
 
 function dcutls:init_queue(path)

@@ -1,72 +1,46 @@
 local dcutls = require('dcutls')
 require "lfs"
 require "imlua"
+dcutls = require('dcutls')
+
 local SLAXML = require('libs.xmlutils.slaxdom')
 
 local sc_utils = {}
 
-function split_string_to_table(inputstr, sep)
-   if sep == nil then
-      sep = "%s"
-   end
-   local t={} ; i=1
-   for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
-      t[i] = str
-      i = i + 1
-   end
-   return t
-end
-
-local function get_relative_path(file_path, relative_from_this_dir)
-   if not file_path or not relative_from_this_dir then return false end
-
-   p1 = split_string_to_table(file_path, '/')
-   p2 = split_string_to_table(relative_from_this_dir, '/')
-
-   while true do
-      if p1[1] == p2[1] then
-         table.remove(p1, 1)
-         table.remove(p2, 1)
-      else
-         break
-      end
-   end
-
-   local relative_path_1 = ""
-   for k,v in pairs(p2) do
-     relative_path_1 = relative_path_1.."../"
-   end
-   if relative_path_1 == "" then
-      relative_path_1 = "./"
-   end
-   local relative_path_2 = ""
-   local sep = ""
-   for k,v in pairs(p1) do
-     relative_path_2 = relative_path_2..sep..v
-     sep = "/"
-   end
-   return relative_path_1 .. relative_path_2
-end
-
 local function create_symlinks(opts)
    --[[
-      opts { source_paths = { "/path/to/jpegs/dir1", "/path/to/jpegs/dir2", etc }
-             all_path = "/path/to/all/dir",
+      opts { source_dirs = { "/path/to/jpegs/dir1", "/path/to/jpegs/dir2", etc }
+             symlinks_dir = "/path/to/all/dir",
              mode = "R"|"A" -- relativo o absoluto
-             match = "regexp" -- ej
+             match = "regexp" -- ej "^(%d%d%d%d)"
              extension = { 'jpg','tif', 'TIFF' ... etc } -- optional, default : {'jpg','JPG'}
           }
    --]]
+   local opts = opts or {}
+   if type(opts.source_dirs) ~= 'table' then return false, "Error: create_symlink: tabla source_dirs no recibida" end
+   if not opts.match then opts.match = "^(.+)" end
+   if not opts.symlinks_dir then
+      return false, "Error: create_symlink: symlinks_dir no recibido"
+   end
+   if not dcutls.localfs:is_dir( opts.symlinks_dir ) then
+      return false, "Error: create_symlink: '" .. opts.symlinks_dir .. "' no existe"
+   end
+   if not opts.extension then opts.extension = { "*" } end
+
    local file_list = {}
-   for _,path in pairs(source_paths) do
-      local list = scandir({dir=path, extension={'jpg', 'JPG'}, match="^(%d%d%d%d)" })
-      for k,v in ipairs(list) do table.insert(file_list, v) end
+   for _,dir in pairs(opts.source_dirs) do
+      local result, msg, list = dcutls.localfs:scandir({dir=dir, extension=opts.extension, match=opts.match })
+      if result then
+         for _,file_obj in pairs(list) do table.insert(file_list, file_obj) end
+      else
+         return false, msg
+      end
    end
 
    local path_list = {}
-   if mode == 'R' then
+   if opts.mode == 'R' then
       for _,file_obj in pairs(file_list) do
-         table.insert(path_list, get_relative_path( file_obj.abs_path, all_path ))
+         table.insert(path_list, dcutls:get_relative_path( file_obj.abs_path, opts.symlinks_dir ))
       end
    else
       for _,file_obj in pairs(file_list) do
@@ -74,36 +48,11 @@ local function create_symlinks(opts)
       end
    end
    for _,file_path in pairs(path_list) do
-      if not os.execute('ln -s "'..file_path..'" "'..all_path..'"') then
+      if not os.execute('ln -s "'..file_path..'" "'..opts.symlinks_dir..'"') then
          return false, "Error: create_symlink: en '"..file_path.."'"
       end
    end
    return true
-end
-
-local function scandir(opts)
-   local opts = opts or {}
-   if not opts.dir then return false, "Error: scandir: dir no recibido" end
-   if not opts.extension then opts.extension = {".*"} end
-   if not opts.match then opts.match = "^(.+)" end
-   if not dcutls.localfs:is_dir( opts.dir ) then return false, "Error: scandir: '"..opts.dir.."' no es un directorio" end
-
-   local file_list = {}
-
-   for file in lfs.dir(opts.dir) do
-      if lfs.attributes( opts.dir.."/"..file, "mode") == "file" then
-         for _,extension in pairs( opts.extension ) do
-            if file:match(opts.match.."%."..extension.."$") then
-               local file_obj = { name = file, abs_path = opts.dir..'/'..file }
-               table.insert( file_list, file_obj )
-            end
-         end
-      end
-   end
-
-   local sort_func = function( a,b ) return a.name < b.name end
-   table.sort( file_list, sort_func )
-   return true, "", file_list
 end
 
 local function get_img_size(path)
@@ -160,6 +109,20 @@ local function xml_select_elements_by_name(el, obj_name, R_param, r)
       end
    end
    return founds_list
+end
+
+function sc_utils:sc_create_symlinks(opts)
+   --[[
+      opts { source_dirs = { "/path/to/jpegs/dir1", "/path/to/jpegs/dir2", etc }
+             symlinks_dir = "/path/to/all/dir",
+          }
+   --]]
+   local opts = opts or {}
+   opts.mode = "R"
+   opts.match = "^(%d%d%d%d)"
+   opts.extension = { 'jpg','JPG' }
+   local result, msg = create_symlinks(opts)
+   return result, msg
 end
 
 function sc_utils:check_version(scantailor_project_path)
@@ -231,7 +194,7 @@ function sc_utils:create_protoproject(opts)
         return false, "Error: create_protoproject: '" .. opts.out_path .. "' no existe"
    end
 
-   local result, msg, list = scandir({ dir = opts.source_path, ext = opts.extension })
+   local result, msg, list = dcutls.localfs:scandir({ dir = opts.source_path, ext = opts.extension })
    if not result then return false, msg end
 
    local project =
@@ -255,7 +218,7 @@ function sc_utils:create_protoproject(opts)
                 attr =
                   {
                       { type = 'attribute', name = 'id', value = "1" },
-                      { type = 'attribute', name = 'path', value = opt.source_path }
+                      { type = 'attribute', name = 'path', value = opts.source_path }
                   }
               }
           }
@@ -377,5 +340,18 @@ end
 
 -- p1 = split_string_to_table(path1)
 -- p2 = split_string_to_table(path2)
+
+--[[
+opts = {
+      source_dirs = { "/mnt/diy_20/bib/damo/pre/odd", "/mnt/diy_20/bib/damo/pre/even" },
+      symlinks_dir = "/mnt/diy_20/bib/damo/pre/all",
+      mode = "R", -- relativo o absoluto
+      match = "^(%d%d%d%d)", -- ej
+      extension = { 'jpg','JPG' } -- optional, default : {'jpg','JPG'}
+    }
+local result, msg = create_symlinks(opts)
+print("result:", result)
+print("msg:", msg)
+--]]
 
 return sc_utils

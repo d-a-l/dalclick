@@ -4011,8 +4011,14 @@ function dc:main(
             end
             local status, strlist, suffix = current_project:get_include_strings()
             suffix = suffix or ""
+            local sct_symlinks_dir = current_project.session.base_path.."/"..current_project.paths.pre.all
+            if current_project.session.noc_mode == "odd-even" then
+               pre_dirs = { current_project.session.base_path.."/"..current_project.paths.pre.odd, current_project.session.base_path.."/"..current_project.paths.pre.even }
+            else
+               pre_dirs = { current_project.session.base_path.."/"..current_project.paths.pre.single }
+            end
             local ppp_path = current_project.session.base_path.."/"..current_project.paths.post_dir.."/"..current_project.session.ppp
-            local ppp_processing_path = ppp_path.."/".."processing",
+            local ppp_processing_path = ppp_path.."/".."processing"
             local sct_name = current_project.dalclick.doc_filebase..suffix..extension
             local sct_path = ppp_path.."/"..sct_name
             if dcutls.localfs:file_exists( sct_path ) then
@@ -4051,10 +4057,18 @@ function dc:main(
                         continue = false
                      end
                   end
-                  -- TODO crear symlinks en all!!!
+                  local opts = {
+                     source_dirs = pre_dirs,
+                     symlinks_dir = sct_symlinks_dir
+                  }
+                  local result, msg = sc_utils:sc_create_symlinks(opts)
+                  if not result then
+                     loopmsg = " Error: no se pudieron crear symlinks '"..sct_symlinks_dir.."'. "..tostring(msg)
+                     continue = false
+                  end
                   if continue then
-                     opts = {
-                        source_path = current_project.session.base_path.."/"..current_project.paths.pre.all.."'",
+                     local opts = {
+                        source_path = current_project.session.base_path.."/"..current_project.paths.pre.all,
                         out_path = ppp_processing_path,
                         projectfile_path = sct_path
                      }
