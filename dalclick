@@ -39,8 +39,10 @@ cd "$CHDKPTP_PATH" || { echo "ERROR: No existe '$CHDKPTP_PATH'"; exit 1; }
 export LUA_PATH="./lua/?.lua;$PWDIR/?.lua;"
 
 # check conflicting services
-echo "$PWDIR"/block_conflicting_services
-"$PWDIR"/block_conflicting_services 'block' && BLOCK="OK" || BLOCK="Error"
+if [[ "$NO_BLOCK_CONFLICTING_SERVICES" != "Yes" ]]; then
+  echo "$PWDIR"/block_conflicting_services
+  "$PWDIR"/block_conflicting_services 'block' && BLOCK="OK" || BLOCK="Error"
+fi
 
 [[ "$BLOCK" == "Error" ]] && {
   echo "gPhoto2:"
@@ -103,8 +105,10 @@ do
     fi
 done
 
-"$PWDIR"/block_conflicting_services 'unblock' && UNBLOCK="OK" || UNBLOCK="Error"
-[[ "$UNBLOCK" == "Error" ]] && {
-  echo "Atención: Hubo problemas al intentar reactivar 'Gphoto2' y 'Media Transfer Protocol',"
-  echo "al salir de Dalclick."
-}
+if [[ "$NO_BLOCK_CONFLICTING_SERVICES" != "Yes" ]]; then
+  "$PWDIR"/block_conflicting_services 'unblock' && UNBLOCK="OK" || UNBLOCK="Error"
+  [[ "$UNBLOCK" == "Error" ]] && {
+    echo "Atención: Hubo problemas al intentar reactivar 'Gphoto2' y 'Media Transfer Protocol',"
+    echo "al salir de Dalclick."
+ }
+fi
