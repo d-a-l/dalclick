@@ -1,4 +1,4 @@
-posix = require('posix')
+local posix = require('posix')
 
 -- standalone_sys: alternative 'sys' (fake) object to the chdkptp sys library
 
