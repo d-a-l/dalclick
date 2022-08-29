@@ -4,8 +4,17 @@ DALCLICK_SCRIPTS_DIR="$(dirname "$0")"
 cd "$DALCLICK_SCRIPTS_DIR"
 PWDIR="$(pwd -P)"
 DALCLICK_SCRIPTS_DIRNAME="${PWDIR##*/}"
-MODE="$1"
+DALCLICK_MODE="$1"
+if [[ "$DALCLICK_MODE" != "STANDALONE" ]]
+then
+    DALCLICK_MODE=""
+fi
+
 UTILS=""
+
+# este valor por default lo mantenemos por compatibilidad 
+# con entornos anteriores
+CHDKPTP_PATH="/opt/src/chdkptp"
 
 . get_config
 
@@ -15,7 +24,6 @@ UTILS=""
 # Default components paths
 SCANTAILOR_PATH="/opt/src/scantailor-enhanced/scantailor"
 PDFBEADS_PATH="/opt/src/pdfbeads-kopi/bin/pdfbeads"
-CHDKPTP_PATH="/opt/src/chdkptp"
 
 if [[ -f COMPONENTS ]]; then
 . COMPONENTS
@@ -34,13 +42,24 @@ fi
   PDFBEADS_PATH=""
 }
 
-# cd "$CHDKPTP_PATH" || { echo "ERROR: No existe '$CHDKPTP_PATH'"; exit 1; }
+if [[ -f TECGRAF_PATH ]]; then
+. TECGRAF_PATH
+fi
 
-export LUA_PATH="./lua/?.lua;$PWDIR/?.lua;$PWDIR/xmlutils/?.lua"
+if [[ "$DALCLICK_MODE" == "STANDALONE" ]]; then
+   LUA_EXEC=lua5.1
+   NO_BLOCK_CONFLICTING_SERVICES=Yes
+   #export LUA_PATH="./libs/xmlutils/?.lua;;"
+   #export LUA_PATH="./?.lua;;"
+else
+   export LUA_PATH="./lua/?.lua;$PWDIR/?.lua;;"
+fi
 
 # check conflicting services
-echo "$PWDIR"/block_conflicting_services
-"$PWDIR"/block_conflicting_services 'block' && BLOCK="OK" || BLOCK="Error"
+if [[ "$NO_BLOCK_CONFLICTING_SERVICES" != "Yes" ]]; then
+  echo block_conflicting_services
+  ./block_conflicting_services 'block' && BLOCK="OK" || BLOCK="Error"
+fi
 
 [[ "$BLOCK" == "Error" ]] && {
   echo "gPhoto2:"
@@ -59,6 +78,7 @@ echo "$PWDIR"/block_conflicting_services
 echo
 echo "Main paths:"
 echo
+echo " Dalclick Mode: '$DALCLICK_MODE'"
 echo " Dalclick working folder: '$DALCLICK_HOME'"
 echo " Projects folder: '$DALCLICK_PROJECTS'"
 echo " Default rotate - odd: $ROTATE_ODD_DEFAULT"
@@ -76,17 +96,11 @@ then
     mkdir $DALCLICK_HOME
 fi
 
-if [[ "$MODE" != "" ]]
-then
-    DALCLICK_MODE="$MODE"
-else
-    DALCLICK_MODE=""
-fi
-
 while
 true # Loop forever
 do
-    lua -e"\
+    if [[ "$DALCLICK_MODE" == "STANDALONE" ]]; then
+      $LUA_EXEC -e"
 chdk = {}
 chdku = {}
 function chdk.list_usb_devices() return {} end
@@ -94,9 +108,33 @@ chdku.rlibs = {}
 function chdku.rlibs:register() return false end
 printf = function(s,...) return io.write(s:format(...)) end
 lfs = require('lfs')
+print('lfs: ')
+print(lfs)
 util = require('libs.util')
+print('util: ')
+print(util)
 dc = require('dalclick')
-return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', '$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$SCANTAILOR_ADV_PATH', '$PDFBEADS_PATH', '$PDFBEADS_QUALITY', '$NOC_MODE', '$DELAY_MODE')" 2> "$DALCLICK_HOME/lua_errors"
+print('dc: ')
+print(dc)
+sys = require('libs.standalone_sys')
+print('sys: ')
+print(sys)
+-- sys.sleep(1000)
+return dc:main(
+'$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT',
+'$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', 
+'$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$SCANTAILOR_ADV_PATH', 
+'$PDFBEADS_PATH', '$PDFBEADS_QUALITY', '$NOC_MODE', '$DELAY_MODE', 'GPHOTO2')
+" 2> "$DALCLICK_HOME/lua_errors"
+    else
+      cd "$CHDKPTP_PATH" || { echo "ERROR: No existe '$CHDKPTP_PATH'"; exit 1; }
+      ./chdkptp -e"exec dc=require('dalclick')" -e"exec return dc:main(
+'$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT',
+'$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', 
+'$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$SCANTAILOR_ADV_PATH', 
+'$PDFBEADS_PATH', '$PDFBEADS_QUALITY', '$NOC_MODE', '$DELAY_MODE', 'CHDKPTP')
+" 2> "$DALCLICK_HOME/lua_errors"
+    fi
     cat "$DALCLICK_HOME/lua_errors"
     LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )
     if [[ $LUA_ERRORS != "" ]]
@@ -113,8 +151,10 @@ return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAU
     fi
 done
 
-"$PWDIR"/block_conflicting_services 'unblock' && UNBLOCK="OK" || UNBLOCK="Error"
-[[ "$UNBLOCK" == "Error" ]] && {
-  echo "Atención: Hubo problemas al intentar reactivar 'Gphoto2' y 'Media Transfer Protocol',"
-  echo "al salir de Dalclick."
-}
+if [[ "$NO_BLOCK_CONFLICTING_SERVICES" != "Yes" ]]; then
+  "$PWDIR"/block_conflicting_services 'unblock' && UNBLOCK="OK" || UNBLOCK="Error"
+  [[ "$UNBLOCK" == "Error" ]] && {
+    echo "Atención: Hubo problemas al intentar reactivar 'Gphoto2' y 'Media Transfer Protocol',"
+    echo "al salir de Dalclick."
+ }
+fi

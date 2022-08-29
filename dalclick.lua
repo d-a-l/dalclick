@@ -2866,7 +2866,8 @@ function dc:main(
     PDFBEADS_PATH,
     PDFBEADS_QUALITY,
     NOC_MODE,
-    DELAY_MODE)
+    DELAY_MODE,
+    CAMERA_DRIVER)
 
     -- debug
     if false then
@@ -2934,6 +2935,13 @@ function dc:main(
         print(" * DELAY_MODE: '"..tostring(defaults.delay_mode).."'")
     else
         defaults.delay_mode = 'secure'
+    end
+    if CAMERA_DRIVER == 'GPHOTO2' then
+        CAMERA_DRIVER_NAME = "gPhoto2"
+    elseif CAMERA_DRIVER == 'CHDKPTP' then
+        CAMERA_DRIVER_NAME = "chdkptp"
+    else
+        CAMERA_DRIVER_NAME = ""
     end
     defaults.qm_sendcmd_path = defaults.dalclick_pwdir.."/qm/qm_sendcmd.sh"
     defaults.qm_daemon_path = defaults.dalclick_pwdir.."/qm/qm_daemon.sh"
@@ -3004,8 +3012,7 @@ function dc:main(
        end
     end
 
-    print(" DALclick se ha iniciado correctamente.\n")
-
+    print(" DALclick se ha iniciado correctamente. Controlador de cámaras: "..CAMERA_DRIVER_NAME.."\n")
     local start_options_options = {}
     if not defaults.autorestore_project_on_init then
         start_options_options.disable_restore_option = true
