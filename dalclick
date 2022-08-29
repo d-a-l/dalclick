@@ -95,12 +95,6 @@ fi
 while
 true # Loop forever
 do
-echo "###################################"
-echo "CHDKPTP_PATH: "$CHDKPTP_PATH
-echo "LUA_PATH"$LUA_PATH
-echo "LUA_CPATH: "$LUA_CPATH
-echo "LD_LIBRARY_PATH: "$LD_LIBRARY_PATH
-
     ./chdkptp -e"exec dc=require('dalclick')" -e"exec return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', '$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$SCANTAILOR_ADV_PATH', '$PDFBEADS_PATH', '$PDFBEADS_QUALITY', '$NOC_MODE', '$DELAY_MODE')" 2> $DALCLICK_HOME/lua_errors
     cat "$DALCLICK_HOME/lua_errors"
     LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )
