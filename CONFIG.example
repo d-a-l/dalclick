@@ -1,5 +1,11 @@
-# descomente DALCLICK_HOME sólo si desea cambiar el valor por defecto
+# DALCLICK_HOME: carpeta de configuración de dalclick para el usuario.
+# Descomente DALCLICK_HOME sólo si desea cambiar el valor por defecto.
 # DALCLICK_HOME="$HOME/.dalclick"
+
+CHDKPTP_PATH=chdkptp_461
+IUP_PATH=tecgraf/iup-3.8_Linux32_64_lib
+CD_PATH=tecgraf/cd-5.6.1_Linux32_64_lib
+IM_PATH=tecgraf/im-3.8.2_Linux32_64_lib
 
 DALCLICK_PROJECTS="$HOME/Dalclick-Projects"
 ROTATE_ODD_DEFAULT="90"
@@ -8,8 +14,27 @@ ROTATE_SINGLE_DEFAULT="180"
 FILE_BROWSER='/usr/bin/nautilus'
 PDF_VIEWER='/usr/bin/evince'
 
-# NOC_MODE (numero de cámaras)
-# 'odd-even', dos cámaras para estativo en 'V'
-# 'single', una cámara para estativo plano
-NOC_MODE='odd-even'
-# PDFBEADS_QUALITY="50" # (1...100), el valor por defecto de pdfbeads es 50
+# NOC_MODE: número de cámaras a operar en la captura.
+# Opciones:
+#  'odd-even': dos cámaras para estativo en 'V'
+#  'single':   una cámara para estativo plano
+
+NOC_MODE='single'
+
+# PDFBEADS_QUALITY: calidad de salida de imágenes de pdfbeads (1...100).
+# El valor por defecto de pdfbeads es 50.
+
+# PDFBEADS_QUALITY="50" 
+
+# NO_BLOCK_CONFLICTING_SERVICES: bloquear servicios conflictivos.
+# Existen servicios en los entornos de escritorio que montan automáticamente
+# las cámaras e interfieren con chdkptp. Dalclick desactiva estos servicios
+# al iniciarse y los vuelve activar al cerrarse, sin embargo este bloqueo 
+# sólo ha sido probado en el escritorio de GNOME Flashback en Ubuntu 18.04 
+# y Xfce en Debian 7.11, y sólo se activa cuando Dalclick detecta esos entornos. 
+# En cualquier otro caso dará una advertencia de que no puede desactivarlos.
+# Si desactiva manualmente estos servicios y desea que no aparezca mas la
+# advertencia de Dalclick descomente la siguiente línea. 
+
+# NO_BLOCK_CONFLICTING_SERVICES=Yes
+

@@ -7,6 +7,10 @@ DALCLICK_SCRIPTS_DIRNAME="${PWDIR##*/}"
 MODE="$1"
 UTILS=""
 
+# este valor por default lo mantenemos por compatibilidad 
+# con entornos anteriores
+CHDKPTP_PATH="/opt/src/chdkptp"
+
 . get_config
 
 [[ -f "$FILE_BROWSER" ]] || FILE_BROWSER=""
@@ -15,7 +19,6 @@ UTILS=""
 # Default components paths
 SCANTAILOR_PATH="/opt/src/scantailor-enhanced/scantailor"
 PDFBEADS_PATH="/opt/src/pdfbeads-kopi/bin/pdfbeads"
-CHDKPTP_PATH="/opt/src/chdkptp"
 
 if [[ -f COMPONENTS ]]; then
 . COMPONENTS
@@ -37,6 +40,10 @@ fi
 cd "$CHDKPTP_PATH" || { echo "ERROR: No existe '$CHDKPTP_PATH'"; exit 1; }
 
 export LUA_PATH="./lua/?.lua;$PWDIR/?.lua;"
+
+if [[ -f ../TECGRAF_PATH ]]; then
+. ../TECGRAF_PATH
+fi
 
 # check conflicting services
 if [[ "$NO_BLOCK_CONFLICTING_SERVICES" != "Yes" ]]; then
@@ -88,6 +95,12 @@ fi
 while
 true # Loop forever
 do
+echo "###################################"
+echo "CHDKPTP_PATH: "$CHDKPTP_PATH
+echo "LUA_PATH"$LUA_PATH
+echo "LUA_CPATH: "$LUA_CPATH
+echo "LD_LIBRARY_PATH: "$LD_LIBRARY_PATH
+
     ./chdkptp -e"exec dc=require('dalclick')" -e"exec return dc:main('$DALCLICK_HOME','$DALCLICK_PROJECTS','$PWDIR','$ROTATE_ODD_DEFAULT','$ROTATE_EVEN_DEFAULT','$ROTATE_SINGLE_DEFAULT','$DALCLICK_MODE', '$FILE_BROWSER', '$PDF_VIEWER', '$SCANTAILOR_PATH', '$SCANTAILOR_ADV_PATH', '$PDFBEADS_PATH', '$PDFBEADS_QUALITY', '$NOC_MODE', '$DELAY_MODE')" 2> $DALCLICK_HOME/lua_errors
     cat "$DALCLICK_HOME/lua_errors"
     LUA_ERRORS=$( cat "$DALCLICK_HOME/lua_errors" | grep "ERROR" )

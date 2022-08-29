@@ -8,6 +8,8 @@ build/
 *.swp
 .vimprj/
 *.patch
+*.o
+*.dep
 ScanTailor.config
 ScanTailor.creator
 ScanTailor.creator.user
@@ -17,6 +19,8 @@ build-*/
 samples/
 test.lua
 test/
+chdkptp_461/chdhptp
 
 CONFIG
 COMPONENTS
+TECGRAF_PATH
